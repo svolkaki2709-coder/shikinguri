@@ -185,7 +185,7 @@ export async function POST(req: NextRequest) {
 
   const headerRowIdx = findHeaderRowIndex(rows)
 
-  // メタ行から請求合計金額を探す（例: 「次回ご請求額,193183」）
+  // メタ行から請求合計金額を探す（パターン1: ラベル付き「次回ご請求額,193183」）
   const billingTotalKeywords = ["請求額", "合計金額", "ご請求金額", "支払総額", "お支払い金額合計", "請求金額合計"]
   let csvBillingTotal: number | null = null
   for (let i = 0; i < headerRowIdx; i++) {
@@ -209,6 +209,22 @@ export async function POST(req: NextRequest) {
 
   if (dates.length === 0) {
     return NextResponse.json({ error: "有効な日付データが見つかりません" }, { status: 400 })
+  }
+
+  // パターン2: ラベルなし末尾合計行（例: ,,,,,35970, ）
+  // 最後のデータ行より後にある「数値1つだけの行」を合計として検出
+  if (csvBillingTotal === null) {
+    let lastDataIdx = -1
+    for (let i = 0; i < dataRows.length; i++) {
+      if (normalizeDate(dataRows[i][dateIdx] ?? "")) lastDataIdx = i
+    }
+    for (let i = lastDataIdx + 1; i < dataRows.length; i++) {
+      const nums = dataRows[i].map(c => parseAmount(c)).filter(n => n > 0)
+      if (nums.length === 1) {
+        csvBillingTotal = nums[0]
+        break
+      }
+    }
   }
 
   dates.sort()
