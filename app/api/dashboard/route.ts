@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { sql, query } from "@/lib/db"
+import { sql } from "@/lib/db"
 
 export async function GET(req: NextRequest) {
   const session = await auth()
@@ -25,14 +25,13 @@ export async function GET(req: NextRequest) {
       GROUP BY TO_CHAR(date, 'YYYY-MM')
       ORDER BY month ASC
     `,
-    query(
-      `SELECT category, SUM(amount) AS amount
-       FROM transactions
-       WHERE TO_CHAR(date, 'YYYY-MM') = $1
-       GROUP BY category
-       ORDER BY amount DESC`,
-      [month]
-    ),
+    sql`
+      SELECT category, SUM(amount) AS amount
+      FROM transactions
+      WHERE TO_CHAR(date, 'YYYY-MM') = ${month}
+      GROUP BY category
+      ORDER BY amount DESC
+    `,
     sql`SELECT TO_CHAR(MAX(date), 'YYYY-MM') AS latest FROM transactions`,
   ])
 

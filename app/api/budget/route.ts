@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { sql, query } from "@/lib/db"
+import { sql } from "@/lib/db"
 
 export async function GET(req: NextRequest) {
   const session = await auth()
@@ -14,13 +14,12 @@ export async function GET(req: NextRequest) {
 
   const [budgets, actuals] = await Promise.all([
     sql`SELECT category, amount, type FROM budgets ORDER BY type, category`,
-    query(
-      `SELECT category, type, SUM(amount) AS actual
-       FROM transactions
-       WHERE TO_CHAR(date, 'YYYY-MM') = $1
-       GROUP BY category, type`,
-      [month]
-    ),
+    sql`
+      SELECT category, type, SUM(amount) AS actual
+      FROM transactions
+      WHERE TO_CHAR(date, 'YYYY-MM') = ${month}
+      GROUP BY category, type
+    `,
   ])
 
   const actualMap: Record<string, number> = {}

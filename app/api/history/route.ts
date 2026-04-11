@@ -1,39 +1,27 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { query } from "@/lib/db"
+import { sql } from "@/lib/db"
 
 export async function GET(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { searchParams } = new URL(req.url)
-  const keyword = searchParams.get("keyword") ?? ""
-  const category = searchParams.get("category") ?? ""
-  const month = searchParams.get("month") ?? ""
+  const keyword = searchParams.get("keyword") || null
+  const category = searchParams.get("category") || null
+  const month = searchParams.get("month") || null
+  const keywordLike = keyword ? `%${keyword}%` : null
 
-  let sql = `
+  const rows = await sql`
     SELECT id, date::text, category, amount, memo, type
     FROM transactions
-    WHERE 1=1
+    WHERE (${month}::text IS NULL OR TO_CHAR(date, 'YYYY-MM') = ${month})
+      AND (${category}::text IS NULL OR category = ${category})
+      AND (${keywordLike}::text IS NULL
+           OR memo ILIKE ${keywordLike}
+           OR category ILIKE ${keywordLike})
+    ORDER BY date DESC, id DESC
+    LIMIT 300
   `
-  const params: (string | number)[] = []
-  let idx = 1
-
-  if (month) {
-    sql += ` AND TO_CHAR(date, 'YYYY-MM') = $${idx++}`
-    params.push(month)
-  }
-  if (category) {
-    sql += ` AND category = $${idx++}`
-    params.push(category)
-  }
-  if (keyword) {
-    sql += ` AND (memo ILIKE $${idx} OR category ILIKE $${idx})`
-    params.push(`%${keyword}%`)
-    idx++
-  }
-  sql += ` ORDER BY date DESC, id DESC LIMIT 300`
-
-  const rows = await query(sql, params)
   return NextResponse.json({ transactions: rows })
 }
