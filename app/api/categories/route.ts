@@ -48,6 +48,33 @@ export async function POST(req: Request) {
   return NextResponse.json({ success: true })
 }
 
+// 取引履歴から共用カードで使われたカテゴリをjointに自動移行
+export async function PATCH(req: NextRequest) {
+  const session = await auth()
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  await migrateCategories()
+
+  await sql`
+    UPDATE categories
+    SET card_type = 'joint'
+    WHERE name != '未分類'
+    AND card_type = 'self'
+    AND name IN (
+      SELECT DISTINCT t.category
+      FROM transactions t
+      JOIN cards c ON t.card_id = c.id
+      WHERE c.card_type = 'joint'
+    )
+  `
+
+  const rows = await sql`SELECT name, card_type FROM categories ORDER BY card_type, name`
+  return NextResponse.json({
+    categories: rows.map(r => r.name as string),
+    rows: rows.map(r => ({ name: r.name as string, card_type: r.card_type as string })),
+  })
+}
+
 export async function DELETE(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

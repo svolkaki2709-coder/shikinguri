@@ -53,6 +53,7 @@ export default function SettingsPage() {
   // カテゴリ管理
   const [newCatName, setNewCatName] = useState("")
   const [catSaving, setCatSaving] = useState(false)
+  const [catViewType, setCatViewType] = useState<"self" | "joint">("self")
   const [newCatCardType, setNewCatCardType] = useState<"self" | "joint">("self")
   const [categoryRows, setCategoryRows] = useState<{ name: string; card_type: string }[]>([])
   const [storeRules, setStoreRules] = useState<StoreRule[]>([])
@@ -61,6 +62,8 @@ export default function SettingsPage() {
   const [newRuleCategory, setNewRuleCategory] = useState("")
   const [ruleSaving, setRuleSaving] = useState(false)
   const [editingRule, setEditingRule] = useState<StoreRule | null>(null)
+  const [uncategorizedMemos, setUncategorizedMemos] = useState<{ memo: string; count: number; card_type: string }[]>([])
+  const [catMigrated, setCatMigrated] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -83,7 +86,18 @@ export default function SettingsPage() {
   }, [])
 
   useEffect(() => {
-    if (tab === "category") fetchStoreRules(ruleSearch)
+    if (tab === "category") {
+      fetchStoreRules(ruleSearch)
+      fetch("/api/uncategorized-memos").then(r => r.json()).then(d => setUncategorizedMemos(d.memos ?? []))
+      // 初回のみ取引履歴から共用カテゴリを自動分類
+      if (!catMigrated) {
+        setCatMigrated(true)
+        fetch("/api/categories", { method: "PATCH" }).then(r => r.json()).then(d => {
+          setCategories(d.categories ?? [])
+          setCategoryRows(d.rows ?? [])
+        })
+      }
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab])
 
@@ -479,59 +493,77 @@ export default function SettingsPage() {
             <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
               <h2 className="text-sm font-semibold text-gray-700">カテゴリ一覧</h2>
 
+              {/* 個人/共用 トグル（表示切り替え＋追加先切り替え） */}
+              <div className="flex gap-2">
+                <button type="button"
+                  onClick={() => { setCatViewType("self"); setNewCatCardType("self") }}
+                  className={`flex-1 py-2 rounded-lg text-sm font-semibold border transition-colors ${catViewType === "self" ? "bg-indigo-600 text-white border-indigo-600" : "border-gray-300 text-gray-600"}`}>
+                  個人
+                </button>
+                <button type="button"
+                  onClick={() => { setCatViewType("joint"); setNewCatCardType("joint") }}
+                  className={`flex-1 py-2 rounded-lg text-sm font-semibold border transition-colors ${catViewType === "joint" ? "bg-amber-500 text-white border-amber-500" : "border-gray-300 text-gray-600"}`}>
+                  共用
+                </button>
+              </div>
+
+              {/* カテゴリ一覧（選択中の用途のみ） */}
+              <div className="flex flex-wrap gap-1.5 min-h-8">
+                {categoryRows.filter(r => catViewType === "joint" ? r.card_type === "joint" : r.card_type !== "joint").map(r => (
+                  <div key={r.name} className={`flex items-center gap-1 rounded-full pl-2.5 pr-1 py-0.5 border ${catViewType === "joint" ? "bg-amber-50 border-amber-100" : "bg-indigo-50 border-indigo-100"}`}>
+                    <span className={`text-xs ${catViewType === "joint" ? "text-amber-700" : "text-indigo-700"}`}>{r.name}</span>
+                    <button onClick={() => handleDeleteCategory(r.name)}
+                      className={`text-sm leading-none w-4 ${catViewType === "joint" ? "text-amber-300 hover:text-red-500" : "text-indigo-300 hover:text-red-500"}`}>×</button>
+                  </div>
+                ))}
+                {categoryRows.filter(r => catViewType === "joint" ? r.card_type === "joint" : r.card_type !== "joint").length === 0 && (
+                  <p className="text-xs text-gray-400">なし</p>
+                )}
+              </div>
+
               {/* 追加フォーム */}
-              <div className="space-y-2">
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => setNewCatCardType("self")}
-                    className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${newCatCardType === "self" ? "bg-indigo-600 text-white border-indigo-600" : "border-gray-300 text-gray-600"}`}>
-                    個人
-                  </button>
-                  <button type="button" onClick={() => setNewCatCardType("joint")}
-                    className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${newCatCardType === "joint" ? "bg-amber-500 text-white border-amber-500" : "border-gray-300 text-gray-600"}`}>
-                    共用
-                  </button>
-                </div>
-                <div className="flex gap-2">
-                  <input type="text" value={newCatName} onChange={e => setNewCatName(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && handleAddCategory()}
-                    placeholder="新しいカテゴリ名"
-                    className="flex-1 border rounded-lg px-3 py-1.5 text-sm text-gray-800"
-                  />
-                  <button onClick={handleAddCategory} disabled={catSaving || !newCatName.trim()}
-                    className="bg-blue-600 text-white rounded-lg px-3 py-1.5 text-sm font-semibold disabled:opacity-50">
-                    追加
-                  </button>
-                </div>
-              </div>
-
-              {/* 個人カテゴリ */}
-              <div>
-                <p className="text-xs font-semibold text-indigo-600 mb-1.5">個人</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {categoryRows.filter(r => r.card_type !== "joint").map(r => (
-                    <div key={r.name} className="flex items-center gap-1 bg-indigo-50 border border-indigo-100 rounded-full pl-2.5 pr-1 py-0.5">
-                      <span className="text-xs text-indigo-700">{r.name}</span>
-                      <button onClick={() => handleDeleteCategory(r.name)} className="text-indigo-300 hover:text-red-500 text-sm leading-none w-4">×</button>
-                    </div>
-                  ))}
-                  {categoryRows.filter(r => r.card_type !== "joint").length === 0 && <p className="text-xs text-gray-400">なし</p>}
-                </div>
-              </div>
-
-              {/* 共用カテゴリ */}
-              <div>
-                <p className="text-xs font-semibold text-amber-600 mb-1.5">共用</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {categoryRows.filter(r => r.card_type === "joint").map(r => (
-                    <div key={r.name} className="flex items-center gap-1 bg-amber-50 border border-amber-100 rounded-full pl-2.5 pr-1 py-0.5">
-                      <span className="text-xs text-amber-700">{r.name}</span>
-                      <button onClick={() => handleDeleteCategory(r.name)} className="text-amber-300 hover:text-red-500 text-sm leading-none w-4">×</button>
-                    </div>
-                  ))}
-                  {categoryRows.filter(r => r.card_type === "joint").length === 0 && <p className="text-xs text-gray-400">なし</p>}
-                </div>
+              <div className="flex gap-2 pt-1 border-t">
+                <input type="text" value={newCatName} onChange={e => setNewCatName(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && handleAddCategory()}
+                  placeholder={`新しい${catViewType === "joint" ? "共用" : "個人"}カテゴリ名`}
+                  className="flex-1 border rounded-lg px-3 py-1.5 text-sm text-gray-800"
+                />
+                <button onClick={handleAddCategory} disabled={catSaving || !newCatName.trim()}
+                  className="bg-blue-600 text-white rounded-lg px-3 py-1.5 text-sm font-semibold disabled:opacity-50">
+                  追加
+                </button>
               </div>
             </div>
+
+            {/* 未分類の明細 */}
+            {uncategorizedMemos.length > 0 && (
+              <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                <div className="px-3 py-2 bg-orange-50 border-b border-orange-100 flex items-center justify-between">
+                  <h2 className="text-sm font-semibold text-orange-700">⚠ 未分類の明細（{uncategorizedMemos.length}件）</h2>
+                  <span className="text-xs text-orange-500">タップしてルールを追加</span>
+                </div>
+                {uncategorizedMemos.map(m => (
+                  <div key={`${m.memo}-${m.card_type}`}
+                    className="flex items-center gap-2 px-3 py-2 border-b last:border-0 hover:bg-orange-50 cursor-pointer"
+                    onClick={() => {
+                      setNewRuleKeyword(m.memo)
+                      setNewRuleCategory("")
+                      setEditingRule(null)
+                      // スクロール用に少し待ってからルール欄にフォーカス
+                      setTimeout(() => {
+                        document.getElementById("rule-keyword-input")?.focus()
+                      }, 100)
+                    }}>
+                    <span className={`text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${m.card_type === "joint" ? "bg-amber-100 text-amber-700" : "bg-indigo-100 text-indigo-700"}`}>
+                      {m.card_type === "joint" ? "共用" : "個人"}
+                    </span>
+                    <span className="flex-1 text-xs text-gray-800 truncate">{m.memo}</span>
+                    <span className="text-xs text-gray-400 shrink-0">{m.count}件</span>
+                    <span className="text-xs text-blue-500 shrink-0">+ ルール追加</span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* 自動振り分けルール */}
             <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
@@ -543,6 +575,7 @@ export default function SettingsPage() {
                 <p className="text-xs font-medium text-gray-600">{editingRule ? "ルールを編集" : "ルールを追加"}</p>
                 <div className="flex gap-2">
                   <input
+                    id="rule-keyword-input"
                     type="text"
                     value={newRuleKeyword}
                     onChange={e => setNewRuleKeyword(e.target.value)}
