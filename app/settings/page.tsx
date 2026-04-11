@@ -367,49 +367,44 @@ export default function SettingsPage() {
             </button>
           </div>
 
-          {/* 設定済み予算一覧 */}
-          {existingBudgets.length > 0 && (
-            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-              <div className="px-4 py-2 bg-gray-50 border-b">
-                <h2 className="text-sm font-semibold text-gray-700">設定済み予算
-                  <span className="text-xs font-normal text-gray-500 ml-2">行をタップして金額を編集</span>
-                </h2>
-              </div>
-              {["self", "joint"].map(ct => {
-                const rows = existingBudgets.filter(b => b.card_type === ct)
-                if (rows.length === 0) return null
-                return (
-                  <div key={ct}>
-                    <div className={`px-4 py-1.5 text-xs font-semibold ${ct === "joint" ? "bg-amber-50 text-amber-600" : "bg-indigo-50 text-indigo-600"}`}>
-                      {ct === "joint" ? "共用カード" : "個人カード"}
+          {/* 設定済み予算一覧（選択中の用途のみ表示） */}
+          {(() => {
+            const filteredBudgets = existingBudgets.filter(b => b.card_type === budgetCardType)
+            if (filteredBudgets.length === 0) return null
+            const isJoint = budgetCardType === "joint"
+            return (
+              <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                <div className={`px-4 py-2 border-b flex justify-between items-center ${isJoint ? "bg-amber-50" : "bg-indigo-50"}`}>
+                  <h2 className={`text-sm font-semibold ${isJoint ? "text-amber-600" : "text-indigo-600"}`}>
+                    {isJoint ? "共用" : "個人"}の設定済み予算
+                  </h2>
+                  <span className="text-xs text-gray-500">行をタップして編集</span>
+                </div>
+                {filteredBudgets.map(b => {
+                  const key = `${b.category}:${b.card_type}`
+                  const isEditing = editingBudgetKey === key
+                  return (
+                    <div
+                      key={b.category}
+                      className={`flex items-center justify-between px-4 py-2.5 border-b last:border-0 cursor-pointer transition-colors ${isEditing ? "bg-blue-50" : "hover:bg-gray-50"}`}
+                      onClick={() => handleEditBudget(b)}
+                    >
+                      <span className={`text-sm ${isEditing ? "text-blue-700 font-medium" : "text-gray-700"}`}>{b.category}</span>
+                      <div className="flex items-center gap-3">
+                        <span className={`text-sm font-medium ${isEditing ? "text-blue-600" : "text-gray-700"}`}>{toJPY(b.budget)}</span>
+                        {isEditing
+                          ? <span className="text-blue-400 text-xs font-medium">編集中</span>
+                          : <button
+                              onClick={e => { e.stopPropagation(); handleDeleteBudget(b.category, b.card_type) }}
+                              className="text-gray-300 hover:text-red-400 text-xl leading-none w-6">×</button>
+                        }
+                      </div>
                     </div>
-                    {rows.map(b => {
-                      const key = `${b.category}:${b.card_type}`
-                      const isEditing = editingBudgetKey === key
-                      return (
-                        <div
-                          key={b.category}
-                          className={`flex items-center justify-between px-4 py-2.5 border-b last:border-0 cursor-pointer transition-colors ${isEditing ? "bg-blue-50" : "hover:bg-gray-50"}`}
-                          onClick={() => handleEditBudget(b)}
-                        >
-                          <span className={`text-sm ${isEditing ? "text-blue-700 font-medium" : "text-gray-700"}`}>{b.category}</span>
-                          <div className="flex items-center gap-3">
-                            <span className={`text-sm font-medium ${isEditing ? "text-blue-600" : "text-gray-700"}`}>{toJPY(b.budget)}</span>
-                            {isEditing
-                              ? <span className="text-blue-400 text-xs font-medium">編集中</span>
-                              : <button
-                                  onClick={e => { e.stopPropagation(); handleDeleteBudget(b.category, b.card_type) }}
-                                  className="text-gray-300 hover:text-red-400 text-xl leading-none w-6">×</button>
-                            }
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )
-              })}
-            </div>
-          )}
+                  )
+                })}
+              </div>
+            )
+          })()}
           </>
         )}
       </main>
