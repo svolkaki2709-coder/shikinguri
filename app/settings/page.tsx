@@ -7,6 +7,7 @@ import { BottomNav } from "@/components/BottomNav"
 interface Card { id: number; name: string; card_type: string; color: string }
 interface Recurring { id: number; day_of_month: number; card_id: number; card_name: string; color: string; category: string; amount: number; memo: string }
 interface Category { name: string }
+interface BudgetRow { category: string; card_type: string; budget: number }
 
 function toJPY(n: number) {
   return new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 }).format(n)
@@ -45,13 +46,15 @@ export default function SettingsPage() {
   const [budgetCardType, setBudgetCardType] = useState("self")
   const [budgetSaving, setBudgetSaving] = useState(false)
   const [budgetMsg, setBudgetMsg] = useState("")
+  const [existingBudgets, setExistingBudgets] = useState<BudgetRow[]>([])
 
   useEffect(() => {
     Promise.all([
       fetch("/api/cards").then(r => r.json()),
       fetch("/api/categories").then(r => r.json()),
       fetch("/api/recurring").then(r => r.json()),
-    ]).then(([cd, catd, recd]) => {
+      fetch("/api/budget").then(r => r.json()),
+    ]).then(([cd, catd, recd, budgetData]) => {
       const c = cd.cards ?? []
       setCards(c)
       if (c.length > 0) setRCardId(c[0].id)
@@ -59,6 +62,8 @@ export default function SettingsPage() {
       setCategories(cats)
       if (cats.length > 0) { setRCategory(cats[0]); setBudgetCategory(cats[0]) }
       setRecurring(recd.recurring ?? [])
+      const bRaw: Array<{ category: string; cardType: string; budget: number }> = budgetData.budgets ?? []
+      setExistingBudgets(bRaw.map(b => ({ category: b.category, card_type: b.cardType, budget: b.budget })))
     })
   }, [])
 
@@ -122,6 +127,16 @@ export default function SettingsPage() {
     setBudgetMsg("保存しました")
     setBudgetAmount("")
     setBudgetSaving(false)
+    // 一覧を更新
+    const d = await fetch("/api/budget").then(r => r.json())
+    const bRaw: Array<{ category: string; cardType: string; budget: number }> = d.budgets ?? []
+    setExistingBudgets(bRaw.map(b => ({ category: b.category, card_type: b.cardType, budget: b.budget })))
+  }
+
+  async function handleDeleteBudget(category: string, cardType: string) {
+    if (!confirm(`「${category}」の予算を削除しますか？`)) return
+    await fetch(`/api/budget?category=${encodeURIComponent(category)}&card_type=${cardType}`, { method: "DELETE" })
+    setExistingBudgets(prev => prev.filter(b => !(b.category === category && b.card_type === cardType)))
   }
 
   const tabs: { key: Tab; label: string }[] = [
@@ -280,6 +295,7 @@ export default function SettingsPage() {
 
         {/* === 予算設定タブ === */}
         {tab === "budget" && (
+          <>
           <div className="bg-white rounded-xl shadow-sm p-4 space-y-3">
             <h2 className="text-sm font-semibold text-gray-700">予算を設定</h2>
             <div>
@@ -316,6 +332,37 @@ export default function SettingsPage() {
               {budgetSaving ? "保存中..." : "予算を設定"}
             </button>
           </div>
+
+          {/* 設定済み予算一覧 */}
+          {existingBudgets.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+              <div className="px-4 py-3 bg-gray-50 border-b">
+                <h2 className="text-sm font-semibold text-gray-700">設定済み予算</h2>
+              </div>
+              {["self", "joint"].map(ct => {
+                const rows = existingBudgets.filter(b => b.card_type === ct)
+                if (rows.length === 0) return null
+                return (
+                  <div key={ct}>
+                    <div className={`px-4 py-1.5 text-xs font-semibold ${ct === "joint" ? "bg-amber-50 text-amber-600" : "bg-indigo-50 text-indigo-600"}`}>
+                      {ct === "joint" ? "共用カード" : "個人カード"}
+                    </div>
+                    {rows.map(b => (
+                      <div key={b.category} className="flex items-center justify-between px-4 py-2.5 border-b last:border-0">
+                        <span className="text-sm text-gray-700">{b.category}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-medium text-gray-600">{toJPY(b.budget)}</span>
+                          <button onClick={() => handleDeleteBudget(b.category, b.card_type)}
+                            className="text-gray-300 hover:text-red-400 text-xl leading-none w-6">×</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          </>
         )}
       </main>
       <BottomNav />

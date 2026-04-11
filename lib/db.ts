@@ -120,6 +120,17 @@ export async function initDb() {
     )
   `
 
+  // 月次貯蓄・投資計画
+  await sql`
+    CREATE TABLE IF NOT EXISTS monthly_plans (
+      id SERIAL PRIMARY KEY,
+      month VARCHAR(7) NOT NULL UNIQUE,
+      savings_target INT DEFAULT 0,
+      nisa_target INT DEFAULT 0,
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `
+
   // 初期カードデータ（3枚）
   await sql`
     INSERT INTO cards (name, card_type, color, sort_order) VALUES

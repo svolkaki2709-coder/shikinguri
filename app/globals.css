@@ -24,3 +24,11 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* PC表示モード: max-w-md / pb-20 の制約を解除 */
+.pc-layout .max-w-md {
+  max-width: none;
+}
+.pc-layout .pb-20 {
+  padding-bottom: 0;
+}

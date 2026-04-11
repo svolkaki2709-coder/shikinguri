@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useViewMode } from "@/components/ViewModeContext"
 
 const navItems = [
   { href: "/dashboard", label: "ホーム", icon: "📊" },
@@ -14,6 +15,9 @@ const navItems = [
 
 export function BottomNav() {
   const pathname = usePathname()
+  const { mode } = useViewMode()
+
+  if (mode === "pc") return null
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 pb-safe">
