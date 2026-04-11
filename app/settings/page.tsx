@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
 
@@ -17,10 +18,29 @@ function toJPY(n: number) {
 type Tab = "recurring" | "income" | "budget" | "category"
 
 export default function SettingsPage() {
+  return (
+    <Suspense fallback={<div className="pb-20"><PageHeader title="設定" /><div className="text-center py-8 text-gray-500">読み込み中...</div><BottomNav /></div>}>
+      <SettingsContent />
+    </Suspense>
+  )
+}
+
+function SettingsContent() {
   const now = new Date()
   const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+  const router = useRouter()
+  const searchParams = useSearchParams()
 
-  const [tab, setTab] = useState<Tab>("recurring")
+  const validTabs: Tab[] = ["recurring", "income", "budget", "category"]
+  const initialTab = (searchParams.get("tab") as Tab | null)
+  const [tab, setTabState] = useState<Tab>(validTabs.includes(initialTab as Tab) ? initialTab as Tab : "recurring")
+
+  function setTab(t: Tab) {
+    setTabState(t)
+    const p = new URLSearchParams(searchParams.toString())
+    p.set("tab", t)
+    router.replace(`?${p.toString()}`, { scroll: false })
+  }
   const [cards, setCards] = useState<Card[]>([])
   const [categories, setCategories] = useState<string[]>([])
   const [recurring, setRecurring] = useState<Recurring[]>([])
