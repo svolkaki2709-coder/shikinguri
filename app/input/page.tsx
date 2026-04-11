@@ -79,8 +79,6 @@ export default function InputPage() {
   }
 
   const cashCard = cards.find(c => c.name === "現金")
-  const otherCards = cards.filter(c => c.name !== "現金")
-  const selectedCard = cards.find(c => c.id === cardId)
 
   return (
     <div className="pb-20">
@@ -93,52 +91,12 @@ export default function InputPage() {
           </div>
 
           {/* 支払方法 */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-2">支払方法</label>
-            {/* 現金（メイン） */}
-            {cashCard && (
-              <button
-                type="button"
-                onClick={() => setCardId(cashCard.id)}
-                className={`w-full py-2.5 rounded-xl text-sm font-semibold mb-2 border-2 transition-all flex items-center justify-center gap-2 ${
-                  cardId === cashCard.id
-                    ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                    : "border-gray-200 text-gray-600 hover:border-emerald-300"
-                }`}
-              >
-                <span className="text-base">💴</span>
-                現金・電子マネー
-              </button>
-            )}
-            {/* カード（稀に手動入力する場合） */}
-            {otherCards.length > 0 && (
-              <div>
-                <p className="text-xs text-gray-500 mb-1.5">カード（手動追加する場合）</p>
-                <div className="flex gap-1.5 flex-wrap">
-                  {otherCards.map(c => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => setCardId(c.id)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium border-2 transition-all"
-                      style={{
-                        borderColor: cardId === c.id ? c.color : "#e5e7eb",
-                        backgroundColor: cardId === c.id ? c.color + "18" : "white",
-                        color: cardId === c.id ? c.color : "#6b7280",
-                      }}
-                    >
-                      {c.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {selectedCard && selectedCard.name !== "現金" && (
-              <p className="text-xs text-amber-600 mt-1 bg-amber-50 rounded px-2 py-1">
-                ⚠️ カードの明細はCSV取り込みを推奨。手動は補完用途でご利用ください
-              </p>
-            )}
-          </div>
+          {cashCard && (
+            <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
+              <span className="text-base">💴</span>
+              <span className="text-sm font-semibold text-emerald-700">現金・電子マネー</span>
+            </div>
+          )}
 
           {/* 日付 */}
           <div>
