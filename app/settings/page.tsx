@@ -244,6 +244,8 @@ function SettingsContent() {
     setNewRuleCategory("")
     setRuleSaving(false)
     fetchStoreRules(ruleSearch)
+    // 未分類リストを再取得（適用済みのものが消える）
+    fetch("/api/uncategorized-memos").then(r => r.json()).then(d => setUncategorizedMemos(d.memos ?? []))
   }
 
   async function handleDeleteRule(id: number) {

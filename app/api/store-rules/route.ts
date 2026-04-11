@@ -48,6 +48,23 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ rules: rows })
 }
 
+// キーワードにマッチする未分類トランザクションを遡って更新
+async function applyRuleToExisting(keyword: string, category: string) {
+  const k = keyword.trim()
+  await sql`
+    UPDATE transactions
+    SET category = ${category}
+    WHERE category = '未分類'
+      AND memo IS NOT NULL
+      AND memo != ''
+      AND (
+        memo = ${k}
+        OR POSITION(${k} IN memo) > 0
+        OR POSITION(memo IN ${k}) > 0
+      )
+  `
+}
+
 export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -61,6 +78,7 @@ export async function POST(req: NextRequest) {
     VALUES (${keyword.trim()}, ${category})
     ON CONFLICT (keyword) DO UPDATE SET category = ${category}
   `
+  await applyRuleToExisting(keyword, category)
   return NextResponse.json({ success: true })
 }
 
@@ -75,6 +93,7 @@ export async function PATCH(req: NextRequest) {
     UPDATE store_category_rules SET keyword = ${keyword.trim()}, category = ${category}
     WHERE id = ${Number(id)}
   `
+  await applyRuleToExisting(keyword, category)
   return NextResponse.json({ success: true })
 }
 
