@@ -10,18 +10,31 @@ export async function GET(req: NextRequest) {
   const keyword = searchParams.get("keyword") || null
   const category = searchParams.get("category") || null
   const month = searchParams.get("month") || null
+  const cardId = searchParams.get("card_id") || null
   const keywordLike = keyword ? `%${keyword}%` : null
 
   const rows = await sql`
-    SELECT id, date::text, category, amount, memo, type
-    FROM transactions
-    WHERE (${month}::text IS NULL OR TO_CHAR(date, 'YYYY-MM') = ${month})
-      AND (${category}::text IS NULL OR category = ${category})
+    SELECT
+      t.id,
+      t.date::text,
+      t.category,
+      t.amount,
+      t.memo,
+      t.source,
+      c.id AS card_id,
+      c.name AS card_name,
+      c.card_type,
+      c.color
+    FROM transactions t
+    LEFT JOIN cards c ON t.card_id = c.id
+    WHERE (${month}::text IS NULL OR TO_CHAR(t.date, 'YYYY-MM') = ${month})
+      AND (${category}::text IS NULL OR t.category = ${category})
+      AND (${cardId}::text IS NULL OR t.card_id = ${cardId}::int)
       AND (${keywordLike}::text IS NULL
-           OR memo ILIKE ${keywordLike}
-           OR category ILIKE ${keywordLike})
-    ORDER BY date DESC, id DESC
-    LIMIT 300
+           OR t.memo ILIKE ${keywordLike}
+           OR t.category ILIKE ${keywordLike})
+    ORDER BY t.date DESC, t.id DESC
+    LIMIT 500
   `
   return NextResponse.json({ transactions: rows })
 }

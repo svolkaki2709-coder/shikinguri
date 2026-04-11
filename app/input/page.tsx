@@ -4,58 +4,62 @@ import { useEffect, useState } from "react"
 import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
 
-const TYPES = [
-  { value: "self", label: "自分" },
-  { value: "joint", label: "共同" },
-]
+interface Card { id: number; name: string; card_type: string; color: string }
 
 export default function InputPage() {
+  const [cards, setCards] = useState<Card[]>([])
   const [categories, setCategories] = useState<string[]>([])
+  const [cardId, setCardId] = useState<number | null>(null)
   const [date, setDate] = useState(new Date().toISOString().split("T")[0])
   const [category, setCategory] = useState("")
   const [amount, setAmount] = useState("")
   const [memo, setMemo] = useState("")
-  const [type, setType] = useState("self")
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
   useEffect(() => {
-    fetch("/api/categories")
-      .then((r) => r.json())
-      .then((d) => {
-        setCategories(d.categories ?? [])
-        if (d.categories?.length > 0) setCategory(d.categories[0])
-      })
+    Promise.all([
+      fetch("/api/cards").then(r => r.json()),
+      fetch("/api/categories").then(r => r.json()),
+    ]).then(([cardData, catData]) => {
+      const c = cardData.cards ?? []
+      setCards(c)
+      if (c.length > 0) setCardId(c[0].id)
+      const cats = catData.categories ?? []
+      setCategories(cats)
+      if (cats.length > 0) setCategory(cats[0])
+    })
   }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!date || !category || !amount) return
+    if (!date || !cardId || !category || !amount) return
 
     setLoading(true)
     setMessage(null)
-
     try {
       const res = await fetch("/api/transactions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date, category, amount: Number(amount), memo, type }),
+        body: JSON.stringify({ date, card_id: cardId, category, amount: Number(amount), memo }),
       })
-
       if (res.ok) {
-        setMessage({ type: "success", text: "✅ 記録しました！" })
+        setMessage({ type: "success", text: "記録しました" })
         setAmount("")
         setMemo("")
         setDate(new Date().toISOString().split("T")[0])
       } else {
-        setMessage({ type: "error", text: "❌ 保存に失敗しました" })
+        const d = await res.json()
+        setMessage({ type: "error", text: d.error ?? "保存に失敗しました" })
       }
     } catch {
-      setMessage({ type: "error", text: "❌ 通信エラーが発生しました" })
+      setMessage({ type: "error", text: "通信エラーが発生しました" })
     } finally {
       setLoading(false)
     }
   }
+
+  const selectedCard = cards.find(c => c.id === cardId)
 
   return (
     <div className="pb-20">
@@ -63,25 +67,31 @@ export default function InputPage() {
       <main className="max-w-md mx-auto px-4 py-4">
         <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm p-5 space-y-4">
 
-          {/* 種別 */}
+          {/* カード選択 */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">種別</label>
+            <label className="block text-xs font-medium text-gray-600 mb-2">カード</label>
             <div className="flex gap-2">
-              {TYPES.map((t) => (
+              {cards.map(c => (
                 <button
-                  key={t.value}
+                  key={c.id}
                   type="button"
-                  onClick={() => setType(t.value)}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                    type === t.value
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-white text-gray-600 border-gray-300"
-                  }`}
+                  onClick={() => setCardId(c.id)}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-medium border-2 transition-all"
+                  style={{
+                    borderColor: cardId === c.id ? c.color : "#e5e7eb",
+                    backgroundColor: cardId === c.id ? c.color + "18" : "white",
+                    color: cardId === c.id ? c.color : "#6b7280",
+                  }}
                 >
-                  {t.label}
+                  {c.name}
                 </button>
               ))}
             </div>
+            {selectedCard && (
+              <p className="text-xs text-gray-400 mt-1 pl-1">
+                {selectedCard.card_type === "joint" ? "共用（パートナーと共有）" : "個人費用"}
+              </p>
+            )}
           </div>
 
           {/* 日付 */}
@@ -90,7 +100,7 @@ export default function InputPage() {
             <input
               type="date"
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={e => setDate(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
@@ -101,13 +111,11 @@ export default function InputPage() {
             <label className="block text-xs font-medium text-gray-600 mb-1">カテゴリ</label>
             <select
               value={category}
-              onChange={(e) => setCategory(e.target.value)}
+              onChange={e => setCategory(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               required
             >
-              {categories.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
+              {categories.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
 
@@ -119,9 +127,9 @@ export default function InputPage() {
               <input
                 type="number"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={e => setAmount(e.target.value)}
                 placeholder="0"
-                min="0"
+                min="1"
                 className="w-full border border-gray-300 rounded-lg pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               />
@@ -134,23 +142,21 @@ export default function InputPage() {
             <input
               type="text"
               value={memo}
-              onChange={(e) => setMemo(e.target.value)}
+              onChange={e => setMemo(e.target.value)}
               placeholder="内容のメモ..."
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           {message && (
-            <div className={`text-sm rounded-lg px-3 py-2 ${
-              message.type === "success" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
-            }`}>
-              {message.text}
+            <div className={`text-sm rounded-lg px-3 py-2 ${message.type === "success" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+              {message.type === "success" ? "✅ " : "❌ "}{message.text}
             </div>
           )}
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !cardId}
             className="w-full bg-blue-600 text-white rounded-lg py-3 font-semibold text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors"
           >
             {loading ? "保存中..." : "記録する"}
