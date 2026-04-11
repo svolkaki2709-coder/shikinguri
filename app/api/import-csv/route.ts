@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { sql } from "@/lib/db"
-import iconv from "iconv-lite"
+import { decode as iconvDecode } from "iconv-lite"
 
 // CSVパース（簡易実装）
 function parseCSV(text: string): string[][] {
@@ -158,7 +158,7 @@ export async function POST(req: NextRequest) {
     text = utf8
   } else {
     // Shift-JIS でデコード
-    text = iconv.decode(buffer, "Shift_JIS")
+    text = iconvDecode(buffer, "Shift_JIS")
   }
   // BOM除去
   text = text.replace(/^\uFEFF/, "")
