@@ -115,6 +115,8 @@ async function ensureImportLogsTable() {
       imported_at TIMESTAMPTZ DEFAULT NOW()
     )
   `
+  // transactionsテーブルにsourceカラムがなければ追加
+  await sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS source TEXT`
 }
 
 export async function GET(req: NextRequest) {
