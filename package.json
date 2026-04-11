@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "deploy": "vercel --prod --token $(cat .vercel-token)"
+    "deploy": "git push origin main"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
