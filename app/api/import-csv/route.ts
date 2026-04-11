@@ -87,7 +87,7 @@ export async function GET(req: NextRequest) {
     ORDER BY imported_at DESC
     LIMIT 20
   `
-  return NextResponse.json({ logs: logs.rows })
+  return NextResponse.json({ logs: logs })
 }
 
 export async function POST(req: NextRequest) {
@@ -141,8 +141,8 @@ export async function POST(req: NextRequest) {
       ORDER BY imported_at DESC
       LIMIT 1
     `
-    if (overlap.rows.length > 0) {
-      const prev = overlap.rows[0]
+    if (overlap.length > 0) {
+      const prev = overlap[0]
       return NextResponse.json({
         warning: true,
         message: `${prev.card_name ?? "同カード"} の ${prev.start_date} ～ ${prev.end_date} のデータが既にインポートされています（${prev.row_count}件、${String(prev.imported_at).slice(0, 16)}）。続けると重複データが登録されます。`,
@@ -154,7 +154,7 @@ export async function POST(req: NextRequest) {
 
   // カード名を取得
   const cardRow = await sql`SELECT name FROM cards WHERE id = ${Number(cardId)} LIMIT 1`
-  const cardName = cardRow.rows[0]?.name ?? ""
+  const cardName = cardRow[0]?.name ?? ""
 
   let count = 0
   const skipped: string[] = []
