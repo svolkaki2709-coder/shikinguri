@@ -18,7 +18,7 @@ export function PageHeader({ title }: PageHeaderProps) {
           <button
             onClick={toggle}
             title={mode === "pc" ? "スマホ表示に切り替え" : "PC表示に切り替え"}
-            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-blue-600 border border-gray-200 rounded-md px-2 py-1 transition-colors"
+            className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-blue-600 border border-gray-200 rounded-md px-2 py-1 transition-colors"
           >
             {mode === "pc" ? (
               <>📱 <span>スマホ</span></>
@@ -28,7 +28,7 @@ export function PageHeader({ title }: PageHeaderProps) {
           </button>
           <button
             onClick={() => signOut({ callbackUrl: "/" })}
-            className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
           >
             ログアウト
           </button>

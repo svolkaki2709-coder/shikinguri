@@ -43,11 +43,7 @@ function nextMonth(m: string) {
 
 export default function DashboardPage() {
   const now = new Date()
-  // デフォルトは前月（当月にはまだデータがないことが多い）
-  const defaultMonth = (() => {
-    const d = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
-  })()
+  const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
   const [month, setMonth] = useState(defaultMonth)
   const [apiError, setApiError] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>("monthly")
@@ -99,7 +95,7 @@ export default function DashboardPage() {
   return (
     <div className="pb-20">
       <PageHeader title="ダッシュボード" />
-      <main className="max-w-md mx-auto px-4 py-4 space-y-4">
+      <main className="max-w-md mx-auto px-4 py-2 space-y-3">
         {/* 月選択 */}
         <div className="flex items-center gap-2 bg-white rounded-xl shadow-sm px-3 py-2">
           <button
@@ -132,7 +128,7 @@ export default function DashboardPage() {
               key={t.key}
               onClick={() => setTab(t.key)}
               className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
-                tab === t.key ? "bg-white shadow-sm text-blue-600" : "text-gray-500"
+                tab === t.key ? "bg-white shadow-sm text-blue-600" : "text-gray-600"
               }`}
             >
               {t.label}
@@ -140,25 +136,25 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {loading && <div className="text-center py-12 text-gray-400">読み込み中...</div>}
+        {loading && <div className="text-center py-6 text-gray-600">読み込み中...</div>}
 
         {/* === 月次タブ === */}
         {!loading && tab === "monthly" && (
           <>
             {/* 収支サマリー */}
-            <div className="bg-white rounded-xl shadow-sm p-4">
-              <p className="text-xs text-gray-500 mb-2">{month} 収支</p>
+            <div className="bg-white rounded-xl shadow-sm p-3">
+              <p className="text-xs text-gray-600 mb-2">{month} 収支</p>
               <div className="grid grid-cols-3 gap-3 text-center">
                 <div>
-                  <p className="text-xs text-gray-400">収入</p>
+                  <p className="text-xs text-gray-600">収入</p>
                   <p className="text-base font-bold text-green-600">{toJPY(incomeTotal)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-400">支出</p>
+                  <p className="text-xs text-gray-600">支出</p>
                   <p className="text-base font-bold text-red-500">{toJPY(totalExpense)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-400">収支</p>
+                  <p className="text-xs text-gray-600">収支</p>
                   <p className={`text-base font-bold ${balance >= 0 ? "text-blue-600" : "text-red-600"}`}>
                     {balance >= 0 ? "+" : ""}{toJPY(balance)}
                   </p>
@@ -167,7 +163,7 @@ export default function DashboardPage() {
             </div>
 
             {/* カード別支出 */}
-            <div className="bg-white rounded-xl shadow-sm p-4">
+            <div className="bg-white rounded-xl shadow-sm p-3">
               <h2 className="text-sm font-semibold text-gray-700 mb-3">カード別支出</h2>
               <div className="space-y-3">
                 {cardSummary.map(c => (
@@ -195,7 +191,7 @@ export default function DashboardPage() {
 
             {/* カテゴリ別円グラフ */}
             {categoryBreakdown.length > 0 && (
-              <div className="bg-white rounded-xl shadow-sm p-4">
+              <div className="bg-white rounded-xl shadow-sm p-3">
                 <h2 className="text-sm font-semibold text-gray-700 mb-3">カテゴリ別内訳</h2>
                 <ResponsiveContainer width="100%" height={200}>
                   <PieChart>
@@ -223,7 +219,7 @@ export default function DashboardPage() {
 
             {/* 月別推移 */}
             {last6.length > 0 && (
-              <div className="bg-white rounded-xl shadow-sm p-4">
+              <div className="bg-white rounded-xl shadow-sm p-3">
                 <h2 className="text-sm font-semibold text-gray-700 mb-3">月別推移（直近6ヶ月）</h2>
                 <ResponsiveContainer width="100%" height={180}>
                   <BarChart data={last6} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
@@ -242,10 +238,10 @@ export default function DashboardPage() {
 
         {/* === 予算タブ === */}
         {!loading && tab === "budget" && (
-          <div className="bg-white rounded-xl shadow-sm p-4">
+          <div className="bg-white rounded-xl shadow-sm p-3">
             <h2 className="text-sm font-semibold text-gray-700 mb-3">予算 vs 実績</h2>
             {budgetVsActual.length === 0 ? (
-              <p className="text-center text-gray-400 text-sm py-6">予算が設定されていません</p>
+              <p className="text-center text-gray-600 text-sm py-6">予算が設定されていません</p>
             ) : (
               <div className="space-y-3">
                 {budgetVsActual.map(b => {
@@ -278,21 +274,21 @@ export default function DashboardPage() {
           <>
             {assets.length > 0 && (
               <>
-                <div className="bg-white rounded-xl shadow-sm p-4">
-                  <p className="text-xs text-gray-500 mb-1">最新資産合計（{assets[assets.length - 1]?.month}）</p>
+                <div className="bg-white rounded-xl shadow-sm p-3">
+                  <p className="text-xs text-gray-600 mb-1">最新資産合計（{assets[assets.length - 1]?.month}）</p>
                   <p className="text-3xl font-bold text-blue-600">{toJPY(assets[assets.length - 1]?.total ?? 0)}</p>
                   <div className="mt-3 grid grid-cols-2 gap-3 text-center">
                     <div className="bg-green-50 rounded-lg p-2">
-                      <p className="text-xs text-gray-400">貯金</p>
+                      <p className="text-xs text-gray-600">貯金</p>
                       <p className="text-sm font-bold text-green-600">{toJPY(assets[assets.length - 1]?.savings ?? 0)}</p>
                     </div>
                     <div className="bg-purple-50 rounded-lg p-2">
-                      <p className="text-xs text-gray-400">投資 (NISA)</p>
+                      <p className="text-xs text-gray-600">投資 (NISA)</p>
                       <p className="text-sm font-bold text-purple-600">{toJPY(assets[assets.length - 1]?.investment ?? 0)}</p>
                     </div>
                   </div>
                 </div>
-                <div className="bg-white rounded-xl shadow-sm p-4">
+                <div className="bg-white rounded-xl shadow-sm p-3">
                   <h2 className="text-sm font-semibold text-gray-700 mb-3">資産推移</h2>
                   <ResponsiveContainer width="100%" height={180}>
                     <LineChart data={assets} margin={{ top: 0, right: 0, left: -10, bottom: 0 }}>
@@ -309,7 +305,7 @@ export default function DashboardPage() {
               </>
             )}
             {assets.length === 0 && (
-              <div className="bg-white rounded-xl shadow-sm p-8 text-center text-gray-400 text-sm">
+              <div className="bg-white rounded-xl shadow-sm p-8 text-center text-gray-600 text-sm">
                 資産データがありません。<br />「資産」ページから入力してください。
               </div>
             )}

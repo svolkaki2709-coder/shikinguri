@@ -148,12 +148,12 @@ export default function SettingsPage() {
   return (
     <div className="pb-20">
       <PageHeader title="設定" />
-      <main className="max-w-md mx-auto px-4 py-4 space-y-4">
+      <main className="max-w-md mx-auto px-4 py-2 space-y-3">
         {/* タブ */}
         <div className="flex rounded-xl bg-gray-100 p-1">
           {tabs.map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${tab === t.key ? "bg-white shadow-sm text-blue-600" : "text-gray-500"}`}>
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${tab === t.key ? "bg-white shadow-sm text-blue-600" : "text-gray-600"}`}>
               {t.label}
             </button>
           ))}
@@ -162,11 +162,11 @@ export default function SettingsPage() {
         {/* === 定期支出タブ === */}
         {tab === "recurring" && (
           <>
-            <div className="bg-white rounded-xl shadow-sm p-4 space-y-3">
+            <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
               <h2 className="text-sm font-semibold text-gray-700">定期支出を追加</h2>
               <div className="grid grid-cols-3 gap-2">
                 <div className="col-span-1">
-                  <label className="text-xs text-gray-500 mb-1 block">引き落とし日</label>
+                  <label className="text-xs text-gray-600 mb-1 block">引き落とし日</label>
                   <select value={rDay} onChange={e => setRDay(e.target.value)}
                     className="w-full border rounded-lg px-2 py-2 text-sm bg-white">
                     {Array.from({ length: 28 }, (_, i) => i + 1).map(d => (
@@ -175,7 +175,7 @@ export default function SettingsPage() {
                   </select>
                 </div>
                 <div className="col-span-2">
-                  <label className="text-xs text-gray-500 mb-1 block">カード</label>
+                  <label className="text-xs text-gray-600 mb-1 block">カード</label>
                   <div className="flex gap-1">
                     {cards.map(c => (
                       <button key={c.id} type="button" onClick={() => setRCardId(c.id)}
@@ -193,20 +193,20 @@ export default function SettingsPage() {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-xs text-gray-500 mb-1 block">カテゴリ</label>
+                  <label className="text-xs text-gray-600 mb-1 block">カテゴリ</label>
                   <select value={rCategory} onChange={e => setRCategory(e.target.value)}
                     className="w-full border rounded-lg px-2 py-2 text-sm bg-white">
                     {categories.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 mb-1 block">金額（円）</label>
+                  <label className="text-xs text-gray-600 mb-1 block">金額（円）</label>
                   <input type="number" value={rAmount} onChange={e => setRAmount(e.target.value)}
                     placeholder="0" className="w-full border rounded-lg px-2 py-2 text-sm" />
                 </div>
               </div>
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">メモ（任意）</label>
+                <label className="text-xs text-gray-600 mb-1 block">メモ（任意）</label>
                 <input type="text" value={rMemo} onChange={e => setRMemo(e.target.value)}
                   placeholder="例：Netflix サブスク"
                   className="w-full border rounded-lg px-3 py-2 text-sm" />
@@ -228,7 +228,7 @@ export default function SettingsPage() {
                   </button>
                 </div>
                 {recurring.map(r => (
-                  <div key={r.id} className="flex items-center px-4 py-3 border-b last:border-0">
+                  <div key={r.id} className="flex items-center px-4 py-2 border-b last:border-0">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
                         <span className="text-xs px-1.5 py-0.5 rounded text-white"
@@ -237,7 +237,7 @@ export default function SettingsPage() {
                         </span>
                         <span className="text-sm font-medium text-gray-800">{r.category}</span>
                       </div>
-                      <p className="text-xs text-gray-400">{r.day_of_month}日 {r.memo && `/ ${r.memo}`}</p>
+                      <p className="text-xs text-gray-600">{r.day_of_month}日 {r.memo && `/ ${r.memo}`}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold text-gray-700">{toJPY(r.amount)}</span>
@@ -253,10 +253,10 @@ export default function SettingsPage() {
 
         {/* === 収入入力タブ === */}
         {tab === "income" && (
-          <div className="bg-white rounded-xl shadow-sm p-4 space-y-3">
+          <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
             <h2 className="text-sm font-semibold text-gray-700">収入を記録</h2>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">月</label>
+              <label className="text-xs text-gray-600 mb-1 block">月</label>
               <div className="flex items-center gap-1 border rounded-lg px-2 py-1">
                 <button onClick={() => setIncomeMonth(m => { const [y,mo] = m.split("-").map(Number); const d = new Date(y, mo-2, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` })}
                   className="text-gray-600 hover:text-blue-600 px-1 font-bold text-base">‹</button>
@@ -267,7 +267,7 @@ export default function SettingsPage() {
               </div>
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">種別</label>
+              <label className="text-xs text-gray-600 mb-1 block">種別</label>
               <div className="flex gap-2">
                 {["給与", "副収入", "その他"].map(cat => (
                   <button key={cat} type="button" onClick={() => setIncomeCategory(cat)}
@@ -278,15 +278,15 @@ export default function SettingsPage() {
               </div>
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">金額（円）</label>
+              <label className="text-xs text-gray-600 mb-1 block">金額（円）</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">¥</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm">¥</span>
                 <input type="number" value={incomeAmount} onChange={e => setIncomeAmount(e.target.value)}
                   placeholder="0" className="w-full border rounded-lg pl-7 pr-3 py-2 text-sm" />
               </div>
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">メモ（任意）</label>
+              <label className="text-xs text-gray-600 mb-1 block">メモ（任意）</label>
               <input type="text" value={incomeMemo} onChange={e => setIncomeMemo(e.target.value)}
                 placeholder="例：3月分給与"
                 className="w-full border rounded-lg px-3 py-2 text-sm" />
@@ -302,10 +302,10 @@ export default function SettingsPage() {
         {/* === 予算設定タブ === */}
         {tab === "budget" && (
           <>
-          <div className="bg-white rounded-xl shadow-sm p-4 space-y-3">
+          <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
             <h2 className="text-sm font-semibold text-gray-700">予算を設定</h2>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">対象</label>
+              <label className="text-xs text-gray-600 mb-1 block">対象</label>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setBudgetCardType("self")}
                   className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${budgetCardType === "self" ? "bg-indigo-600 text-white border-indigo-600" : "border-gray-300 text-gray-600"}`}>
@@ -318,16 +318,16 @@ export default function SettingsPage() {
               </div>
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">カテゴリ</label>
+              <label className="text-xs text-gray-600 mb-1 block">カテゴリ</label>
               <select value={budgetCategory} onChange={e => setBudgetCategory(e.target.value)}
                 className="w-full border rounded-lg px-3 py-2 text-sm bg-white">
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">月間予算（円）</label>
+              <label className="text-xs text-gray-600 mb-1 block">月間予算（円）</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">¥</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm">¥</span>
                 <input type="number" value={budgetAmount} onChange={e => setBudgetAmount(e.target.value)}
                   placeholder="0" className="w-full border rounded-lg pl-7 pr-3 py-2 text-sm" />
               </div>

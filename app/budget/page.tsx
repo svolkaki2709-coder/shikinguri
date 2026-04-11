@@ -12,7 +12,7 @@ function toJPY(n: number) {
 function BalanceRow({ label, amount, sub }: { label: string; amount: number; sub?: boolean }) {
   const color = amount >= 0 ? "text-blue-600" : "text-red-500"
   return (
-    <div className={`flex justify-between items-center ${sub ? "pl-2 text-xs text-gray-500" : "text-sm font-semibold text-gray-800"}`}>
+    <div className={`flex justify-between items-center ${sub ? "pl-2 text-xs text-gray-600" : "text-sm font-semibold text-gray-800"}`}>
       <span>{label}</span>
       <span className={sub ? "" : color}>{toJPY(amount)}</span>
     </div>
@@ -95,8 +95,8 @@ export default function BudgetPage() {
   function BudgetList({ rows }: { rows: BudgetRow[] }) {
     if (rows.length === 0) {
       return (
-        <div className="bg-white rounded-xl shadow-sm p-8 text-center space-y-3">
-          <p className="text-gray-400 text-sm">予算が設定されていません</p>
+        <div className="bg-white rounded-xl shadow-sm p-4 text-center space-y-3">
+          <p className="text-gray-600 text-sm">予算が設定されていません</p>
           <Link href="/settings" className="inline-block bg-blue-600 text-white text-sm px-4 py-2 rounded-lg">
             設定から予算を追加する
           </Link>
@@ -108,14 +108,14 @@ export default function BudgetPage() {
     const over = actualTot > total
     return (
       <>
-        <div className="bg-white rounded-xl shadow-sm p-4">
+        <div className="bg-white rounded-xl shadow-sm p-3">
           <div className="flex justify-between items-center">
             <div>
-              <p className="text-xs text-gray-400">合計予算</p>
+              <p className="text-xs text-gray-600">合計予算</p>
               <p className="text-lg font-bold text-gray-700">{toJPY(total)}</p>
             </div>
             <div className="text-right">
-              <p className="text-xs text-gray-400">合計実績</p>
+              <p className="text-xs text-gray-600">合計実績</p>
               <p className={`text-lg font-bold ${over ? "text-red-500" : "text-green-600"}`}>{toJPY(actualTot)}</p>
             </div>
           </div>
@@ -143,7 +143,7 @@ export default function BudgetPage() {
                   <div className={`h-1.5 rounded-full ${isOver ? "bg-red-500" : "bg-blue-500"}`}
                     style={{ width: `${pct}%` }} />
                 </div>
-                <div className="flex justify-between text-xs text-gray-400 mt-1">
+                <div className="flex justify-between text-xs text-gray-600 mt-1">
                   <span>実績 {toJPY(row.actual)}</span>
                   <span>予算 {toJPY(row.budget)}</span>
                 </div>
@@ -158,7 +158,7 @@ export default function BudgetPage() {
   return (
     <div className="pb-20">
       <PageHeader title="予算管理" />
-      <main className="max-w-md mx-auto px-4 py-4 space-y-3">
+      <main className="max-w-md mx-auto px-4 py-2 space-y-3">
         <div className="flex items-center gap-2 bg-white rounded-xl shadow-sm px-3 py-2">
           <button onClick={() => setMonth(m => { const [y,mo] = m.split("-").map(Number); const d = new Date(y, mo-2, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` })}
             className="text-gray-600 hover:text-blue-600 px-2 py-1 rounded hover:bg-gray-100 text-lg font-bold">‹</button>
@@ -171,30 +171,65 @@ export default function BudgetPage() {
         <div className="flex bg-gray-100 rounded-lg p-1">
           {tabs.map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
-              className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-colors ${tab === t.key ? "bg-white text-blue-600 shadow-sm" : "text-gray-500"}`}>
+              className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-colors ${tab === t.key ? "bg-white text-blue-600 shadow-sm" : "text-gray-600"}`}>
               {t.label}
             </button>
           ))}
         </div>
 
-        {loading && <div className="text-center py-8 text-gray-400 text-sm">読み込み中...</div>}
+        {loading && <div className="text-center py-4 text-gray-600 text-sm">読み込み中...</div>}
 
         {/* ===== 概要タブ ===== */}
         {!loading && tab === "overview" && (
           <>
-            {/* 収入 */}
-            <div className="bg-white rounded-xl shadow-sm p-4">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-xs text-gray-400">今月の収入（実績）</p>
-                  <p className="text-2xl font-bold text-green-600">{toJPY(incomeTotal)}</p>
-                </div>
+            {/* 余力資金サマリー */}
+            <div className="bg-white rounded-xl shadow-sm p-3">
+              <div className="flex justify-between items-center mb-2">
+                <p className="text-xs text-gray-600">収支サマリー（{month}）</p>
                 <Link href="/settings" className="text-xs text-blue-500 hover:underline">収入入力 →</Link>
+              </div>
+              <div className="space-y-1 text-sm mb-3">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">収入</span>
+                  <span className="font-medium text-green-600">+{toJPY(incomeTotal)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600 pl-2">個人支出（予算）</span>
+                  <span className="text-red-400">-{toJPY(selfBudgetTotal)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600 pl-2">共用支出（予算）</span>
+                  <span className="text-red-400">-{toJPY(jointBudgetTotal)}</span>
+                </div>
+                {plan.savingsTarget > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 pl-2">貯金目標</span>
+                    <span className="text-blue-400">-{toJPY(plan.savingsTarget)}</span>
+                  </div>
+                )}
+                {plan.nisaTarget > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 pl-2">NISA目標</span>
+                    <span className="text-purple-400">-{toJPY(plan.nisaTarget)}</span>
+                  </div>
+                )}
+              </div>
+              <div className={`rounded-xl p-3 text-center ${planFreeBalance >= 0 ? "bg-blue-50" : "bg-red-50"}`}>
+                <p className="text-xs text-gray-600 mb-0.5">余力資金（計画ベース）</p>
+                <p className={`text-2xl font-bold ${planFreeBalance >= 0 ? "text-blue-600" : "text-red-500"}`}>
+                  {planFreeBalance >= 0 ? "+" : ""}{toJPY(planFreeBalance)}
+                </p>
+              </div>
+              <div className={`rounded-xl p-2 text-center mt-2 ${actualBalance >= 0 ? "bg-green-50" : "bg-red-50"}`}>
+                <p className="text-xs text-gray-600">実績ベース（収入−実績支出）</p>
+                <p className={`text-lg font-bold ${actualBalance >= 0 ? "text-green-600" : "text-red-500"}`}>
+                  {actualBalance >= 0 ? "+" : ""}{toJPY(actualBalance)}
+                </p>
               </div>
             </div>
 
             {/* 支出サマリー（個人・共用） */}
-            <div className="bg-white rounded-xl shadow-sm p-4 space-y-3">
+            <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
               <h2 className="text-sm font-semibold text-gray-700">支出予算 vs 実績</h2>
               {[
                 { label: "個人カード", budget: selfBudgetTotal, actual: selfActualTotal, color: "#6366f1" },
@@ -208,7 +243,7 @@ export default function BudgetPage() {
                     </div>
                     <span className="text-gray-600">
                       <span className={row.actual > row.budget ? "text-red-500 font-semibold" : ""}>{toJPY(row.actual)}</span>
-                      <span className="text-gray-400"> / {toJPY(row.budget)}</span>
+                      <span className="text-gray-600"> / {toJPY(row.budget)}</span>
                     </span>
                   </div>
                   <div className="w-full bg-gray-100 rounded-full h-1.5">
@@ -220,7 +255,7 @@ export default function BudgetPage() {
             </div>
 
             {/* 貯蓄・投資計画 */}
-            <div className="bg-white rounded-xl shadow-sm p-4">
+            <div className="bg-white rounded-xl shadow-sm p-3">
               <div className="flex justify-between items-center mb-3">
                 <h2 className="text-sm font-semibold text-gray-700">貯蓄・投資計画</h2>
                 {!editing && (
@@ -230,12 +265,12 @@ export default function BudgetPage() {
               {editing ? (
                 <div className="space-y-3">
                   <div>
-                    <label className="text-xs text-gray-500 mb-1 block">貯金目標（円）</label>
+                    <label className="text-xs text-gray-600 mb-1 block">貯金目標（円）</label>
                     <input type="number" value={savingsInput} onChange={e => setSavingsInput(e.target.value)}
                       placeholder="0" className="w-full border rounded-lg px-3 py-2 text-sm" />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 mb-1 block">NISA積立目標（円）</label>
+                    <label className="text-xs text-gray-600 mb-1 block">NISA積立目標（円）</label>
                     <input type="number" value={nisaInput} onChange={e => setNisaInput(e.target.value)}
                       placeholder="0" className="w-full border rounded-lg px-3 py-2 text-sm" />
                   </div>
@@ -264,10 +299,10 @@ export default function BudgetPage() {
                         {row.target > 0 ? (
                           <span className="text-gray-600">
                             <span>{toJPY(row.actual)}</span>
-                            <span className="text-gray-400"> / {toJPY(row.target)}</span>
+                            <span className="text-gray-600"> / {toJPY(row.target)}</span>
                           </span>
                         ) : (
-                          <span className="text-gray-400 text-xs">未設定</span>
+                          <span className="text-gray-600 text-xs">未設定</span>
                         )}
                       </div>
                       {row.target > 0 && (
@@ -279,78 +314,12 @@ export default function BudgetPage() {
                     </div>
                   ))}
                   {plan.savingsTarget === 0 && plan.nisaTarget === 0 && (
-                    <p className="text-xs text-gray-400 text-center py-1">「編集」から目標額を設定できます</p>
+                    <p className="text-xs text-gray-600 text-center py-1">「編集」から目標額を設定できます</p>
                   )}
                 </div>
               )}
             </div>
 
-            {/* 収支シミュレーション */}
-            <div className="bg-white rounded-xl shadow-sm p-4">
-              <h2 className="text-sm font-semibold text-gray-700 mb-3">収支シミュレーション</h2>
-
-              {/* 予算ベース */}
-              <div className="mb-4">
-                <p className="text-xs font-medium text-blue-600 mb-2">予算計画ベース</p>
-                <div className="space-y-1.5 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">収入</span>
-                    <span className="font-medium text-green-600">+{toJPY(incomeTotal)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 pl-2">個人支出（予算）</span>
-                    <span className="text-red-400">-{toJPY(selfBudgetTotal)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 pl-2">共用支出（予算）</span>
-                    <span className="text-red-400">-{toJPY(jointBudgetTotal)}</span>
-                  </div>
-                  {plan.savingsTarget > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-500 pl-2">貯金目標</span>
-                      <span className="text-green-500">-{toJPY(plan.savingsTarget)}</span>
-                    </div>
-                  )}
-                  {plan.nisaTarget > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-500 pl-2">NISA目標</span>
-                      <span className="text-purple-500">-{toJPY(plan.nisaTarget)}</span>
-                    </div>
-                  )}
-                  <div className="border-t pt-1.5 flex justify-between font-semibold">
-                    <span className="text-gray-700">計画上の余裕額</span>
-                    <span className={planFreeBalance >= 0 ? "text-blue-600" : "text-red-500"}>
-                      {planFreeBalance >= 0 ? "+" : ""}{toJPY(planFreeBalance)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* 実績ベース */}
-              <div className="border-t pt-3">
-                <p className="text-xs font-medium text-gray-500 mb-2">実績ベース</p>
-                <div className="space-y-1.5 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">収入</span>
-                    <span className="font-medium text-green-600">+{toJPY(incomeTotal)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 pl-2">個人支出（実績）</span>
-                    <span className="text-red-400">-{toJPY(selfActualTotal)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 pl-2">共用支出（実績）</span>
-                    <span className="text-red-400">-{toJPY(jointActualTotal)}</span>
-                  </div>
-                  <div className="border-t pt-1.5 flex justify-between font-semibold">
-                    <span className="text-gray-700">支出後残高</span>
-                    <span className={actualBalance >= 0 ? "text-blue-600" : "text-red-500"}>
-                      {actualBalance >= 0 ? "+" : ""}{toJPY(actualBalance)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
           </>
         )}
 

@@ -17,10 +17,10 @@ export function SideNav() {
 
   return (
     <nav className="fixed left-0 top-0 h-full w-52 bg-white border-r border-gray-200 z-40 flex flex-col py-4">
-      <div className="px-4 mb-6">
+      <div className="px-4 mb-3">
         <div className="text-2xl">📒</div>
         <h1 className="text-sm font-bold text-gray-800 mt-1">家計簿</h1>
-        <p className="text-xs text-gray-400">柿岡家計管理</p>
+        <p className="text-xs text-gray-600">柿岡家計管理</p>
       </div>
       <div className="flex-1 space-y-0.5 px-2">
         {navItems.map(item => {
