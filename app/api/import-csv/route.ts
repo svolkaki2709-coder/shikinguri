@@ -275,7 +275,7 @@ export async function POST(req: NextRequest) {
     VALUES (${Number(cardId)}, ${cardName}, ${startDate}, ${endDate}, ${count}, ${file.name})
   `
 
-  return NextResponse.json({ success: true, imported: count, skipped: skipped.length, skippedRows: skipped.slice(0, 10) })
+  return NextResponse.json({ success: true, imported: count, skipped: skipped.length })
   } catch (e: unknown) {
     const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e)
     console.error("[import-csv]", msg)
