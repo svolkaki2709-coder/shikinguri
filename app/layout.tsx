@@ -6,8 +6,8 @@ import { Providers } from "./providers"
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" })
 
 export const metadata: Metadata = {
-  title: "家計簿",
-  description: "柿岡家計簿アプリ",
+  title: "shikinguri",
+  description: "shikinguri - 柿岡家計簿アプリ",
   manifest: "/manifest.json",
 }
 

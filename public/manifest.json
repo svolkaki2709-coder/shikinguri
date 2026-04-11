@@ -1,7 +1,7 @@
 {
-  "name": "家計簿",
-  "short_name": "家計簿",
-  "description": "柿岡家計管理アプリ",
+  "name": "shikinguri",
+  "short_name": "shikinguri",
+  "description": "shikinguri - 柿岡家計管理アプリ",
   "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#f9fafb",
