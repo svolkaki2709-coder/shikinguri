@@ -8,12 +8,13 @@ interface Card { id: number; name: string; card_type: string; color: string }
 interface Recurring { id: number; day_of_month: number; card_id: number; card_name: string; color: string; category: string; amount: number; memo: string }
 interface Category { name: string }
 interface BudgetRow { category: string; card_type: string; budget: number }
+interface StoreRule { id: number; keyword: string; category: string }
 
 function toJPY(n: number) {
   return new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 }).format(n)
 }
 
-type Tab = "recurring" | "income" | "budget"
+type Tab = "recurring" | "income" | "budget" | "category"
 
 export default function SettingsPage() {
   const now = new Date()
@@ -49,6 +50,16 @@ export default function SettingsPage() {
   const [existingBudgets, setExistingBudgets] = useState<BudgetRow[]>([])
   const [editingBudgetKey, setEditingBudgetKey] = useState<string | null>(null)
 
+  // カテゴリ管理
+  const [newCatName, setNewCatName] = useState("")
+  const [catSaving, setCatSaving] = useState(false)
+  const [storeRules, setStoreRules] = useState<StoreRule[]>([])
+  const [ruleSearch, setRuleSearch] = useState("")
+  const [newRuleKeyword, setNewRuleKeyword] = useState("")
+  const [newRuleCategory, setNewRuleCategory] = useState("")
+  const [ruleSaving, setRuleSaving] = useState(false)
+  const [editingRule, setEditingRule] = useState<StoreRule | null>(null)
+
   useEffect(() => {
     Promise.all([
       fetch("/api/cards").then(r => r.json()),
@@ -67,6 +78,11 @@ export default function SettingsPage() {
       setExistingBudgets(bRaw.map(b => ({ category: b.category, card_type: b.cardType, budget: b.budget })))
     })
   }, [])
+
+  useEffect(() => {
+    if (tab === "category") fetchStoreRules(ruleSearch)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab])
 
   async function handleAddRecurring() {
     if (!rCardId || !rCategory || !rAmount) return
@@ -155,10 +171,53 @@ export default function SettingsPage() {
     setExistingBudgets(prev => prev.filter(b => !(b.category === category && b.card_type === cardType)))
   }
 
+  async function fetchStoreRules(q = "") {
+    const data = await fetch(`/api/store-rules?q=${encodeURIComponent(q)}`).then(r => r.json())
+    setStoreRules(data.rules ?? [])
+  }
+
+  async function handleAddCategory() {
+    if (!newCatName.trim()) return
+    setCatSaving(true)
+    await fetch("/api/categories", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newCatName.trim() }) })
+    const data = await fetch("/api/categories").then(r => r.json())
+    setCategories(data.categories ?? [])
+    setNewCatName("")
+    setCatSaving(false)
+  }
+
+  async function handleDeleteCategory(name: string) {
+    if (!confirm(`カテゴリ「${name}」を削除しますか？\n（このカテゴリが設定された明細はそのまま残ります）`)) return
+    await fetch(`/api/categories?name=${encodeURIComponent(name)}`, { method: "DELETE" })
+    setCategories(prev => prev.filter(c => c !== name))
+  }
+
+  async function handleSaveRule() {
+    if (!newRuleKeyword.trim() || !newRuleCategory) return
+    setRuleSaving(true)
+    if (editingRule) {
+      await fetch("/api/store-rules", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: editingRule.id, keyword: newRuleKeyword, category: newRuleCategory }) })
+      setEditingRule(null)
+    } else {
+      await fetch("/api/store-rules", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ keyword: newRuleKeyword, category: newRuleCategory }) })
+    }
+    setNewRuleKeyword("")
+    setNewRuleCategory("")
+    setRuleSaving(false)
+    fetchStoreRules(ruleSearch)
+  }
+
+  async function handleDeleteRule(id: number) {
+    if (!confirm("このルールを削除しますか？")) return
+    await fetch(`/api/store-rules?id=${id}`, { method: "DELETE" })
+    setStoreRules(prev => prev.filter(r => r.id !== id))
+  }
+
   const tabs: { key: Tab; label: string }[] = [
     { key: "recurring", label: "定期支出" },
     { key: "income", label: "収入入力" },
     { key: "budget", label: "予算設定" },
+    { key: "category", label: "カテゴリ" },
   ]
 
   return (
@@ -405,6 +464,116 @@ export default function SettingsPage() {
               </div>
             )
           })()}
+          </>
+        )}
+
+        {/* === カテゴリ管理タブ === */}
+        {tab === "category" && (
+          <>
+            {/* カテゴリ一覧 */}
+            <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
+              <h2 className="text-sm font-semibold text-gray-700">カテゴリ一覧</h2>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newCatName}
+                  onChange={e => setNewCatName(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && handleAddCategory()}
+                  placeholder="新しいカテゴリ名"
+                  className="flex-1 border rounded-lg px-3 py-1.5 text-sm text-gray-800"
+                />
+                <button
+                  onClick={handleAddCategory}
+                  disabled={catSaving || !newCatName.trim()}
+                  className="bg-blue-600 text-white rounded-lg px-3 py-1.5 text-sm font-semibold disabled:opacity-50"
+                >
+                  追加
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {categories.map(c => (
+                  <div key={c} className="flex items-center gap-1 bg-gray-100 rounded-full pl-2.5 pr-1 py-0.5">
+                    <span className="text-xs text-gray-700">{c}</span>
+                    <button onClick={() => handleDeleteCategory(c)} className="text-gray-400 hover:text-red-500 text-sm leading-none w-4">×</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 自動振り分けルール */}
+            <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
+              <h2 className="text-sm font-semibold text-gray-700">自動振り分けルール</h2>
+              <p className="text-xs text-gray-500">CSVインポート時、メモ欄のキーワードからカテゴリを自動設定します</p>
+
+              {/* 新規ルール追加／編集 */}
+              <div className={`border rounded-lg p-2.5 space-y-2 ${editingRule ? "border-blue-400 bg-blue-50" : "border-gray-200"}`}>
+                <p className="text-xs font-medium text-gray-600">{editingRule ? "ルールを編集" : "ルールを追加"}</p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newRuleKeyword}
+                    onChange={e => setNewRuleKeyword(e.target.value)}
+                    placeholder="キーワード（店舗名など）"
+                    className="flex-1 border rounded-lg px-2 py-1.5 text-xs text-gray-800"
+                  />
+                  <select
+                    value={newRuleCategory}
+                    onChange={e => setNewRuleCategory(e.target.value)}
+                    className="border rounded-lg px-2 py-1.5 text-xs text-gray-800 bg-white"
+                  >
+                    <option value="">カテゴリ選択</option>
+                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  {editingRule && (
+                    <button onClick={() => { setEditingRule(null); setNewRuleKeyword(""); setNewRuleCategory("") }}
+                      className="flex-1 border border-gray-300 text-gray-600 rounded-lg py-1.5 text-xs">
+                      キャンセル
+                    </button>
+                  )}
+                  <button
+                    onClick={handleSaveRule}
+                    disabled={ruleSaving || !newRuleKeyword.trim() || !newRuleCategory}
+                    className="flex-1 bg-blue-600 text-white rounded-lg py-1.5 text-xs font-semibold disabled:opacity-50"
+                  >
+                    {ruleSaving ? "保存中..." : editingRule ? "更新" : "追加"}
+                  </button>
+                </div>
+              </div>
+
+              {/* 検索 */}
+              <input
+                type="text"
+                value={ruleSearch}
+                onChange={e => { setRuleSearch(e.target.value); fetchStoreRules(e.target.value) }}
+                placeholder="キーワード・カテゴリで検索"
+                className="w-full border rounded-lg px-3 py-1.5 text-sm text-gray-800"
+              />
+
+              {/* ルール一覧 */}
+              <div className="border rounded-lg overflow-hidden max-h-96 overflow-y-auto">
+                {storeRules.length === 0 ? (
+                  <p className="text-center py-4 text-sm text-gray-500">ルールがありません</p>
+                ) : (
+                  storeRules.map(r => (
+                    <div key={r.id} className="flex items-center gap-2 px-3 py-2 border-b last:border-0 hover:bg-gray-50">
+                      <span className="flex-1 text-xs text-gray-800 truncate">{r.keyword}</span>
+                      <span className="text-xs text-gray-400">→</span>
+                      <span className="text-xs font-medium text-blue-600 w-24 truncate text-right">{r.category}</span>
+                      <button
+                        onClick={() => { setEditingRule(r); setNewRuleKeyword(r.keyword); setNewRuleCategory(r.category) }}
+                        className="text-xs text-gray-400 hover:text-blue-500 px-1"
+                      >
+                        編集
+                      </button>
+                      <button onClick={() => handleDeleteRule(r.id)} className="text-gray-300 hover:text-red-400 text-lg leading-none w-5">×</button>
+                    </div>
+                  ))
+                )}
+              </div>
+              <p className="text-xs text-gray-400 text-right">{storeRules.length}件</p>
+            </div>
           </>
         )}
       </main>

@@ -166,7 +166,7 @@ function HistoryContent() {
                 </button>
               </div>
               <select value={category} onChange={e => setCategory(e.target.value)}
-                className="w-full border rounded-lg px-2 py-1.5 text-sm bg-white">
+                className="w-full border rounded-lg px-2 py-1.5 text-sm bg-white text-gray-800">
                 <option value="">すべて</option>
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
               </select>

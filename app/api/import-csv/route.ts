@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { sql } from "@/lib/db"
 import { decode as iconvDecode } from "iconv-lite"
-import { STORE_CATEGORY_MAP, CATEGORY_LIST } from "@/lib/categoryData"
+import { CATEGORY_LIST } from "@/lib/categoryData"
 
 // CSVパース（簡易実装）
 function parseCSV(text: string): string[][] {
@@ -241,6 +241,15 @@ export async function POST(req: NextRequest) {
   const cardRow = await sql`SELECT name FROM cards WHERE id = ${Number(cardId)} LIMIT 1`
   const cardName = cardRow[0]?.name ?? ""
 
+  // 振り分けルールをDBから取得（store_category_rulesが存在すれば）
+  let storeRules: Array<{ keyword: string; category: string }> = []
+  try {
+    const rulesRows = await sql`SELECT keyword, category FROM store_category_rules ORDER BY keyword`
+    storeRules = rulesRows.map(r => ({ keyword: r.keyword as string, category: r.category as string }))
+  } catch {
+    // テーブルが未作成の場合はスキップ（初回インポート時など）
+  }
+
   let count = 0
   let importedTotal = 0
   const skipped: string[] = []
@@ -257,21 +266,18 @@ export async function POST(req: NextRequest) {
       continue
     }
 
-    // 店舗名でカテゴリを自動振り分け（部分一致でマッチ）
+    // 店舗名でカテゴリを自動振り分け（DBルールから取得）
     let category = "未分類"
     const memoNorm = rawMemo.trim()
-    if (memoNorm) {
+    if (memoNorm && storeRules.length > 0) {
       // 完全一致
-      if (STORE_CATEGORY_MAP[memoNorm]) {
-        category = STORE_CATEGORY_MAP[memoNorm]
+      const exact = storeRules.find(r => r.keyword === memoNorm)
+      if (exact) {
+        category = exact.category
       } else {
-        // 部分一致（登録済みキーが店舗名に含まれる、またはその逆）
-        for (const [key, cat] of Object.entries(STORE_CATEGORY_MAP)) {
-          if (memoNorm.includes(key) || key.includes(memoNorm)) {
-            category = cat
-            break
-          }
-        }
+        // 部分一致
+        const partial = storeRules.find(r => memoNorm.includes(r.keyword) || r.keyword.includes(memoNorm))
+        if (partial) category = partial.category
       }
     }
 
