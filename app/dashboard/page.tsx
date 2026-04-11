@@ -104,6 +104,10 @@ export default function DashboardPage() {
 
   const totalExpense = cardSummary.reduce((s, c) => s + c.total, 0)
   const balance = incomeTotal - totalExpense
+  const selfTotal = cardSummary.filter(c => c.cardType === "self").reduce((s, c) => s + c.total, 0)
+  const jointTotal = cardSummary.filter(c => c.cardType === "joint").reduce((s, c) => s + c.total, 0)
+  const selfBudget = budgetVsActual.filter(b => b.cardType === "self").reduce((s, b) => s + b.budget, 0)
+  const jointBudget = budgetVsActual.filter(b => b.cardType === "joint").reduce((s, b) => s + b.budget, 0)
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "monthly", label: "月次" },
@@ -283,35 +287,109 @@ export default function DashboardPage() {
 
         {/* === 予算タブ === */}
         {!loading && tab === "budget" && (
-          <div className="bg-white rounded-xl shadow-sm p-3">
-            <h2 className="text-sm font-semibold text-gray-700 mb-3">予算 vs 実績</h2>
+          <>
             {budgetVsActual.length === 0 ? (
-              <p className="text-center text-gray-600 text-sm py-6">予算が設定されていません</p>
-            ) : (
-              <div className="space-y-3">
-                {budgetVsActual.map(b => {
-                  const pct = b.budget > 0 ? Math.min((b.actual / b.budget) * 100, 100) : 0
-                  const over = b.actual > b.budget
-                  return (
-                    <div key={`${b.category}-${b.cardType}`}>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-gray-700">{b.category}</span>
-                        <span className={over ? "text-red-500 font-semibold" : "text-gray-700"}>
-                          {toJPY(b.actual)} / {toJPY(b.budget)}
-                        </span>
-                      </div>
-                      <div className="w-full bg-gray-100 rounded-full h-2">
-                        <div
-                          className={`h-2 rounded-full ${over ? "bg-red-400" : "bg-blue-400"}`}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </div>
-                  )
-                })}
+              <div className="bg-white rounded-xl shadow-sm p-6 text-center text-gray-600 text-sm">
+                予算が設定されていません
               </div>
+            ) : (
+              <>
+                {/* カード別サマリー */}
+                <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
+                  <h2 className="text-sm font-semibold text-gray-700">カード別サマリー</h2>
+                  {[
+                    { label: "個人カード", budget: selfBudget, actual: selfTotal, color: "#6366f1" },
+                    { label: "共用カード", budget: jointBudget, actual: jointTotal, color: "#f59e0b" },
+                  ].filter(r => r.budget > 0 || r.actual > 0).map(row => {
+                    const diff = row.budget - row.actual
+                    const isOver = row.actual > row.budget
+                    const pct = row.budget > 0 ? Math.min((row.actual / row.budget) * 100, 100) : 0
+                    return (
+                      <div key={row.label}>
+                        <div className="flex justify-between text-sm mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: row.color }} />
+                            <span className="text-gray-800 font-medium">{row.label}</span>
+                          </div>
+                          <div className="text-right">
+                            <span className={isOver ? "text-red-500 font-semibold" : "text-gray-800"}>{toJPY(row.actual)}</span>
+                            <span className="text-gray-500 text-xs"> / {toJPY(row.budget)}</span>
+                          </div>
+                        </div>
+                        <div className="w-full bg-gray-100 rounded-full h-1.5 mb-1">
+                          <div
+                            className={`h-1.5 rounded-full ${isOver ? "bg-red-400" : ""}`}
+                            style={{ width: `${pct}%`, backgroundColor: isOver ? undefined : row.color }}
+                          />
+                        </div>
+                        <div className="flex justify-end">
+                          <span className={`text-xs font-semibold ${isOver ? "text-red-500" : "text-green-600"}`}>
+                            {isOver ? "▲超過 " : "▼残り "}{toJPY(Math.abs(diff))}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* カテゴリ別詳細（個人） */}
+                {budgetVsActual.filter(b => b.cardType === "self").length > 0 && (
+                  <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                    <div className="px-4 py-2 bg-indigo-50 border-b">
+                      <h3 className="text-xs font-semibold text-indigo-600">個人カード　カテゴリ別</h3>
+                    </div>
+                    <div className="divide-y divide-gray-100">
+                      {budgetVsActual.filter(b => b.cardType === "self").map(b => {
+                        const pct = b.budget > 0 ? Math.min((b.actual / b.budget) * 100, 100) : 0
+                        const over = b.actual > b.budget
+                        return (
+                          <div key={b.category} className="px-4 py-2.5">
+                            <div className="flex justify-between text-sm mb-1">
+                              <span className="text-gray-700">{b.category}</span>
+                              <span className={over ? "text-red-500 font-semibold" : "text-gray-700"}>
+                                {toJPY(b.actual)} / {toJPY(b.budget)}
+                              </span>
+                            </div>
+                            <div className="w-full bg-gray-100 rounded-full h-1.5">
+                              <div className={`h-1.5 rounded-full ${over ? "bg-red-400" : "bg-indigo-400"}`} style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* カテゴリ別詳細（共用） */}
+                {budgetVsActual.filter(b => b.cardType === "joint").length > 0 && (
+                  <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                    <div className="px-4 py-2 bg-amber-50 border-b">
+                      <h3 className="text-xs font-semibold text-amber-600">共用カード　カテゴリ別</h3>
+                    </div>
+                    <div className="divide-y divide-gray-100">
+                      {budgetVsActual.filter(b => b.cardType === "joint").map(b => {
+                        const pct = b.budget > 0 ? Math.min((b.actual / b.budget) * 100, 100) : 0
+                        const over = b.actual > b.budget
+                        return (
+                          <div key={b.category} className="px-4 py-2.5">
+                            <div className="flex justify-between text-sm mb-1">
+                              <span className="text-gray-700">{b.category}</span>
+                              <span className={over ? "text-red-500 font-semibold" : "text-gray-700"}>
+                                {toJPY(b.actual)} / {toJPY(b.budget)}
+                              </span>
+                            </div>
+                            <div className="w-full bg-gray-100 rounded-full h-1.5">
+                              <div className={`h-1.5 rounded-full ${over ? "bg-red-400" : "bg-amber-400"}`} style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
-          </div>
+          </>
         )}
 
         {/* === 資産タブ === */}
