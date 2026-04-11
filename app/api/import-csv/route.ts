@@ -32,7 +32,7 @@ function normalizeDate(raw: string): string | null {
   if (!raw) return null
   const s = raw.trim()
   // YYYY年MM月DD日
-  const m0 = s.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/)
+  const m0 = s.match(/(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日/)
   if (m0) return `${m0[1]}-${m0[2].padStart(2, "0")}-${m0[3].padStart(2, "0")}`
   // YYYY/MM/DD or YYYY-MM-DD
   const m1 = s.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/)
@@ -43,6 +43,17 @@ function normalizeDate(raw: string): string | null {
   // YYYYMMDD（8桁数字）
   const m3 = s.match(/^(\d{4})(\d{2})(\d{2})$/)
   if (m3) return `${m3[1]}-${m3[2]}-${m3[3]}`
+  // YYMMDD（6桁数字: イオンカード等 例: 260211 → 2026-02-11）
+  const m4 = s.match(/^(\d{2})(\d{2})(\d{2})$/)
+  if (m4) {
+    const yy = parseInt(m4[1])
+    const year = yy >= 50 ? `19${m4[1]}` : `20${m4[1]}`
+    const mm = parseInt(m4[2])
+    const dd = parseInt(m4[3])
+    if (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31) {
+      return `${year}-${m4[2]}-${m4[3]}`
+    }
+  }
   return null
 }
 
@@ -136,7 +147,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "file と card_id は必須です" }, { status: 400 })
   }
 
-  const text = await file.text()
+  // Shift-JIS / UTF-8 両対応（イオンカード等はShift-JIS）
+  const buffer = await file.arrayBuffer()
+  let text: string
+  try {
+    const decoder = new TextDecoder("utf-8", { fatal: true })
+    text = decoder.decode(buffer)
+  } catch {
+    try {
+      const decoder = new TextDecoder("shift_jis")
+      text = decoder.decode(buffer)
+    } catch {
+      const decoder = new TextDecoder("euc-jp")
+      text = decoder.decode(buffer)
+    }
+  }
+  // BOM除去
+  text = text.replace(/^\uFEFF/, "")
   const rows = parseCSV(text)
   if (rows.length < 2) {
     return NextResponse.json({ error: "データが空です" }, { status: 400 })
