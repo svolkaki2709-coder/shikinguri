@@ -112,18 +112,24 @@ export default function BudgetPage() {
           <div className="flex justify-between items-center">
             <div>
               <p className="text-xs text-gray-700">合計予算</p>
-              <p className="text-lg font-bold text-gray-700">{toJPY(total)}</p>
+              <p className="text-lg font-bold text-gray-800">{toJPY(total)}</p>
             </div>
             <div className="text-right">
               <p className="text-xs text-gray-700">合計実績</p>
-              <p className={`text-lg font-bold ${over ? "text-red-500" : "text-green-600"}`}>{toJPY(actualTot)}</p>
+              <p className={`text-lg font-bold ${over ? "text-red-500" : "text-gray-800"}`}>{toJPY(actualTot)}</p>
             </div>
           </div>
-          <div className="w-full bg-gray-100 rounded-full h-2 mt-2">
+          <div className="w-full bg-gray-100 rounded-full h-2 mt-2 mb-2">
             <div
               className={`h-2 rounded-full ${over ? "bg-red-400" : "bg-blue-400"}`}
               style={{ width: `${total > 0 ? Math.min((actualTot / total) * 100, 100) : 0}%` }}
             />
+          </div>
+          <div className={`flex justify-between items-center rounded-lg px-3 py-1.5 ${over ? "bg-red-50" : "bg-green-50"}`}>
+            <span className="text-xs text-gray-700">予算との差額</span>
+            <span className={`text-sm font-bold ${over ? "text-red-600" : "text-green-600"}`}>
+              {over ? "▲超過 " : "▼残り "}{toJPY(Math.abs(total - actualTot))}
+            </span>
           </div>
         </div>
         <div className="bg-white rounded-xl shadow-sm divide-y divide-gray-100">
@@ -234,24 +240,33 @@ export default function BudgetPage() {
               {[
                 { label: "個人カード", budget: selfBudgetTotal, actual: selfActualTotal, color: "#6366f1" },
                 { label: "共用カード", budget: jointBudgetTotal, actual: jointActualTotal, color: "#f59e0b" },
-              ].map(row => (
-                <div key={row.label}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: row.color }} />
-                      <span className="text-gray-700">{row.label}</span>
+              ].map(row => {
+                const diff = row.budget - row.actual
+                const isOver = row.actual > row.budget
+                return (
+                  <div key={row.label}>
+                    <div className="flex justify-between text-sm mb-1">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: row.color }} />
+                        <span className="text-gray-800 font-medium">{row.label}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className={isOver ? "text-red-500 font-semibold" : "text-gray-800"}>{toJPY(row.actual)}</span>
+                        <span className="text-gray-500 text-xs"> / {toJPY(row.budget)}</span>
+                      </div>
                     </div>
-                    <span className="text-gray-700">
-                      <span className={row.actual > row.budget ? "text-red-500 font-semibold" : ""}>{toJPY(row.actual)}</span>
-                      <span className="text-gray-700"> / {toJPY(row.budget)}</span>
-                    </span>
+                    <div className="w-full bg-gray-100 rounded-full h-1.5 mb-1">
+                      <div className={`h-1.5 rounded-full ${isOver ? "bg-red-400" : ""}`}
+                        style={{ width: `${row.budget > 0 ? Math.min((row.actual / row.budget) * 100, 100) : 0}%`, backgroundColor: isOver ? undefined : row.color }} />
+                    </div>
+                    <div className="flex justify-end">
+                      <span className={`text-xs font-semibold ${isOver ? "text-red-500" : "text-green-600"}`}>
+                        {isOver ? "▲超過 " : "▼残り "}{toJPY(Math.abs(diff))}
+                      </span>
+                    </div>
                   </div>
-                  <div className="w-full bg-gray-100 rounded-full h-1.5">
-                    <div className={`h-1.5 rounded-full ${row.actual > row.budget ? "bg-red-400" : ""}`}
-                      style={{ width: `${row.budget > 0 ? Math.min((row.actual / row.budget) * 100, 100) : 0}%`, backgroundColor: row.actual > row.budget ? undefined : row.color }} />
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
 
             {/* 貯蓄・投資計画 */}
