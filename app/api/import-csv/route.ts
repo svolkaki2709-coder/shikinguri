@@ -183,6 +183,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "データが空です" }, { status: 400 })
   }
 
+  // メタ行から請求合計金額を探す（例: 「次回ご請求額,193183」）
+  const billingTotalKeywords = ["請求額", "合計金額", "ご請求金額", "支払総額", "お支払い金額合計", "請求金額合計"]
+  let csvBillingTotal: number | null = null
+  for (let i = 0; i < headerRowIdx; i++) {
+    const row = rows[i]
+    const label = (row[0] ?? "").trim()
+    if (billingTotalKeywords.some(k => label.includes(k))) {
+      const val = parseAmount(row[1] ?? "")
+      if (val > 0) { csvBillingTotal = val; break }
+    }
+  }
+
   const headerRowIdx = findHeaderRowIndex(rows)
   const headers = rows[headerRowIdx]
   const { dateIdx, amountIdx, memoIdx } = detectColumns(headers)
@@ -230,6 +242,7 @@ export async function POST(req: NextRequest) {
   const cardName = cardRow[0]?.name ?? ""
 
   let count = 0
+  let importedTotal = 0
   const skipped: string[] = []
   for (const row of dataRows) {
     const rawDate = row[dateIdx] ?? ""
@@ -267,6 +280,7 @@ export async function POST(req: NextRequest) {
       VALUES (${date}, ${Number(cardId)}, ${category}, ${amount}, ${rawMemo}, 'csv')
     `
     count++
+    importedTotal += amount
   }
 
   // インポートログを記録
@@ -275,7 +289,17 @@ export async function POST(req: NextRequest) {
     VALUES (${Number(cardId)}, ${cardName}, ${startDate}, ${endDate}, ${count}, ${file.name})
   `
 
-  return NextResponse.json({ success: true, imported: count, skipped: skipped.length })
+  // 請求合計との照合
+  const verified = csvBillingTotal !== null ? csvBillingTotal === importedTotal : null
+
+  return NextResponse.json({
+    success: true,
+    imported: count,
+    skipped: skipped.length,
+    importedTotal,
+    csvBillingTotal,
+    verified,
+  })
   } catch (e: unknown) {
     const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e)
     console.error("[import-csv]", msg)

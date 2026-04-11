@@ -20,7 +20,10 @@ export default function ImportPage() {
   const [cardId, setCardId] = useState<number | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<{ imported: number; skipped: number; skippedRows?: string[] } | null>(null)
+  const [result, setResult] = useState<{
+    imported: number; skipped: number
+    importedTotal?: number; csvBillingTotal?: number | null; verified?: boolean | null
+  } | null>(null)
   const [error, setError] = useState("")
   const [logs, setLogs] = useState<ImportLog[]>([])
   const [warning, setWarning] = useState<{ message: string; newRange: { startDate: string; endDate: string } } | null>(null)
@@ -58,7 +61,10 @@ export default function ImportPage() {
       if (data.warning) {
         setWarning({ message: data.message, newRange: data.newRange })
       } else if (res.ok) {
-        setResult({ imported: data.imported, skipped: data.skipped, skippedRows: data.skippedRows })
+        setResult({
+          imported: data.imported, skipped: data.skipped,
+          importedTotal: data.importedTotal, csvBillingTotal: data.csvBillingTotal, verified: data.verified,
+        })
         setFile(null)
         if (fileRef.current) fileRef.current.value = ""
         fetchLogs()
@@ -153,6 +159,26 @@ export default function ImportPage() {
                 ✅ {result.imported}件取り込み完了
                 {result.skipped > 0 && <span className="text-gray-600 ml-2">（{result.skipped}件スキップ）</span>}
               </div>
+              {/* 請求合計との照合 */}
+              {result.csvBillingTotal != null && (
+                <div className={`rounded-lg px-3 py-2 text-sm border ${
+                  result.verified ? "bg-blue-50 border-blue-200 text-blue-800" : "bg-red-50 border-red-300 text-red-700"
+                }`}>
+                  {result.verified ? "✅" : "⚠️"} 請求合計照合：
+                  <span className="font-semibold ml-1">
+                    CSV請求額 ¥{result.csvBillingTotal.toLocaleString()} {result.verified ? "＝" : "≠"} 取込合計 ¥{(result.importedTotal ?? 0).toLocaleString()}
+                  </span>
+                  {!result.verified && (
+                    <p className="text-xs mt-1">金額が一致していません。明細を確認してください。</p>
+                  )}
+                </div>
+              )}
+              {result.csvBillingTotal == null && result.importedTotal != null && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-600">
+                  取込合計：¥{(result.importedTotal).toLocaleString()}
+                  <span className="text-xs ml-2">（このCSVは請求合計額が自動検出できませんでした）</span>
+                </div>
+              )}
             </div>
           )}
 
