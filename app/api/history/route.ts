@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { sql } from "@/lib/db"
+import { query } from "@/lib/db"
 
 export async function GET(req: NextRequest) {
   const session = await auth()
@@ -9,9 +9,9 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const keyword = searchParams.get("keyword") ?? ""
   const category = searchParams.get("category") ?? ""
-  const month = searchParams.get("month") ?? "" // YYYY-MM
+  const month = searchParams.get("month") ?? ""
 
-  let query = `
+  let sql = `
     SELECT id, date::text, category, amount, memo, type
     FROM transactions
     WHERE 1=1
@@ -20,20 +20,20 @@ export async function GET(req: NextRequest) {
   let idx = 1
 
   if (month) {
-    query += ` AND TO_CHAR(date, 'YYYY-MM') = $${idx++}`
+    sql += ` AND TO_CHAR(date, 'YYYY-MM') = $${idx++}`
     params.push(month)
   }
   if (category) {
-    query += ` AND category = $${idx++}`
+    sql += ` AND category = $${idx++}`
     params.push(category)
   }
   if (keyword) {
-    query += ` AND (memo ILIKE $${idx} OR category ILIKE $${idx})`
+    sql += ` AND (memo ILIKE $${idx} OR category ILIKE $${idx})`
     params.push(`%${keyword}%`)
     idx++
   }
-  query += ` ORDER BY date DESC, id DESC LIMIT 300`
+  sql += ` ORDER BY date DESC, id DESC LIMIT 300`
 
-  const { rows } = await sql.query(query, params)
+  const rows = await query(sql, params)
   return NextResponse.json({ transactions: rows })
 }

@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "必須項目が不足しています" }, { status: 400 })
   }
 
-  const { rows } = await sql`
+  const rows = await sql`
     INSERT INTO transactions (date, category, amount, memo, type)
     VALUES (${date}, ${category}, ${Number(amount)}, ${memo ?? ""}, ${type ?? "self"})
     RETURNING id

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { sql } from "@/lib/db"
+import { sql, query } from "@/lib/db"
 
 export async function GET(req: NextRequest) {
   const session = await auth()
@@ -12,9 +12,9 @@ export async function GET(req: NextRequest) {
     searchParams.get("month") ??
     `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
 
-  const [budgetsRes, actualsRes] = await Promise.all([
+  const [budgets, actuals] = await Promise.all([
     sql`SELECT category, amount, type FROM budgets ORDER BY type, category`,
-    sql.query(
+    query(
       `SELECT category, type, SUM(amount) AS actual
        FROM transactions
        WHERE TO_CHAR(date, 'YYYY-MM') = $1
@@ -23,13 +23,12 @@ export async function GET(req: NextRequest) {
     ),
   ])
 
-  // 実績をマップ化
   const actualMap: Record<string, number> = {}
-  for (const r of actualsRes.rows) {
+  for (const r of actuals) {
     actualMap[`${r.category}__${r.type}`] = Number(r.actual)
   }
 
-  const rows = budgetsRes.rows.map((b) => ({
+  const rows = budgets.map((b) => ({
     category: b.category,
     type: b.type,
     budget: Number(b.amount),

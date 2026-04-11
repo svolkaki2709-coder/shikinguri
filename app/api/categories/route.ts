@@ -6,9 +6,7 @@ export async function GET() {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { rows } = await sql`
-    SELECT name FROM categories ORDER BY sort_order, name
-  `
+  const rows = await sql`SELECT name FROM categories ORDER BY sort_order, name`
   return NextResponse.json({ categories: rows.map((r) => r.name) })
 }
 

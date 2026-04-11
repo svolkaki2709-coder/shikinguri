@@ -1,6 +1,28 @@
-import { sql } from "@vercel/postgres"
+import { neon } from "@neondatabase/serverless"
 
-export { sql }
+// 遅延初期化（ビルド時ではなく実行時に接続）
+function getDb() {
+  const url = process.env.DATABASE_URL ?? process.env.STORAGE_URL
+  if (!url) throw new Error("DATABASE_URL is not set")
+  return neon(url)
+}
+
+export async function sql<T = Record<string, unknown>>(
+  strings: TemplateStringsArray,
+  ...values: unknown[]
+): Promise<T[]> {
+  const db = getDb()
+  return db(strings, ...values) as Promise<T[]>
+}
+
+export async function query<T = Record<string, unknown>>(
+  text: string,
+  params?: unknown[]
+): Promise<T[]> {
+  const db = getDb()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (db as any)(text, params) as Promise<T[]>
+}
 
 export async function initDb() {
   await sql`
