@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { sql } from "@/lib/db"
+import iconv from "iconv-lite"
 
 // CSVパース（簡易実装）
 function parseCSV(text: string): string[][] {
@@ -148,19 +149,16 @@ export async function POST(req: NextRequest) {
   }
 
   // Shift-JIS / UTF-8 両対応（イオンカード等はShift-JIS）
-  const buffer = await file.arrayBuffer()
+  const buffer = Buffer.from(await file.arrayBuffer())
   let text: string
-  try {
-    const decoder = new TextDecoder("utf-8", { fatal: true })
-    text = decoder.decode(buffer)
-  } catch {
-    try {
-      const decoder = new TextDecoder("shift_jis")
-      text = decoder.decode(buffer)
-    } catch {
-      const decoder = new TextDecoder("euc-jp")
-      text = decoder.decode(buffer)
-    }
+  // UTF-8として試みる（BOM付きUTF-8も含む）
+  const utf8 = buffer.toString("utf-8")
+  const hasGarbled = /[\uFFFD]/.test(utf8) || /[\x80-\x9F]/.test(utf8.slice(0, 200))
+  if (!hasGarbled) {
+    text = utf8
+  } else {
+    // Shift-JIS でデコード
+    text = iconv.decode(buffer, "Shift_JIS")
   }
   // BOM除去
   text = text.replace(/^\uFEFF/, "")
