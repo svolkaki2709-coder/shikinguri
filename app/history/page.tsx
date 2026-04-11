@@ -152,7 +152,19 @@ function HistoryContent() {
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-xs text-gray-700 mb-1">カテゴリ</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs text-gray-700">カテゴリ</label>
+                <button
+                  onClick={() => setCategory(category === "未分類" ? "" : "未分類")}
+                  className={`text-xs px-2 py-0.5 rounded-full border transition-all ${
+                    category === "未分類"
+                      ? "bg-orange-500 text-white border-orange-500"
+                      : "text-orange-500 border-orange-300 hover:bg-orange-50"
+                  }`}
+                >
+                  未分類のみ
+                </button>
+              </div>
               <select value={category} onChange={e => setCategory(e.target.value)}
                 className="w-full border rounded-lg px-2 py-1.5 text-sm bg-white">
                 <option value="">すべて</option>
@@ -185,7 +197,7 @@ function HistoryContent() {
                 <span className="text-xs font-semibold text-gray-600">{toJPY(dayTotal)}</span>
               </div>
               {grouped[date].map(t => (
-                <div key={t.id} className="flex items-center gap-3 px-4 py-2 border-b last:border-0">
+                <div key={t.id} className={`flex items-center gap-3 px-4 py-2 border-b last:border-0 ${t.category === "未分類" ? "bg-orange-50" : ""}`}>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
                       {t.card_name && (
@@ -207,10 +219,14 @@ function HistoryContent() {
                       ) : (
                         <button
                           onClick={() => setEditingId(t.id)}
-                          className="text-sm font-medium text-gray-800 hover:text-blue-600 hover:underline truncate text-left"
+                          className={`text-sm font-medium hover:underline truncate text-left ${
+                            t.category === "未分類"
+                              ? "text-orange-500 font-semibold hover:text-orange-600"
+                              : "text-gray-800 hover:text-blue-600"
+                          }`}
                           title="タップしてカテゴリを変更"
                         >
-                          {t.category}
+                          {t.category === "未分類" ? "⚠ 未分類" : t.category}
                         </button>
                       )}
                       {t.source === "csv" && <span className="text-xs text-blue-400 shrink-0">CSV</span>}
