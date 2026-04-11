@@ -96,15 +96,15 @@ export default function AssetsPage() {
             {/* 最新残高サマリー */}
             {latest && (
               <div className="bg-white rounded-xl shadow-sm p-3">
-                <p className="text-xs text-gray-600 mb-1">{latest.month} 時点の資産</p>
+                <p className="text-xs text-gray-700 mb-1">{latest.month} 時点の資産</p>
                 <p className="text-3xl font-bold text-blue-600">{toJPY(latest.total)}</p>
                 <div className="mt-3 grid grid-cols-2 gap-3">
                   <div className="bg-green-50 rounded-xl p-3 text-center">
-                    <p className="text-xs text-gray-600 mb-1">貯金</p>
+                    <p className="text-xs text-gray-700 mb-1">貯金</p>
                     <p className="text-lg font-bold text-green-600">{toJPY(latest.savings)}</p>
                   </div>
                   <div className="bg-purple-50 rounded-xl p-3 text-center">
-                    <p className="text-xs text-gray-600 mb-1">投資 (NISA)</p>
+                    <p className="text-xs text-gray-700 mb-1">投資 (NISA)</p>
                     <p className="text-lg font-bold text-purple-600">{toJPY(latest.investment)}</p>
                   </div>
                 </div>
@@ -115,7 +115,7 @@ export default function AssetsPage() {
             <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
               <h2 className="text-sm font-semibold text-gray-700">資産残高を更新</h2>
               <div>
-                <label className="text-xs text-gray-600 mb-1 block">月</label>
+                <label className="text-xs text-gray-700 mb-1 block">月</label>
                 <div className="flex items-center gap-1 border rounded-lg px-2 py-1">
                   <button onClick={() => setMonth(m => { const [y,mo] = m.split("-").map(Number); const d = new Date(y, mo-2, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` })}
                     className="text-gray-600 hover:text-blue-600 px-1 font-bold text-base">‹</button>
@@ -127,12 +127,12 @@ export default function AssetsPage() {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-xs text-gray-600 mb-1 block">貯金残高（円）</label>
+                  <label className="text-xs text-gray-700 mb-1 block">貯金残高（円）</label>
                   <input type="number" value={savings} onChange={e => setSavings(e.target.value)}
                     placeholder="0" className="w-full border rounded-lg px-3 py-2 text-sm" />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-600 mb-1 block">投資残高（円）</label>
+                  <label className="text-xs text-gray-700 mb-1 block">投資残高（円）</label>
                   <input type="number" value={investment} onChange={e => setInvestment(e.target.value)}
                     placeholder="0" className="w-full border rounded-lg px-3 py-2 text-sm" />
                 </div>
@@ -157,12 +157,12 @@ export default function AssetsPage() {
                     <div className="flex justify-between items-start mb-2">
                       <div>
                         <p className="text-sm font-medium text-gray-800">{g.name}</p>
-                        {g.deadline && <p className="text-xs text-gray-600">目標：{g.deadline}</p>}
+                        {g.deadline && <p className="text-xs text-gray-700">目標：{g.deadline}</p>}
                       </div>
                       <button onClick={() => handleDeleteGoal(g.id)}
                         className="text-gray-300 hover:text-red-400 text-xl leading-none">×</button>
                     </div>
-                    <div className="flex justify-between text-xs text-gray-600 mb-1">
+                    <div className="flex justify-between text-xs text-gray-700 mb-1">
                       <span>{toJPY(totalAssets)}</span>
                       <span>{toJPY(g.target_amount)}</span>
                     </div>
@@ -172,7 +172,7 @@ export default function AssetsPage() {
                     </div>
                     <div className="flex justify-between text-xs">
                       <span className="text-blue-600 font-semibold">{pct.toFixed(1)}%</span>
-                      <span className="text-gray-600">
+                      <span className="text-gray-700">
                         {remaining > 0 ? `あと${toJPY(remaining)}` : "達成済み"}
                       </span>
                     </div>

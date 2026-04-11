@@ -12,7 +12,7 @@ function toJPY(n: number) {
 function BalanceRow({ label, amount, sub }: { label: string; amount: number; sub?: boolean }) {
   const color = amount >= 0 ? "text-blue-600" : "text-red-500"
   return (
-    <div className={`flex justify-between items-center ${sub ? "pl-2 text-xs text-gray-600" : "text-sm font-semibold text-gray-800"}`}>
+    <div className={`flex justify-between items-center ${sub ? "pl-2 text-xs text-gray-700" : "text-sm font-semibold text-gray-800"}`}>
       <span>{label}</span>
       <span className={sub ? "" : color}>{toJPY(amount)}</span>
     </div>
@@ -111,11 +111,11 @@ export default function BudgetPage() {
         <div className="bg-white rounded-xl shadow-sm p-3">
           <div className="flex justify-between items-center">
             <div>
-              <p className="text-xs text-gray-600">合計予算</p>
+              <p className="text-xs text-gray-700">合計予算</p>
               <p className="text-lg font-bold text-gray-700">{toJPY(total)}</p>
             </div>
             <div className="text-right">
-              <p className="text-xs text-gray-600">合計実績</p>
+              <p className="text-xs text-gray-700">合計実績</p>
               <p className={`text-lg font-bold ${over ? "text-red-500" : "text-green-600"}`}>{toJPY(actualTot)}</p>
             </div>
           </div>
@@ -143,7 +143,7 @@ export default function BudgetPage() {
                   <div className={`h-1.5 rounded-full ${isOver ? "bg-red-500" : "bg-blue-500"}`}
                     style={{ width: `${pct}%` }} />
                 </div>
-                <div className="flex justify-between text-xs text-gray-600 mt-1">
+                <div className="flex justify-between text-xs text-gray-700 mt-1">
                   <span>実績 {toJPY(row.actual)}</span>
                   <span>予算 {toJPY(row.budget)}</span>
                 </div>
@@ -171,7 +171,7 @@ export default function BudgetPage() {
         <div className="flex bg-gray-100 rounded-lg p-1">
           {tabs.map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
-              className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-colors ${tab === t.key ? "bg-white text-blue-600 shadow-sm" : "text-gray-600"}`}>
+              className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-colors ${tab === t.key ? "bg-white text-blue-600 shadow-sm" : "text-gray-700"}`}>
               {t.label}
             </button>
           ))}
@@ -185,12 +185,12 @@ export default function BudgetPage() {
             {/* 余力資金サマリー */}
             <div className="bg-white rounded-xl shadow-sm p-3">
               <div className="flex justify-between items-center mb-2">
-                <p className="text-xs text-gray-600">収支サマリー（{month}）</p>
+                <p className="text-xs text-gray-700">収支サマリー（{month}）</p>
                 <Link href="/settings" className="text-xs text-blue-500 hover:underline">収入入力 →</Link>
               </div>
               <div className="space-y-1 text-sm mb-3">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">収入</span>
+                  <span className="text-gray-700">収入</span>
                   <span className="font-medium text-green-600">+{toJPY(incomeTotal)}</span>
                 </div>
                 <div className="flex justify-between">
@@ -215,13 +215,13 @@ export default function BudgetPage() {
                 )}
               </div>
               <div className={`rounded-xl p-3 text-center ${planFreeBalance >= 0 ? "bg-blue-50" : "bg-red-50"}`}>
-                <p className="text-xs text-gray-600 mb-0.5">余力資金（計画ベース）</p>
+                <p className="text-xs text-gray-700 mb-0.5">余力資金（計画ベース）</p>
                 <p className={`text-2xl font-bold ${planFreeBalance >= 0 ? "text-blue-600" : "text-red-500"}`}>
                   {planFreeBalance >= 0 ? "+" : ""}{toJPY(planFreeBalance)}
                 </p>
               </div>
               <div className={`rounded-xl p-2 text-center mt-2 ${actualBalance >= 0 ? "bg-green-50" : "bg-red-50"}`}>
-                <p className="text-xs text-gray-600">実績ベース（収入−実績支出）</p>
+                <p className="text-xs text-gray-700">実績ベース（収入−実績支出）</p>
                 <p className={`text-lg font-bold ${actualBalance >= 0 ? "text-green-600" : "text-red-500"}`}>
                   {actualBalance >= 0 ? "+" : ""}{toJPY(actualBalance)}
                 </p>
@@ -241,9 +241,9 @@ export default function BudgetPage() {
                       <span className="w-2 h-2 rounded-full" style={{ backgroundColor: row.color }} />
                       <span className="text-gray-700">{row.label}</span>
                     </div>
-                    <span className="text-gray-600">
+                    <span className="text-gray-700">
                       <span className={row.actual > row.budget ? "text-red-500 font-semibold" : ""}>{toJPY(row.actual)}</span>
-                      <span className="text-gray-600"> / {toJPY(row.budget)}</span>
+                      <span className="text-gray-700"> / {toJPY(row.budget)}</span>
                     </span>
                   </div>
                   <div className="w-full bg-gray-100 rounded-full h-1.5">
@@ -265,12 +265,12 @@ export default function BudgetPage() {
               {editing ? (
                 <div className="space-y-3">
                   <div>
-                    <label className="text-xs text-gray-600 mb-1 block">貯金目標（円）</label>
+                    <label className="text-xs text-gray-700 mb-1 block">貯金目標（円）</label>
                     <input type="number" value={savingsInput} onChange={e => setSavingsInput(e.target.value)}
                       placeholder="0" className="w-full border rounded-lg px-3 py-2 text-sm" />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-600 mb-1 block">NISA積立目標（円）</label>
+                    <label className="text-xs text-gray-700 mb-1 block">NISA積立目標（円）</label>
                     <input type="number" value={nisaInput} onChange={e => setNisaInput(e.target.value)}
                       placeholder="0" className="w-full border rounded-lg px-3 py-2 text-sm" />
                   </div>
@@ -297,9 +297,9 @@ export default function BudgetPage() {
                           <span className="text-gray-700">{row.label}</span>
                         </div>
                         {row.target > 0 ? (
-                          <span className="text-gray-600">
+                          <span className="text-gray-700">
                             <span>{toJPY(row.actual)}</span>
-                            <span className="text-gray-600"> / {toJPY(row.target)}</span>
+                            <span className="text-gray-700"> / {toJPY(row.target)}</span>
                           </span>
                         ) : (
                           <span className="text-gray-600 text-xs">未設定</span>
@@ -314,7 +314,7 @@ export default function BudgetPage() {
                     </div>
                   ))}
                   {plan.savingsTarget === 0 && plan.nisaTarget === 0 && (
-                    <p className="text-xs text-gray-600 text-center py-1">「編集」から目標額を設定できます</p>
+                    <p className="text-xs text-gray-700 text-center py-1">「編集」から目標額を設定できます</p>
                   )}
                 </div>
               )}

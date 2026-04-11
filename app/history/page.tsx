@@ -87,7 +87,7 @@ export default function HistoryPage() {
         <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-xs text-gray-600 mb-1">月</label>
+              <label className="block text-xs text-gray-700 mb-1">月</label>
               <div className="flex items-center gap-1 border rounded-lg px-1 py-1">
                 <button onClick={() => setMonth(m => { const [y,mo] = m.split("-").map(Number); const d = new Date(y, mo-2, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` })}
                   className="text-gray-600 hover:text-blue-600 px-1 font-bold text-base">‹</button>
@@ -98,7 +98,7 @@ export default function HistoryPage() {
               </div>
             </div>
             <div>
-              <label className="block text-xs text-gray-600 mb-1">カード</label>
+              <label className="block text-xs text-gray-700 mb-1">カード</label>
               <select value={cardId} onChange={e => setCardId(e.target.value)}
                 className="w-full border rounded-lg px-2 py-1.5 text-sm bg-white">
                 <option value="">すべて</option>
@@ -108,7 +108,7 @@ export default function HistoryPage() {
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-xs text-gray-600 mb-1">カテゴリ</label>
+              <label className="block text-xs text-gray-700 mb-1">カテゴリ</label>
               <select value={category} onChange={e => setCategory(e.target.value)}
                 className="w-full border rounded-lg px-2 py-1.5 text-sm bg-white">
                 <option value="">すべて</option>
@@ -116,7 +116,7 @@ export default function HistoryPage() {
               </select>
             </div>
             <div>
-              <label className="block text-xs text-gray-600 mb-1">キーワード</label>
+              <label className="block text-xs text-gray-700 mb-1">キーワード</label>
               <input type="text" value={keyword} onChange={e => setKeyword(e.target.value)}
                 placeholder="メモ・カテゴリ"
                 className="w-full border rounded-lg px-2 py-1.5 text-sm" />
@@ -126,7 +126,7 @@ export default function HistoryPage() {
 
         {/* 合計 */}
         <div className="flex justify-between items-center px-1">
-          <span className="text-sm text-gray-600">{transactions.length}件</span>
+          <span className="text-sm text-gray-700">{transactions.length}件</span>
           <span className="text-base font-bold text-gray-800">{toJPY(total)}</span>
         </div>
 
@@ -154,7 +154,7 @@ export default function HistoryPage() {
                       {t.source === "csv" && <span className="text-xs text-blue-400 shrink-0">CSV</span>}
                       {t.source === "recurring" && <span className="text-xs text-green-400 shrink-0">定期</span>}
                     </div>
-                    {t.memo && <p className="text-xs text-gray-600 truncate">{t.memo}</p>}
+                    {t.memo && <p className="text-xs text-gray-700 truncate">{t.memo}</p>}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="text-sm font-semibold text-gray-800">{toJPY(t.amount)}</span>

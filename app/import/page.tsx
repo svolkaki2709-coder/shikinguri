@@ -124,13 +124,13 @@ export default function ImportPage() {
               {file ? (
                 <div>
                   <p className="text-sm font-medium text-blue-600">{file.name}</p>
-                  <p className="text-xs text-gray-600 mt-1">{(file.size / 1024).toFixed(1)} KB</p>
+                  <p className="text-xs text-gray-700 mt-1">{(file.size / 1024).toFixed(1)} KB</p>
                 </div>
               ) : (
                 <div>
                   <p className="text-2xl mb-1">📂</p>
-                  <p className="text-sm text-gray-600">タップしてCSVを選択</p>
-                  <p className="text-xs text-gray-600">.csv ファイル</p>
+                  <p className="text-sm text-gray-700">タップしてCSVを選択</p>
+                  <p className="text-xs text-gray-700">.csv ファイル</p>
                 </div>
               )}
             </div>
@@ -200,7 +200,7 @@ export default function ImportPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-medium text-gray-800">{log.card_name}</span>
-                    <span className="text-xs text-gray-600">{log.start_date} ～ {log.end_date}</span>
+                    <span className="text-xs text-gray-700">{log.start_date} ～ {log.end_date}</span>
                   </div>
                   <p className="text-xs text-gray-500 truncate">{log.file_name} · {log.row_count}件</p>
                 </div>
@@ -213,7 +213,7 @@ export default function ImportPage() {
         {/* ヒント */}
         <div className="bg-white rounded-xl shadow-sm p-3">
           <h3 className="text-sm font-semibold text-gray-700 mb-2">対応フォーマット</h3>
-          <div className="space-y-1.5 text-xs text-gray-600">
+          <div className="space-y-1.5 text-xs text-gray-700">
             <div className="flex items-start gap-2">
               <span className="text-blue-500 shrink-0">•</span>
               <span>日付列：「利用日」「取引日」「date」などを自動検出</span>

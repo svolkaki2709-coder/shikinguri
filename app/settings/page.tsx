@@ -47,6 +47,7 @@ export default function SettingsPage() {
   const [budgetSaving, setBudgetSaving] = useState(false)
   const [budgetMsg, setBudgetMsg] = useState("")
   const [existingBudgets, setExistingBudgets] = useState<BudgetRow[]>([])
+  const [editingBudgetKey, setEditingBudgetKey] = useState<string | null>(null)
 
   useEffect(() => {
     Promise.all([
@@ -127,10 +128,25 @@ export default function SettingsPage() {
     setBudgetMsg("保存しました")
     setBudgetAmount("")
     setBudgetSaving(false)
+    setEditingBudgetKey(null)
     // 一覧を更新
     const d = await fetch("/api/budget").then(r => r.json())
     const bRaw: Array<{ category: string; cardType: string; budget: number }> = d.budgets ?? []
     setExistingBudgets(bRaw.map(b => ({ category: b.category, card_type: b.cardType, budget: b.budget })))
+  }
+
+  function handleEditBudget(b: BudgetRow) {
+    setBudgetCardType(b.card_type)
+    setBudgetCategory(b.category)
+    setBudgetAmount(String(b.budget))
+    setBudgetMsg("")
+    setEditingBudgetKey(`${b.category}:${b.card_type}`)
+  }
+
+  function handleCancelEditBudget() {
+    setEditingBudgetKey(null)
+    setBudgetAmount("")
+    setBudgetMsg("")
   }
 
   async function handleDeleteBudget(category: string, cardType: string) {
@@ -153,7 +169,7 @@ export default function SettingsPage() {
         <div className="flex rounded-xl bg-gray-100 p-1">
           {tabs.map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${tab === t.key ? "bg-white shadow-sm text-blue-600" : "text-gray-600"}`}>
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${tab === t.key ? "bg-white shadow-sm text-blue-600" : "text-gray-700"}`}>
               {t.label}
             </button>
           ))}
@@ -166,7 +182,7 @@ export default function SettingsPage() {
               <h2 className="text-sm font-semibold text-gray-700">定期支出を追加</h2>
               <div className="grid grid-cols-3 gap-2">
                 <div className="col-span-1">
-                  <label className="text-xs text-gray-600 mb-1 block">引き落とし日</label>
+                  <label className="text-xs text-gray-700 mb-1 block">引き落とし日</label>
                   <select value={rDay} onChange={e => setRDay(e.target.value)}
                     className="w-full border rounded-lg px-2 py-2 text-sm bg-white">
                     {Array.from({ length: 28 }, (_, i) => i + 1).map(d => (
@@ -175,7 +191,7 @@ export default function SettingsPage() {
                   </select>
                 </div>
                 <div className="col-span-2">
-                  <label className="text-xs text-gray-600 mb-1 block">カード</label>
+                  <label className="text-xs text-gray-700 mb-1 block">カード</label>
                   <div className="flex gap-1">
                     {cards.map(c => (
                       <button key={c.id} type="button" onClick={() => setRCardId(c.id)}
@@ -193,20 +209,20 @@ export default function SettingsPage() {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-xs text-gray-600 mb-1 block">カテゴリ</label>
+                  <label className="text-xs text-gray-700 mb-1 block">カテゴリ</label>
                   <select value={rCategory} onChange={e => setRCategory(e.target.value)}
                     className="w-full border rounded-lg px-2 py-2 text-sm bg-white">
                     {categories.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-600 mb-1 block">金額（円）</label>
+                  <label className="text-xs text-gray-700 mb-1 block">金額（円）</label>
                   <input type="number" value={rAmount} onChange={e => setRAmount(e.target.value)}
                     placeholder="0" className="w-full border rounded-lg px-2 py-2 text-sm" />
                 </div>
               </div>
               <div>
-                <label className="text-xs text-gray-600 mb-1 block">メモ（任意）</label>
+                <label className="text-xs text-gray-700 mb-1 block">メモ（任意）</label>
                 <input type="text" value={rMemo} onChange={e => setRMemo(e.target.value)}
                   placeholder="例：Netflix サブスク"
                   className="w-full border rounded-lg px-3 py-2 text-sm" />
@@ -237,7 +253,7 @@ export default function SettingsPage() {
                         </span>
                         <span className="text-sm font-medium text-gray-800">{r.category}</span>
                       </div>
-                      <p className="text-xs text-gray-600">{r.day_of_month}日 {r.memo && `/ ${r.memo}`}</p>
+                      <p className="text-xs text-gray-700">{r.day_of_month}日 {r.memo && `/ ${r.memo}`}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold text-gray-700">{toJPY(r.amount)}</span>
@@ -256,7 +272,7 @@ export default function SettingsPage() {
           <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
             <h2 className="text-sm font-semibold text-gray-700">収入を記録</h2>
             <div>
-              <label className="text-xs text-gray-600 mb-1 block">月</label>
+              <label className="text-xs text-gray-700 mb-1 block">月</label>
               <div className="flex items-center gap-1 border rounded-lg px-2 py-1">
                 <button onClick={() => setIncomeMonth(m => { const [y,mo] = m.split("-").map(Number); const d = new Date(y, mo-2, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` })}
                   className="text-gray-600 hover:text-blue-600 px-1 font-bold text-base">‹</button>
@@ -267,7 +283,7 @@ export default function SettingsPage() {
               </div>
             </div>
             <div>
-              <label className="text-xs text-gray-600 mb-1 block">種別</label>
+              <label className="text-xs text-gray-700 mb-1 block">種別</label>
               <div className="flex gap-2">
                 {["給与", "副収入", "その他"].map(cat => (
                   <button key={cat} type="button" onClick={() => setIncomeCategory(cat)}
@@ -278,7 +294,7 @@ export default function SettingsPage() {
               </div>
             </div>
             <div>
-              <label className="text-xs text-gray-600 mb-1 block">金額（円）</label>
+              <label className="text-xs text-gray-700 mb-1 block">金額（円）</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm">¥</span>
                 <input type="number" value={incomeAmount} onChange={e => setIncomeAmount(e.target.value)}
@@ -286,7 +302,7 @@ export default function SettingsPage() {
               </div>
             </div>
             <div>
-              <label className="text-xs text-gray-600 mb-1 block">メモ（任意）</label>
+              <label className="text-xs text-gray-700 mb-1 block">メモ（任意）</label>
               <input type="text" value={incomeMemo} onChange={e => setIncomeMemo(e.target.value)}
                 placeholder="例：3月分給与"
                 className="w-full border rounded-lg px-3 py-2 text-sm" />
@@ -302,30 +318,42 @@ export default function SettingsPage() {
         {/* === 予算設定タブ === */}
         {tab === "budget" && (
           <>
-          <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
-            <h2 className="text-sm font-semibold text-gray-700">予算を設定</h2>
+          <div className={`bg-white rounded-xl shadow-sm p-3 space-y-3 ${editingBudgetKey ? "ring-2 ring-blue-400" : ""}`}>
+            <div className="flex justify-between items-center">
+              <h2 className="text-sm font-semibold text-gray-700">
+                {editingBudgetKey ? "予算を編集" : "予算を追加"}
+              </h2>
+              {editingBudgetKey && (
+                <button onClick={handleCancelEditBudget} className="text-xs text-gray-500 hover:text-gray-700">
+                  キャンセル
+                </button>
+              )}
+            </div>
             <div>
-              <label className="text-xs text-gray-600 mb-1 block">対象</label>
+              <label className="text-xs text-gray-700 mb-1 block">対象</label>
               <div className="flex gap-2">
-                <button type="button" onClick={() => setBudgetCardType("self")}
+                <button type="button"
+                  onClick={() => { setBudgetCardType("self"); if (editingBudgetKey) setEditingBudgetKey(null) }}
                   className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${budgetCardType === "self" ? "bg-indigo-600 text-white border-indigo-600" : "border-gray-300 text-gray-600"}`}>
                   個人
                 </button>
-                <button type="button" onClick={() => setBudgetCardType("joint")}
+                <button type="button"
+                  onClick={() => { setBudgetCardType("joint"); if (editingBudgetKey) setEditingBudgetKey(null) }}
                   className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${budgetCardType === "joint" ? "bg-amber-500 text-white border-amber-500" : "border-gray-300 text-gray-600"}`}>
                   共用
                 </button>
               </div>
             </div>
             <div>
-              <label className="text-xs text-gray-600 mb-1 block">カテゴリ</label>
+              <label className="text-xs text-gray-700 mb-1 block">カテゴリ</label>
               <select value={budgetCategory} onChange={e => setBudgetCategory(e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm bg-white">
+                disabled={!!editingBudgetKey}
+                className="w-full border rounded-lg px-3 py-2 text-sm bg-white disabled:bg-gray-50 disabled:text-gray-600">
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-600 mb-1 block">月間予算（円）</label>
+              <label className="text-xs text-gray-700 mb-1 block">月間予算（円）</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm">¥</span>
                 <input type="number" value={budgetAmount} onChange={e => setBudgetAmount(e.target.value)}
@@ -335,15 +363,17 @@ export default function SettingsPage() {
             {budgetMsg && <p className="text-xs text-green-600">✅ {budgetMsg}</p>}
             <button onClick={handleSaveBudget} disabled={budgetSaving || !budgetCategory || !budgetAmount}
               className="w-full bg-blue-600 text-white rounded-lg py-2.5 text-sm font-semibold disabled:opacity-50">
-              {budgetSaving ? "保存中..." : "予算を設定"}
+              {budgetSaving ? "保存中..." : editingBudgetKey ? "金額を更新" : "予算を設定"}
             </button>
           </div>
 
           {/* 設定済み予算一覧 */}
           {existingBudgets.length > 0 && (
             <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-              <div className="px-4 py-3 bg-gray-50 border-b">
-                <h2 className="text-sm font-semibold text-gray-700">設定済み予算</h2>
+              <div className="px-4 py-2 bg-gray-50 border-b">
+                <h2 className="text-sm font-semibold text-gray-700">設定済み予算
+                  <span className="text-xs font-normal text-gray-500 ml-2">行をタップして金額を編集</span>
+                </h2>
               </div>
               {["self", "joint"].map(ct => {
                 const rows = existingBudgets.filter(b => b.card_type === ct)
@@ -353,16 +383,28 @@ export default function SettingsPage() {
                     <div className={`px-4 py-1.5 text-xs font-semibold ${ct === "joint" ? "bg-amber-50 text-amber-600" : "bg-indigo-50 text-indigo-600"}`}>
                       {ct === "joint" ? "共用カード" : "個人カード"}
                     </div>
-                    {rows.map(b => (
-                      <div key={b.category} className="flex items-center justify-between px-4 py-2.5 border-b last:border-0">
-                        <span className="text-sm text-gray-700">{b.category}</span>
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-medium text-gray-600">{toJPY(b.budget)}</span>
-                          <button onClick={() => handleDeleteBudget(b.category, b.card_type)}
-                            className="text-gray-300 hover:text-red-400 text-xl leading-none w-6">×</button>
+                    {rows.map(b => {
+                      const key = `${b.category}:${b.card_type}`
+                      const isEditing = editingBudgetKey === key
+                      return (
+                        <div
+                          key={b.category}
+                          className={`flex items-center justify-between px-4 py-2.5 border-b last:border-0 cursor-pointer transition-colors ${isEditing ? "bg-blue-50" : "hover:bg-gray-50"}`}
+                          onClick={() => handleEditBudget(b)}
+                        >
+                          <span className={`text-sm ${isEditing ? "text-blue-700 font-medium" : "text-gray-700"}`}>{b.category}</span>
+                          <div className="flex items-center gap-3">
+                            <span className={`text-sm font-medium ${isEditing ? "text-blue-600" : "text-gray-700"}`}>{toJPY(b.budget)}</span>
+                            {isEditing
+                              ? <span className="text-blue-400 text-xs font-medium">編集中</span>
+                              : <button
+                                  onClick={e => { e.stopPropagation(); handleDeleteBudget(b.category, b.card_type) }}
+                                  className="text-gray-300 hover:text-red-400 text-xl leading-none w-6">×</button>
+                            }
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )
               })}

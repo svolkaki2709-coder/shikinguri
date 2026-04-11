@@ -6,6 +6,8 @@ import { BottomNav } from "@/components/BottomNav"
 
 interface Card { id: number; name: string; card_type: string; color: string }
 
+const CASH_CARD = { name: "現金", card_type: "self", color: "#10b981", sort_order: 0 }
+
 export default function InputPage() {
   const [cards, setCards] = useState<Card[]>([])
   const [categories, setCategories] = useState<string[]>([])
@@ -21,10 +23,27 @@ export default function InputPage() {
     Promise.all([
       fetch("/api/cards").then(r => r.json()),
       fetch("/api/categories").then(r => r.json()),
-    ]).then(([cardData, catData]) => {
-      const c = cardData.cards ?? []
-      setCards(c)
-      if (c.length > 0) setCardId(c[0].id)
+    ]).then(async ([cardData, catData]) => {
+      let allCards: Card[] = cardData.cards ?? []
+
+      // 「現金」カードがなければ自動作成
+      let cashCard = allCards.find(c => c.name === "現金")
+      if (!cashCard) {
+        const res = await fetch("/api/cards", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(CASH_CARD),
+        })
+        const d = await res.json()
+        if (d.card) {
+          cashCard = d.card
+          allCards = [d.card, ...allCards]
+        }
+      }
+
+      setCards(allCards)
+      setCardId(cashCard?.id ?? allCards[0]?.id ?? null)
+
       const cats = catData.categories ?? []
       setCategories(cats)
       if (cats.length > 0) setCategory(cats[0])
@@ -59,44 +78,71 @@ export default function InputPage() {
     }
   }
 
+  const cashCard = cards.find(c => c.name === "現金")
+  const otherCards = cards.filter(c => c.name !== "現金")
   const selectedCard = cards.find(c => c.id === cardId)
 
   return (
     <div className="pb-20">
-      <PageHeader title="支出入力" />
-      <main className="max-w-md mx-auto px-4 py-4">
-        <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm p-5 space-y-4">
+      <PageHeader title="手動入力" />
+      <main className="max-w-md mx-auto px-4 py-2">
+        <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm p-3 space-y-3">
 
-          {/* カード選択 */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-2">カード</label>
-            <div className="flex gap-2">
-              {cards.map(c => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => setCardId(c.id)}
-                  className="flex-1 py-2.5 rounded-xl text-sm font-medium border-2 transition-all"
-                  style={{
-                    borderColor: cardId === c.id ? c.color : "#e5e7eb",
-                    backgroundColor: cardId === c.id ? c.color + "18" : "white",
-                    color: cardId === c.id ? c.color : "#6b7280",
-                  }}
-                >
-                  {c.name}
-                </button>
-              ))}
-            </div>
-            {selectedCard && (
-              <p className="text-xs text-gray-400 mt-1 pl-1">
-                {selectedCard.card_type === "joint" ? "共用（パートナーと共有）" : "個人費用"}
+            <p className="text-xs text-gray-500 mb-2">💡 カードはCSV取り込み。ここでは現金・電子マネーなどを手動記録</p>
+          </div>
+
+          {/* 支払方法 */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-2">支払方法</label>
+            {/* 現金（メイン） */}
+            {cashCard && (
+              <button
+                type="button"
+                onClick={() => setCardId(cashCard.id)}
+                className={`w-full py-2.5 rounded-xl text-sm font-semibold mb-2 border-2 transition-all flex items-center justify-center gap-2 ${
+                  cardId === cashCard.id
+                    ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                    : "border-gray-200 text-gray-600 hover:border-emerald-300"
+                }`}
+              >
+                <span className="text-base">💴</span>
+                現金・電子マネー
+              </button>
+            )}
+            {/* カード（稀に手動入力する場合） */}
+            {otherCards.length > 0 && (
+              <div>
+                <p className="text-xs text-gray-500 mb-1.5">カード（手動追加する場合）</p>
+                <div className="flex gap-1.5 flex-wrap">
+                  {otherCards.map(c => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setCardId(c.id)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium border-2 transition-all"
+                      style={{
+                        borderColor: cardId === c.id ? c.color : "#e5e7eb",
+                        backgroundColor: cardId === c.id ? c.color + "18" : "white",
+                        color: cardId === c.id ? c.color : "#6b7280",
+                      }}
+                    >
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {selectedCard && selectedCard.name !== "現金" && (
+              <p className="text-xs text-amber-600 mt-1 bg-amber-50 rounded px-2 py-1">
+                ⚠️ カードの明細はCSV取り込みを推奨。手動は補完用途でご利用ください
               </p>
             )}
           </div>
 
           {/* 日付 */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">日付</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">日付</label>
             <input
               type="date"
               value={date}
@@ -108,11 +154,11 @@ export default function InputPage() {
 
           {/* カテゴリ */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">カテゴリ</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">カテゴリ</label>
             <select
               value={category}
               onChange={e => setCategory(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-800"
               required
             >
               {categories.map(c => <option key={c} value={c}>{c}</option>)}
@@ -121,16 +167,16 @@ export default function InputPage() {
 
           {/* 金額 */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">金額（円）</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">金額（円）</label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">¥</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm">¥</span>
               <input
                 type="number"
                 value={amount}
                 onChange={e => setAmount(e.target.value)}
                 placeholder="0"
                 min="1"
-                className="w-full border border-gray-300 rounded-lg pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-gray-300 rounded-lg pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
                 required
               />
             </div>
@@ -138,13 +184,13 @@ export default function InputPage() {
 
           {/* メモ */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">メモ（任意）</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">メモ（任意）</label>
             <input
               type="text"
               value={memo}
               onChange={e => setMemo(e.target.value)}
-              placeholder="内容のメモ..."
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="例：スーパーで食材"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
             />
           </div>
 
@@ -157,7 +203,7 @@ export default function InputPage() {
           <button
             type="submit"
             disabled={loading || !cardId}
-            className="w-full bg-blue-600 text-white rounded-lg py-3 font-semibold text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="w-full bg-blue-600 text-white rounded-lg py-2.5 font-semibold text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors"
           >
             {loading ? "保存中..." : "記録する"}
           </button>

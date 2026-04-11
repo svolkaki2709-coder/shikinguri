@@ -82,9 +82,29 @@ export default function DashboardPage() {
     }
   }, [tab])
 
+  const [trendPeriod, setTrendPeriod] = useState<"6m" | "12m" | "year">("6m")
+  const [trendFY, setTrendFY] = useState<number | null>(null)
+
+  // 月データから利用可能な年度を計算（日本の会計年度 4月〜3月）
+  function getFY(month: string): number {
+    const [y, m] = month.split("-").map(Number)
+    return m >= 4 ? y : y - 1
+  }
+  const availableFYs = [...new Set(monthly.map(m => getFY(m.month)))].sort()
+
+  // 期間に応じた表示データを選択
+  function getTrendData(): MonthlyRow[] {
+    if (trendPeriod === "6m") return monthly.slice(-6)
+    if (trendPeriod === "12m") return monthly.slice(-12)
+    // 年度別
+    const fy = trendFY ?? availableFYs[availableFYs.length - 1]
+    if (!fy) return monthly
+    return monthly.filter(m => getFY(m.month) === fy)
+  }
+  const trendData = getTrendData()
+
   const totalExpense = cardSummary.reduce((s, c) => s + c.total, 0)
   const balance = incomeTotal - totalExpense
-  const last6 = monthly.slice(-6)
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "monthly", label: "月次" },
@@ -128,7 +148,7 @@ export default function DashboardPage() {
               key={t.key}
               onClick={() => setTab(t.key)}
               className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
-                tab === t.key ? "bg-white shadow-sm text-blue-600" : "text-gray-600"
+                tab === t.key ? "bg-white shadow-sm text-blue-600" : "text-gray-700"
               }`}
             >
               {t.label}
@@ -143,18 +163,18 @@ export default function DashboardPage() {
           <>
             {/* 収支サマリー */}
             <div className="bg-white rounded-xl shadow-sm p-3">
-              <p className="text-xs text-gray-600 mb-2">{month} 収支</p>
+              <p className="text-xs text-gray-700 mb-2">{month} 収支</p>
               <div className="grid grid-cols-3 gap-3 text-center">
                 <div>
-                  <p className="text-xs text-gray-600">収入</p>
+                  <p className="text-xs text-gray-700">収入</p>
                   <p className="text-base font-bold text-green-600">{toJPY(incomeTotal)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-600">支出</p>
+                  <p className="text-xs text-gray-700">支出</p>
                   <p className="text-base font-bold text-red-500">{toJPY(totalExpense)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-600">収支</p>
+                  <p className="text-xs text-gray-700">収支</p>
                   <p className={`text-base font-bold ${balance >= 0 ? "text-blue-600" : "text-red-600"}`}>
                     {balance >= 0 ? "+" : ""}{toJPY(balance)}
                   </p>
@@ -218,14 +238,40 @@ export default function DashboardPage() {
             )}
 
             {/* 月別推移 */}
-            {last6.length > 0 && (
+            {monthly.length > 0 && (
               <div className="bg-white rounded-xl shadow-sm p-3">
-                <h2 className="text-sm font-semibold text-gray-700 mb-3">月別推移（直近6ヶ月）</h2>
+                <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+                  <h2 className="text-sm font-semibold text-gray-700">月別推移</h2>
+                  <div className="flex items-center gap-1">
+                    {(["6m", "12m", "year"] as const).map(p => (
+                      <button
+                        key={p}
+                        onClick={() => setTrendPeriod(p)}
+                        className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
+                          trendPeriod === p ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        }`}
+                      >
+                        {p === "6m" ? "6ヶ月" : p === "12m" ? "12ヶ月" : "年度別"}
+                      </button>
+                    ))}
+                    {trendPeriod === "year" && availableFYs.length > 0 && (
+                      <select
+                        value={trendFY ?? availableFYs[availableFYs.length - 1]}
+                        onChange={e => setTrendFY(Number(e.target.value))}
+                        className="border rounded px-1.5 py-0.5 text-xs bg-white text-gray-800 ml-1"
+                      >
+                        {availableFYs.map(fy => (
+                          <option key={fy} value={fy}>{fy}年度（{fy}/4〜{fy+1}/3）</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                </div>
                 <ResponsiveContainer width="100%" height={180}>
-                  <BarChart data={last6} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                  <BarChart data={trendData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                     <XAxis dataKey="month" tick={{ fontSize: 10 }} tickFormatter={v => v.replace(/^\d{4}-/, "")} />
                     <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${fmt(Number(v))}`} />
-                    <Tooltip formatter={(v) => toJPY(Number(v))} />
+                    <Tooltip formatter={(v) => toJPY(Number(v))} labelFormatter={v => String(v)} />
                     <Legend wrapperStyle={{ fontSize: 11 }} />
                     <Bar dataKey="selfTotal" stackId="a" fill="#6366f1" name="個人" radius={[0, 0, 0, 0]} />
                     <Bar dataKey="jointTotal" stackId="a" fill="#f59e0b" name="共用" radius={[4, 4, 0, 0]} />
@@ -251,7 +297,7 @@ export default function DashboardPage() {
                     <div key={`${b.category}-${b.cardType}`}>
                       <div className="flex justify-between text-sm mb-1">
                         <span className="text-gray-700">{b.category}</span>
-                        <span className={over ? "text-red-500 font-semibold" : "text-gray-600"}>
+                        <span className={over ? "text-red-500 font-semibold" : "text-gray-700"}>
                           {toJPY(b.actual)} / {toJPY(b.budget)}
                         </span>
                       </div>
@@ -275,15 +321,15 @@ export default function DashboardPage() {
             {assets.length > 0 && (
               <>
                 <div className="bg-white rounded-xl shadow-sm p-3">
-                  <p className="text-xs text-gray-600 mb-1">最新資産合計（{assets[assets.length - 1]?.month}）</p>
+                  <p className="text-xs text-gray-700 mb-1">最新資産合計（{assets[assets.length - 1]?.month}）</p>
                   <p className="text-3xl font-bold text-blue-600">{toJPY(assets[assets.length - 1]?.total ?? 0)}</p>
                   <div className="mt-3 grid grid-cols-2 gap-3 text-center">
                     <div className="bg-green-50 rounded-lg p-2">
-                      <p className="text-xs text-gray-600">貯金</p>
+                      <p className="text-xs text-gray-700">貯金</p>
                       <p className="text-sm font-bold text-green-600">{toJPY(assets[assets.length - 1]?.savings ?? 0)}</p>
                     </div>
                     <div className="bg-purple-50 rounded-lg p-2">
-                      <p className="text-xs text-gray-600">投資 (NISA)</p>
+                      <p className="text-xs text-gray-700">投資 (NISA)</p>
                       <p className="text-sm font-bold text-purple-600">{toJPY(assets[assets.length - 1]?.investment ?? 0)}</p>
                     </div>
                   </div>
