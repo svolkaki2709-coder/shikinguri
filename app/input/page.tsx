@@ -6,8 +6,6 @@ import { BottomNav } from "@/components/BottomNav"
 
 interface Card { id: number; name: string; card_type: string; color: string }
 
-const CASH_CARD = { name: "現金", card_type: "self", color: "#10b981", sort_order: 0 }
-
 export default function InputPage() {
   const [cards, setCards] = useState<Card[]>([])
   const [categories, setCategories] = useState<string[]>([])
@@ -23,27 +21,11 @@ export default function InputPage() {
     Promise.all([
       fetch("/api/cards").then(r => r.json()),
       fetch("/api/categories").then(r => r.json()),
-    ]).then(async ([cardData, catData]) => {
-      let allCards: Card[] = cardData.cards ?? []
-
-      // 「現金」カードがなければ自動作成
-      let cashCard = allCards.find(c => c.name === "現金")
-      if (!cashCard) {
-        const res = await fetch("/api/cards", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(CASH_CARD),
-        })
-        const d = await res.json()
-        if (d.card) {
-          cashCard = d.card
-          allCards = [d.card, ...allCards]
-        }
-      }
-
+    ]).then(([cardData, catData]) => {
+      // 「現金」カードを除外して表示
+      const allCards: Card[] = (cardData.cards ?? []).filter((c: Card) => c.name !== "現金")
       setCards(allCards)
-      setCardId(cashCard?.id ?? allCards[0]?.id ?? null)
-
+      if (allCards.length > 0) setCardId(allCards[0].id)
       const cats = catData.categories ?? []
       setCategories(cats)
       if (cats.length > 0) setCategory(cats[0])
@@ -78,25 +60,35 @@ export default function InputPage() {
     }
   }
 
-  const cashCard = cards.find(c => c.name === "現金")
-
   return (
     <div className="pb-20">
       <PageHeader title="手動入力" />
       <main className="max-w-md mx-auto px-4 py-2">
         <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm p-3 space-y-3">
 
-          <div>
-            <p className="text-xs text-gray-500 mb-2">💡 カードはCSV取り込み。ここでは現金・電子マネーなどを手動記録</p>
-          </div>
+          <p className="text-xs text-gray-500">現金・電子マネー等の支出を手動で記録します</p>
 
-          {/* 支払方法 */}
-          {cashCard && (
-            <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
-              <span className="text-base">💴</span>
-              <span className="text-sm font-semibold text-emerald-700">現金・電子マネー</span>
+          {/* 用途（どのカード枠に入れるか） */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-2">用途</label>
+            <div className="flex gap-2">
+              {cards.map(c => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setCardId(c.id)}
+                  className="flex-1 py-2 rounded-xl text-sm font-medium border-2 transition-all"
+                  style={{
+                    borderColor: cardId === c.id ? c.color : "#e5e7eb",
+                    backgroundColor: cardId === c.id ? c.color + "18" : "white",
+                    color: cardId === c.id ? c.color : "#6b7280",
+                  }}
+                >
+                  {c.name}
+                </button>
+              ))}
             </div>
-          )}
+          </div>
 
           {/* 日付 */}
           <div>

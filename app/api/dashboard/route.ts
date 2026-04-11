@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
       GROUP BY TO_CHAR(t.date, 'YYYY-MM')
       ORDER BY month ASC
     `,
-    // 当月カード別合計
+    // 当月カード別合計（「現金」カードは除外）
     sql`
       SELECT
         c.id AS card_id,
@@ -38,6 +38,7 @@ export async function GET(req: NextRequest) {
       FROM cards c
       LEFT JOIN transactions t ON t.card_id = c.id
         AND TO_CHAR(t.date, 'YYYY-MM') = ${month}
+      WHERE c.name != '現金'
       GROUP BY c.id, c.name, c.card_type, c.color
       ORDER BY c.sort_order
     `,
