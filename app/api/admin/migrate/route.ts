@@ -4,8 +4,13 @@ import { sql, initDb } from "@/lib/db"
 
 // このAPIはデータ移行用。移行完了後は不要になる。
 export async function POST(req: NextRequest) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  // シークレットキーまたはセッション認証のどちらかを許可
+  const secret = req.headers.get("x-migration-secret")
+  const validSecret = secret && secret === process.env.MIGRATION_SECRET
+  if (!validSecret) {
+    const session = await auth()
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
 
   const body = await req.json()
   const { action, data } = body
