@@ -204,7 +204,23 @@ export default function ImportPage() {
                   </div>
                   <p className="text-xs text-gray-500 truncate">{log.file_name} · {log.row_count}件</p>
                 </div>
-                <span className="text-xs text-gray-500 shrink-0">{String(log.imported_at).slice(0, 10)}</span>
+                <span className="text-xs text-gray-500 shrink-0 mr-1">{String(log.imported_at).slice(0, 10)}</span>
+                <button
+                  onClick={async () => {
+                    if (!confirm(`「${log.card_name}」${log.start_date}〜${log.end_date} のインポートを取り消しますか？\n（この期間のCSV取り込み分が全て削除されます）`)) return
+                    const res = await fetch(`/api/import-csv?log_id=${log.id}`, { method: "DELETE" })
+                    const d = await res.json()
+                    if (d.success) {
+                      alert(`${d.deleted}件削除しました`)
+                      fetchLogs()
+                    } else {
+                      alert("取り消しに失敗しました: " + d.error)
+                    }
+                  }}
+                  className="text-xs text-red-400 hover:text-red-600 border border-red-200 rounded px-2 py-0.5 shrink-0"
+                >
+                  取り消し
+                </button>
               </div>
             ))}
           </div>

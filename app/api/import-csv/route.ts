@@ -90,16 +90,24 @@ function detectColumns(headers: string[]): { dateIdx: number; amountIdx: number;
 }
 
 // 実際のヘッダー行を探す（メタ行をスキップ）
+// 日付キーワードと金額キーワードが両方含まれる行をヘッダーとみなす
 function findHeaderRowIndex(rows: string[][]): number {
   const dateKeywords = ["利用日", "取引日", "date", "処理日", "支払日", "発生日", "決済日"]
-  const amountKeywords = ["金額", "amount", "出金"]
+  const amountKeywords = ["利用金額", "支払金額", "お支払い金額", "出金金額", "amount"]
   for (let i = 0; i < Math.min(rows.length, 15); i++) {
-    const row = rows[i].map(h => h.toLowerCase())
+    const row = rows[i].map(h => h.toLowerCase().replace(/\s/g, ""))
     const hasDate = row.some(h => dateKeywords.some(k => h.includes(k)))
     const hasAmount = row.some(h => amountKeywords.some(k => h.includes(k)))
-    if (hasDate || hasAmount) return i
+    // 両方あるときだけヘッダーと判断（片方だけでは誤検出）
+    if (hasDate && hasAmount) return i
   }
-  return 0 // フォールバック: 1行目をヘッダーとみなす
+  // フォールバック: 日付キーワードだけでも探す
+  for (let i = 0; i < Math.min(rows.length, 15); i++) {
+    const row = rows[i].map(h => h.toLowerCase().replace(/\s/g, ""))
+    const hasDate = row.some(h => dateKeywords.some(k => h.includes(k)))
+    if (hasDate) return i
+  }
+  return 0
 }
 
 async function ensureImportLogsTable() {
@@ -250,4 +258,29 @@ export async function POST(req: NextRequest) {
     console.error("[import-csv]", msg)
     return NextResponse.json({ error: `サーバーエラー: ${e instanceof Error ? e.message : String(e)}` }, { status: 500 })
   }
+}
+
+// インポート取り消し（ログIDに紐づくcard_id・日付範囲のCSVデータを削除）
+export async function DELETE(req: NextRequest) {
+  const session = await auth()
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const { searchParams } = new URL(req.url)
+  const logId = searchParams.get("log_id")
+  if (!logId) return NextResponse.json({ error: "log_id は必須です" }, { status: 400 })
+
+  const logs = await sql`SELECT * FROM csv_import_logs WHERE id = ${Number(logId)} LIMIT 1`
+  if (logs.length === 0) return NextResponse.json({ error: "ログが見つかりません" }, { status: 404 })
+
+  const log = logs[0]
+  const result = await sql`
+    DELETE FROM transactions
+    WHERE card_id = ${log.card_id}
+      AND source = 'csv'
+      AND date >= ${log.start_date}
+      AND date <= ${log.end_date}
+  `
+  await sql`DELETE FROM csv_import_logs WHERE id = ${Number(logId)}`
+
+  return NextResponse.json({ success: true, deleted: result.count ?? 0 })
 }
