@@ -30,12 +30,19 @@ function parseCSV(text: string): string[][] {
 // 日付を YYYY-MM-DD 形式に正規化
 function normalizeDate(raw: string): string | null {
   if (!raw) return null
+  const s = raw.trim()
+  // YYYY年MM月DD日
+  const m0 = s.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/)
+  if (m0) return `${m0[1]}-${m0[2].padStart(2, "0")}-${m0[3].padStart(2, "0")}`
   // YYYY/MM/DD or YYYY-MM-DD
-  const m1 = raw.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/)
+  const m1 = s.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/)
   if (m1) return `${m1[1]}-${m1[2].padStart(2, "0")}-${m1[3].padStart(2, "0")}`
   // MM/DD/YYYY
-  const m2 = raw.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/)
+  const m2 = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/)
   if (m2) return `${m2[3]}-${m2[1].padStart(2, "0")}-${m2[2].padStart(2, "0")}`
+  // YYYYMMDD（8桁数字）
+  const m3 = s.match(/^(\d{4})(\d{2})(\d{2})$/)
+  if (m3) return `${m3[1]}-${m3[2]}-${m3[3]}`
   return null
 }
 
@@ -48,15 +55,39 @@ function parseAmount(raw: string): number {
 
 // ヘッダーからカラムインデックスを推定
 function detectColumns(headers: string[]): { dateIdx: number; amountIdx: number; memoIdx: number } {
-  const lower = headers.map(h => h.toLowerCase())
-  const dateIdx = lower.findIndex(h => h.includes("日") || h.includes("date") || h.includes("利用日") || h.includes("取引日"))
-  const amountIdx = lower.findIndex(h => h.includes("金額") || h.includes("amount") || h.includes("利用金額") || h.includes("出金"))
-  const memoIdx = lower.findIndex(h => h.includes("店") || h.includes("内容") || h.includes("摘要") || h.includes("memo") || h.includes("備考"))
+  const lower = headers.map(h => h.toLowerCase().replace(/\s/g, ""))
+  const dateIdx = lower.findIndex(h =>
+    h.includes("利用日") || h.includes("取引日") || h.includes("date") ||
+    h.includes("処理日") || h.includes("お支払日") || h.includes("支払日") ||
+    h.includes("発生日") || h.includes("決済日") || (h.includes("日") && !h.includes("金額") && !h.includes("件数"))
+  )
+  const amountIdx = lower.findIndex(h =>
+    h.includes("利用金額") || h.includes("お支払い金額") || h.includes("支払金額") ||
+    h.includes("出金") || h.includes("amount") || h.includes("金額")
+  )
+  const memoIdx = lower.findIndex(h =>
+    h.includes("利用先") || h.includes("店名") || h.includes("ご利用先") ||
+    h.includes("内容") || h.includes("摘要") || h.includes("memo") ||
+    h.includes("備考") || h.includes("加盟店")
+  )
   return {
     dateIdx: dateIdx >= 0 ? dateIdx : 0,
     amountIdx: amountIdx >= 0 ? amountIdx : 2,
     memoIdx: memoIdx >= 0 ? memoIdx : 1,
   }
+}
+
+// 実際のヘッダー行を探す（メタ行をスキップ）
+function findHeaderRowIndex(rows: string[][]): number {
+  const dateKeywords = ["利用日", "取引日", "date", "処理日", "支払日", "発生日", "決済日"]
+  const amountKeywords = ["金額", "amount", "出金"]
+  for (let i = 0; i < Math.min(rows.length, 15); i++) {
+    const row = rows[i].map(h => h.toLowerCase())
+    const hasDate = row.some(h => dateKeywords.some(k => h.includes(k)))
+    const hasAmount = row.some(h => amountKeywords.some(k => h.includes(k)))
+    if (hasDate || hasAmount) return i
+  }
+  return 0 // フォールバック: 1行目をヘッダーとみなす
 }
 
 async function ensureImportLogsTable() {
@@ -111,9 +142,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "データが空です" }, { status: 400 })
   }
 
-  const headers = rows[0]
+  const headerRowIdx = findHeaderRowIndex(rows)
+  const headers = rows[headerRowIdx]
   const { dateIdx, amountIdx, memoIdx } = detectColumns(headers)
-  const dataRows = rows.slice(1)
+  const dataRows = rows.slice(headerRowIdx + 1)
 
   // 有効な日付を収集して範囲を確定
   const dates: string[] = []
