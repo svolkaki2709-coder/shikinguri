@@ -183,19 +183,19 @@ export default function DashboardPage() {
 
             {/* カード別支出 */}
             <div className="bg-white rounded-xl shadow-sm p-3">
-              <h2 className="text-sm font-semibold text-gray-700 mb-3">カード別支出</h2>
+              <h2 className="text-sm font-semibold text-gray-700 mb-3">用途別支出</h2>
               <div className="space-y-3">
                 {cardSummary.map(c => (
                   <div key={c.cardId}>
                     <div className="flex justify-between items-center mb-1">
                       <div className="flex items-center gap-2">
                         <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c.color }} />
-                        <span className="text-sm text-gray-700">{c.cardName}</span>
-                        <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: c.color + "22", color: c.color }}>
+                        <span className="text-sm font-medium text-gray-800">{c.cardName}</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded font-medium" style={{ backgroundColor: c.color + "22", color: c.color }}>
                           {c.cardType === "joint" ? "共用" : "個人"}
                         </span>
                       </div>
-                      <span className="text-sm font-semibold">{toJPY(c.total)}</span>
+                      <span className="text-sm font-bold text-gray-800">{toJPY(c.total)}</span>
                     </div>
                     <div className="w-full bg-gray-100 rounded-full h-1.5">
                       <div
