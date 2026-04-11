@@ -134,11 +134,11 @@ export default function HistoryPage() {
 
           {/* 月選択 */}
           <div className="flex items-center gap-1 border rounded-lg px-1 py-1">
-            <button onClick={() => setMonth(m => { const [y,mo] = m.split("-").map(Number); const d = new Date(y, mo-2, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` })}
+            <button onClick={() => { const [y,mo] = month.split("-").map(Number); const d = new Date(y, mo-2, 1); setMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`) }}
               className="text-gray-600 hover:text-blue-600 px-1 font-bold text-base">‹</button>
             <input type="month" value={month} onChange={e => setMonth(e.target.value)}
               className="flex-1 text-center text-sm font-semibold text-gray-800 border-0 outline-none bg-transparent min-w-0" />
-            <button onClick={() => setMonth(m => { const [y,mo] = m.split("-").map(Number); const d = new Date(y, mo, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` })}
+            <button onClick={() => { const [y,mo] = month.split("-").map(Number); const d = new Date(y, mo, 1); setMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`) }}
               className="text-gray-600 hover:text-blue-600 px-1 font-bold text-base">›</button>
           </div>
 
