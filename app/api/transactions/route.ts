@@ -1,31 +1,29 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { getSheetsClient, SPREADSHEET_ID } from "@/lib/sheets"
+import { sql } from "@/lib/db"
 
-// POST: 取引_手入力シートに新規行追加
 export async function POST(req: NextRequest) {
   const session = await auth()
-  if (!session?.accessToken) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const body = await req.json()
-  const { date, category, amount, memo } = body
-
+  const { date, category, amount, memo, type } = await req.json()
   if (!date || !category || !amount) {
     return NextResponse.json({ error: "必須項目が不足しています" }, { status: 400 })
   }
 
-  const sheets = getSheetsClient(session.accessToken)
+  const { rows } = await sql`
+    INSERT INTO transactions (date, category, amount, memo, type)
+    VALUES (${date}, ${category}, ${Number(amount)}, ${memo ?? ""}, ${type ?? "self"})
+    RETURNING id
+  `
+  return NextResponse.json({ success: true, id: rows[0].id })
+}
 
-  await sheets.spreadsheets.values.append({
-    spreadsheetId: SPREADSHEET_ID,
-    range: "取引_手入力!A:D",
-    valueInputOption: "USER_ENTERED",
-    requestBody: {
-      values: [[date, category, Number(amount), memo ?? ""]],
-    },
-  })
+export async function DELETE(req: NextRequest) {
+  const session = await auth()
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
+  const { id } = await req.json()
+  await sql`DELETE FROM transactions WHERE id = ${id}`
   return NextResponse.json({ success: true })
 }

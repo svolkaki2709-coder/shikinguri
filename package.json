@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@types/recharts": "^1.8.29",
-    "googleapis": "^171.4.0",
+    "@vercel/postgres": "^0.10.0",
     "next": "16.2.3",
     "next-auth": "^5.0.0-beta.30",
     "react": "19.2.4",

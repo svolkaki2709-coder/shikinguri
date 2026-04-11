@@ -1,50 +1,39 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { getSheetsClient, SPREADSHEET_ID, toJPY } from "@/lib/sheets"
+import { sql } from "@/lib/db"
 
 export async function GET(req: NextRequest) {
   const session = await auth()
-  if (!session?.accessToken) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { searchParams } = new URL(req.url)
   const keyword = searchParams.get("keyword") ?? ""
   const category = searchParams.get("category") ?? ""
   const month = searchParams.get("month") ?? "" // YYYY-MM
 
-  const sheets = getSheetsClient(session.accessToken)
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: "明細_全履歴!A2:D5000",
-  })
+  let query = `
+    SELECT id, date::text, category, amount, memo, type
+    FROM transactions
+    WHERE 1=1
+  `
+  const params: (string | number)[] = []
+  let idx = 1
 
-  const rows = res.data.values ?? []
-  let transactions = rows
-    .map(([date, cat, amount, memo]) => ({
-      date: date ?? "",
-      category: cat ?? "",
-      amount: toJPY(amount),
-      memo: memo ?? "",
-    }))
-    .filter((t) => t.date)
-
-  if (keyword) {
-    const kw = keyword.toLowerCase()
-    transactions = transactions.filter(
-      (t) =>
-        t.memo.toLowerCase().includes(kw) ||
-        t.category.toLowerCase().includes(kw)
-    )
+  if (month) {
+    query += ` AND TO_CHAR(date, 'YYYY-MM') = $${idx++}`
+    params.push(month)
   }
   if (category) {
-    transactions = transactions.filter((t) => t.category === category)
+    query += ` AND category = $${idx++}`
+    params.push(category)
   }
-  if (month) {
-    transactions = transactions.filter((t) => t.date.startsWith(month))
+  if (keyword) {
+    query += ` AND (memo ILIKE $${idx} OR category ILIKE $${idx})`
+    params.push(`%${keyword}%`)
+    idx++
   }
+  query += ` ORDER BY date DESC, id DESC LIMIT 300`
 
-  transactions.sort((a, b) => b.date.localeCompare(a.date))
-
-  return NextResponse.json({ transactions: transactions.slice(0, 200) })
+  const { rows } = await sql.query(query, params)
+  return NextResponse.json({ transactions: rows })
 }

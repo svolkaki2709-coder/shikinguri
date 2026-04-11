@@ -1,28 +1,53 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { getSheetsClient, SPREADSHEET_ID, toJPY } from "@/lib/sheets"
+import { sql } from "@/lib/db"
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await auth()
-  if (!session?.accessToken) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const sheets = getSheetsClient(session.accessToken)
+  const { searchParams } = new URL(req.url)
+  const now = new Date()
+  const month =
+    searchParams.get("month") ??
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
 
-  const [selfRes, jointRes] = await Promise.all([
-    sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: "予算_自分!A1:Z50",
-    }),
-    sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: "予算_共同!A1:Z50",
-    }),
+  const [budgetsRes, actualsRes] = await Promise.all([
+    sql`SELECT category, amount, type FROM budgets ORDER BY type, category`,
+    sql.query(
+      `SELECT category, type, SUM(amount) AS actual
+       FROM transactions
+       WHERE TO_CHAR(date, 'YYYY-MM') = $1
+       GROUP BY category, type`,
+      [month]
+    ),
   ])
 
-  return NextResponse.json({
-    self: selfRes.data.values ?? [],
-    joint: jointRes.data.values ?? [],
-  })
+  // 実績をマップ化
+  const actualMap: Record<string, number> = {}
+  for (const r of actualsRes.rows) {
+    actualMap[`${r.category}__${r.type}`] = Number(r.actual)
+  }
+
+  const rows = budgetsRes.rows.map((b) => ({
+    category: b.category,
+    type: b.type,
+    budget: Number(b.amount),
+    actual: actualMap[`${b.category}__${b.type}`] ?? 0,
+  }))
+
+  return NextResponse.json({ budgets: rows, month })
+}
+
+export async function PUT(req: NextRequest) {
+  const session = await auth()
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const { category, amount, type } = await req.json()
+  await sql`
+    INSERT INTO budgets (category, amount, type)
+    VALUES (${category}, ${Number(amount)}, ${type})
+    ON CONFLICT (category, type) DO UPDATE SET amount = EXCLUDED.amount
+  `
+  return NextResponse.json({ success: true })
 }

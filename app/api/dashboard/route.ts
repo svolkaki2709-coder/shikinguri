@@ -1,49 +1,58 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { getSheetsClient, SPREADSHEET_ID, toJPY } from "@/lib/sheets"
+import { sql } from "@/lib/db"
 
 export async function GET(req: NextRequest) {
   const session = await auth()
-  if (!session?.accessToken) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const sheets = getSheetsClient(session.accessToken)
+  const { searchParams } = new URL(req.url)
+  // 表示月（指定なければ今月）
+  const now = new Date()
+  const month =
+    searchParams.get("month") ??
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
 
-  // ダッシュボードシートから月別合計 (A:B) と カテゴリ別 (I:J) を取得
-  const [monthlyRes, categoryRes] = await Promise.all([
-    sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: "ダッシュボード!A2:G20",
-    }),
-    sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: "ダッシュボード!I2:L30",
-    }),
+  const [monthlyRes, categoryRes, latestMonthsRes] = await Promise.all([
+    // 直近12ヶ月の月別合計
+    sql`
+      SELECT
+        TO_CHAR(date, 'YYYY-MM') AS month,
+        SUM(amount) AS total,
+        SUM(CASE WHEN type = 'joint' THEN amount ELSE 0 END) AS joint_total,
+        SUM(CASE WHEN type = 'self_15' THEN amount ELSE 0 END) AS self15_total,
+        SUM(CASE WHEN type = 'self_end' THEN amount ELSE 0 END) AS self_end_total
+      FROM transactions
+      WHERE date >= NOW() - INTERVAL '12 months'
+      GROUP BY month
+      ORDER BY month ASC
+    `,
+    // 指定月のカテゴリ別合計
+    sql.query(
+      `SELECT category, SUM(amount) AS amount
+       FROM transactions
+       WHERE TO_CHAR(date, 'YYYY-MM') = $1
+       GROUP BY category
+       ORDER BY amount DESC`,
+      [month]
+    ),
+    // 最新月を特定
+    sql`SELECT TO_CHAR(MAX(date), 'YYYY-MM') AS latest FROM transactions`,
   ])
 
-  const monthlyRows = monthlyRes.data.values ?? []
-  const monthly = monthlyRows
-    .map(([month, total, , , jointTotal, self15Total, selfEndTotal]) => ({
-      month: month ?? "",
-      total: toJPY(total),
-      jointTotal: toJPY(jointTotal ?? 0),
-      self15Total: toJPY(self15Total ?? 0),
-      selfEndTotal: toJPY(selfEndTotal ?? 0),
-    }))
-    .filter((r) => r.month)
-
-  const categoryRows = categoryRes.data.values ?? []
-  // カテゴリ行は [月ヘッダー（1行目）, カテゴリ, 合計, ...]
-  const categories = categoryRows
-    .map(([cat, amt]) => ({
-      category: cat ?? "",
-      amount: toJPY(amt ?? 0),
-    }))
-    .filter((r) => r.category && r.amount > 0)
-
-  // 最新月を特定
-  const latestMonth = monthly.length > 0 ? monthly[monthly.length - 1].month : ""
-
-  return NextResponse.json({ monthly, categories, latestMonth })
+  return NextResponse.json({
+    monthly: monthlyRes.rows.map((r) => ({
+      month: r.month,
+      total: Number(r.total),
+      jointTotal: Number(r.joint_total),
+      self15Total: Number(r.self15_total),
+      selfEndTotal: Number(r.self_end_total),
+    })),
+    categories: categoryRes.rows.map((r) => ({
+      category: r.category,
+      amount: Number(r.amount),
+    })),
+    latestMonth: latestMonthsRes.rows[0]?.latest ?? month,
+    currentMonth: month,
+  })
 }
