@@ -85,10 +85,9 @@ export default function DashboardPage() {
   const [trendPeriod, setTrendPeriod] = useState<"6m" | "12m" | "year">("6m")
   const [trendFY, setTrendFY] = useState<number | null>(null)
 
-  // 月データから利用可能な年度を計算（日本の会計年度 4月〜3月）
+  // 月データから利用可能な年を計算（1月〜12月）
   function getFY(month: string): number {
-    const [y, m] = month.split("-").map(Number)
-    return m >= 4 ? y : y - 1
+    return Number(month.split("-")[0])
   }
   const availableFYs = [...new Set(monthly.map(m => getFY(m.month)))].sort()
 
@@ -261,7 +260,7 @@ export default function DashboardPage() {
                         className="border rounded px-1.5 py-0.5 text-xs bg-white text-gray-800 ml-1"
                       >
                         {availableFYs.map(fy => (
-                          <option key={fy} value={fy}>{fy}年度（{fy}/4〜{fy+1}/3）</option>
+                          <option key={fy} value={fy}>{fy}年（1月〜12月）</option>
                         ))}
                       </select>
                     )}
