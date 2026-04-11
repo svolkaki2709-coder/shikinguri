@@ -53,6 +53,8 @@ export default function SettingsPage() {
   // カテゴリ管理
   const [newCatName, setNewCatName] = useState("")
   const [catSaving, setCatSaving] = useState(false)
+  const [newCatCardType, setNewCatCardType] = useState<"self" | "joint">("self")
+  const [categoryRows, setCategoryRows] = useState<{ name: string; card_type: string }[]>([])
   const [storeRules, setStoreRules] = useState<StoreRule[]>([])
   const [ruleSearch, setRuleSearch] = useState("")
   const [newRuleKeyword, setNewRuleKeyword] = useState("")
@@ -72,6 +74,7 @@ export default function SettingsPage() {
       if (c.length > 0) setRCardId(c[0].id)
       const cats = catd.categories ?? []
       setCategories(cats)
+      setCategoryRows(catd.rows ?? [])
       if (cats.length > 0) { setRCategory(cats[0]); setBudgetCategory(cats[0]) }
       setRecurring(recd.recurring ?? [])
       const bRaw: Array<{ category: string; cardType: string; budget: number }> = budgetData.budgets ?? []
@@ -179,9 +182,10 @@ export default function SettingsPage() {
   async function handleAddCategory() {
     if (!newCatName.trim()) return
     setCatSaving(true)
-    await fetch("/api/categories", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newCatName.trim() }) })
+    await fetch("/api/categories", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newCatName.trim(), card_type: newCatCardType }) })
     const data = await fetch("/api/categories").then(r => r.json())
     setCategories(data.categories ?? [])
+    setCategoryRows(data.rows ?? [])
     setNewCatName("")
     setCatSaving(false)
   }
@@ -190,6 +194,7 @@ export default function SettingsPage() {
     if (!confirm(`カテゴリ「${name}」を削除しますか？\n（このカテゴリが設定された明細はそのまま残ります）`)) return
     await fetch(`/api/categories?name=${encodeURIComponent(name)}`, { method: "DELETE" })
     setCategories(prev => prev.filter(c => c !== name))
+    setCategoryRows(prev => prev.filter(r => r.name !== name))
   }
 
   async function handleSaveRule() {
@@ -473,30 +478,58 @@ export default function SettingsPage() {
             {/* カテゴリ一覧 */}
             <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
               <h2 className="text-sm font-semibold text-gray-700">カテゴリ一覧</h2>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newCatName}
-                  onChange={e => setNewCatName(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && handleAddCategory()}
-                  placeholder="新しいカテゴリ名"
-                  className="flex-1 border rounded-lg px-3 py-1.5 text-sm text-gray-800"
-                />
-                <button
-                  onClick={handleAddCategory}
-                  disabled={catSaving || !newCatName.trim()}
-                  className="bg-blue-600 text-white rounded-lg px-3 py-1.5 text-sm font-semibold disabled:opacity-50"
-                >
-                  追加
-                </button>
+
+              {/* 追加フォーム */}
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setNewCatCardType("self")}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${newCatCardType === "self" ? "bg-indigo-600 text-white border-indigo-600" : "border-gray-300 text-gray-600"}`}>
+                    個人
+                  </button>
+                  <button type="button" onClick={() => setNewCatCardType("joint")}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${newCatCardType === "joint" ? "bg-amber-500 text-white border-amber-500" : "border-gray-300 text-gray-600"}`}>
+                    共用
+                  </button>
+                </div>
+                <div className="flex gap-2">
+                  <input type="text" value={newCatName} onChange={e => setNewCatName(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && handleAddCategory()}
+                    placeholder="新しいカテゴリ名"
+                    className="flex-1 border rounded-lg px-3 py-1.5 text-sm text-gray-800"
+                  />
+                  <button onClick={handleAddCategory} disabled={catSaving || !newCatName.trim()}
+                    className="bg-blue-600 text-white rounded-lg px-3 py-1.5 text-sm font-semibold disabled:opacity-50">
+                    追加
+                  </button>
+                </div>
               </div>
-              <div className="flex flex-wrap gap-1.5">
-                {categories.map(c => (
-                  <div key={c} className="flex items-center gap-1 bg-gray-100 rounded-full pl-2.5 pr-1 py-0.5">
-                    <span className="text-xs text-gray-700">{c}</span>
-                    <button onClick={() => handleDeleteCategory(c)} className="text-gray-400 hover:text-red-500 text-sm leading-none w-4">×</button>
-                  </div>
-                ))}
+
+              {/* 個人カテゴリ */}
+              <div>
+                <p className="text-xs font-semibold text-indigo-600 mb-1.5">個人</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {categoryRows.filter(r => r.card_type !== "joint").map(r => (
+                    <div key={r.name} className="flex items-center gap-1 bg-indigo-50 border border-indigo-100 rounded-full pl-2.5 pr-1 py-0.5">
+                      <span className="text-xs text-indigo-700">{r.name}</span>
+                      <button onClick={() => handleDeleteCategory(r.name)} className="text-indigo-300 hover:text-red-500 text-sm leading-none w-4">×</button>
+                    </div>
+                  ))}
+                  {categoryRows.filter(r => r.card_type !== "joint").length === 0 && <p className="text-xs text-gray-400">なし</p>}
+                </div>
+              </div>
+
+              {/* 共用カテゴリ */}
+              <div>
+                <p className="text-xs font-semibold text-amber-600 mb-1.5">共用</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {categoryRows.filter(r => r.card_type === "joint").map(r => (
+                    <div key={r.name} className="flex items-center gap-1 bg-amber-50 border border-amber-100 rounded-full pl-2.5 pr-1 py-0.5">
+                      <span className="text-xs text-amber-700">{r.name}</span>
+                      <button onClick={() => handleDeleteCategory(r.name)} className="text-amber-300 hover:text-red-500 text-sm leading-none w-4">×</button>
+                    </div>
+                  ))}
+                  {categoryRows.filter(r => r.card_type === "joint").length === 0 && <p className="text-xs text-gray-400">なし</p>}
+                </div>
               </div>
             </div>
 
