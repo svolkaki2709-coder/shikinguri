@@ -20,7 +20,7 @@ export default function ImportPage() {
   const [cardId, setCardId] = useState<number | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<{ imported: number; skipped: number } | null>(null)
+  const [result, setResult] = useState<{ imported: number; skipped: number; skippedRows?: string[] } | null>(null)
   const [error, setError] = useState("")
   const [logs, setLogs] = useState<ImportLog[]>([])
   const [warning, setWarning] = useState<{ message: string; newRange: { startDate: string; endDate: string } } | null>(null)
@@ -58,7 +58,7 @@ export default function ImportPage() {
       if (data.warning) {
         setWarning({ message: data.message, newRange: data.newRange })
       } else if (res.ok) {
-        setResult({ imported: data.imported, skipped: data.skipped })
+        setResult({ imported: data.imported, skipped: data.skipped, skippedRows: data.skippedRows })
         setFile(null)
         if (fileRef.current) fileRef.current.value = ""
         fetchLogs()
@@ -148,9 +148,19 @@ export default function ImportPage() {
             <div className="bg-red-50 text-red-600 rounded-lg px-3 py-2 text-sm">❌ {error}</div>
           )}
           {result && (
-            <div className="bg-green-50 text-green-700 rounded-lg px-3 py-2 text-sm">
-              ✅ {result.imported}件取り込み完了
-              {result.skipped > 0 && <span className="text-gray-600 ml-2">（{result.skipped}件スキップ）</span>}
+            <div className="space-y-2">
+              <div className="bg-green-50 text-green-700 rounded-lg px-3 py-2 text-sm">
+                ✅ {result.imported}件取り込み完了
+                {result.skipped > 0 && <span className="text-gray-600 ml-2">（{result.skipped}件スキップ）</span>}
+              </div>
+              {result.skipped > 0 && result.skippedRows && result.skippedRows.length > 0 && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-xs text-yellow-800">
+                  <p className="font-medium mb-1">スキップされた行（日付または金額が読み取れなかった行）:</p>
+                  {result.skippedRows.map((r, i) => (
+                    <p key={i} className="text-gray-600 truncate">{r}</p>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
