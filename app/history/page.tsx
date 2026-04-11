@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
@@ -24,6 +24,14 @@ function toJPY(n: number) {
 }
 
 export default function HistoryPage() {
+  return (
+    <Suspense fallback={<div className="pb-20"><PageHeader title="明細履歴" /><div className="text-center py-8 text-gray-500">読み込み中...</div><BottomNav /></div>}>
+      <HistoryContent />
+    </Suspense>
+  )
+}
+
+function HistoryContent() {
   const now = new Date()
   const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
   const router = useRouter()
