@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
 
@@ -25,6 +26,8 @@ function toJPY(n: number) {
 export default function HistoryPage() {
   const now = new Date()
   const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+  const router = useRouter()
+  const searchParams = useSearchParams()
 
   const [cards, setCards] = useState<Card[]>([])
   const [categories, setCategories] = useState<string[]>([])
@@ -32,10 +35,17 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
 
-  const [month, setMonth] = useState(defaultMonth)
-  const [cardId, setCardId] = useState("")
-  const [category, setCategory] = useState("")
-  const [keyword, setKeyword] = useState("")
+  const [month, setMonthState] = useState(searchParams.get("month") ?? defaultMonth)
+  const [cardId, setCardId] = useState(searchParams.get("card_id") ?? "")
+  const [category, setCategory] = useState(searchParams.get("category") ?? "")
+  const [keyword, setKeyword] = useState(searchParams.get("keyword") ?? "")
+
+  function setMonth(m: string) {
+    setMonthState(m)
+    const p = new URLSearchParams(searchParams.toString())
+    p.set("month", m)
+    router.replace(`?${p.toString()}`, { scroll: false })
+  }
 
   useEffect(() => {
     Promise.all([
