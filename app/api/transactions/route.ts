@@ -19,6 +19,17 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ transaction: result[0] })
 }
 
+export async function PATCH(req: NextRequest) {
+  const session = await auth()
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const { id, category } = await req.json()
+  if (!id || !category) return NextResponse.json({ error: "id, category は必須です" }, { status: 400 })
+
+  await sql`UPDATE transactions SET category = ${category} WHERE id = ${Number(id)}`
+  return NextResponse.json({ success: true })
+}
+
 export async function DELETE(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

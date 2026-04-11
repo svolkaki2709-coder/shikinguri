@@ -30,6 +30,7 @@ export default function HistoryPage() {
   const [categories, setCategories] = useState<string[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
 
   const [month, setMonth] = useState(defaultMonth)
   const [cardId, setCardId] = useState("")
@@ -68,6 +69,16 @@ export default function HistoryPage() {
     if (!confirm("この明細を削除しますか？")) return
     await fetch(`/api/transactions?id=${id}`, { method: "DELETE" })
     setTransactions(prev => prev.filter(t => t.id !== id))
+  }
+
+  async function handleCategoryChange(id: number, newCategory: string) {
+    setEditingId(null)
+    await fetch("/api/transactions", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, category: newCategory }),
+    })
+    setTransactions(prev => prev.map(t => t.id === id ? { ...t, category: newCategory } : t))
   }
 
   const total = transactions.reduce((s, t) => s + t.amount, 0)
@@ -150,7 +161,25 @@ export default function HistoryPage() {
                           {t.card_name}
                         </span>
                       )}
-                      <span className="text-sm font-medium text-gray-800 truncate">{t.category}</span>
+                      {editingId === t.id ? (
+                        <select
+                          autoFocus
+                          value={t.category}
+                          onChange={e => handleCategoryChange(t.id, e.target.value)}
+                          onBlur={() => setEditingId(null)}
+                          className="text-sm border border-blue-400 rounded px-1 py-0.5 bg-white text-gray-800 outline-none"
+                        >
+                          {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      ) : (
+                        <button
+                          onClick={() => setEditingId(t.id)}
+                          className="text-sm font-medium text-gray-800 hover:text-blue-600 hover:underline truncate text-left"
+                          title="タップしてカテゴリを変更"
+                        >
+                          {t.category}
+                        </button>
+                      )}
                       {t.source === "csv" && <span className="text-xs text-blue-400 shrink-0">CSV</span>}
                       {t.source === "recurring" && <span className="text-xs text-green-400 shrink-0">定期</span>}
                     </div>
