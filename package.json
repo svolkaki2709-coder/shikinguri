@@ -1,12 +1,13 @@
 {
-  "name": "kakeibo-app",
+  "name": "shikinguri",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "deploy": "vercel --prod --token $(cat .vercel-token)"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
