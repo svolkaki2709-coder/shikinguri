@@ -273,7 +273,7 @@ export async function DELETE(req: NextRequest) {
   if (logs.length === 0) return NextResponse.json({ error: "ログが見つかりません" }, { status: 404 })
 
   const log = logs[0]
-  const result = await sql`
+  await sql`
     DELETE FROM transactions
     WHERE card_id = ${log.card_id}
       AND source = 'csv'
@@ -282,5 +282,5 @@ export async function DELETE(req: NextRequest) {
   `
   await sql`DELETE FROM csv_import_logs WHERE id = ${Number(logId)}`
 
-  return NextResponse.json({ success: true, deleted: result.count ?? 0 })
+  return NextResponse.json({ success: true, deleted: log.row_count })
 }
