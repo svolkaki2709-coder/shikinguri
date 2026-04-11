@@ -183,6 +183,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "データが空です" }, { status: 400 })
   }
 
+  const headerRowIdx = findHeaderRowIndex(rows)
+
   // メタ行から請求合計金額を探す（例: 「次回ご請求額,193183」）
   const billingTotalKeywords = ["請求額", "合計金額", "ご請求金額", "支払総額", "お支払い金額合計", "請求金額合計"]
   let csvBillingTotal: number | null = null
@@ -194,8 +196,6 @@ export async function POST(req: NextRequest) {
       if (val > 0) { csvBillingTotal = val; break }
     }
   }
-
-  const headerRowIdx = findHeaderRowIndex(rows)
   const headers = rows[headerRowIdx]
   const { dateIdx, amountIdx, memoIdx } = detectColumns(headers)
   const dataRows = rows.slice(headerRowIdx + 1)
