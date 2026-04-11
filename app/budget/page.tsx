@@ -159,8 +159,14 @@ export default function BudgetPage() {
     <div className="pb-20">
       <PageHeader title="予算管理" />
       <main className="max-w-md mx-auto px-4 py-4 space-y-3">
-        <input type="month" value={month} onChange={e => setMonth(e.target.value)}
-          className="w-full border rounded-lg px-3 py-2 text-sm" />
+        <div className="flex items-center gap-2 bg-white rounded-xl shadow-sm px-3 py-2">
+          <button onClick={() => setMonth(m => { const [y,mo] = m.split("-").map(Number); const d = new Date(y, mo-2, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` })}
+            className="text-gray-600 hover:text-blue-600 px-2 py-1 rounded hover:bg-gray-100 text-lg font-bold">‹</button>
+          <input type="month" value={month} onChange={e => setMonth(e.target.value)}
+            className="flex-1 text-center text-base font-semibold text-gray-800 border-0 outline-none bg-transparent" />
+          <button onClick={() => setMonth(m => { const [y,mo] = m.split("-").map(Number); const d = new Date(y, mo, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` })}
+            className="text-gray-600 hover:text-blue-600 px-2 py-1 rounded hover:bg-gray-100 text-lg font-bold">›</button>
+        </div>
 
         <div className="flex bg-gray-100 rounded-lg p-1">
           {tabs.map(t => (

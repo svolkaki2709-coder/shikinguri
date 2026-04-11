@@ -116,8 +116,14 @@ export default function AssetsPage() {
               <h2 className="text-sm font-semibold text-gray-700">資産残高を更新</h2>
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">月</label>
-                <input type="month" value={month} onChange={e => setMonth(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 text-sm" />
+                <div className="flex items-center gap-1 border rounded-lg px-2 py-1">
+                  <button onClick={() => setMonth(m => { const [y,mo] = m.split("-").map(Number); const d = new Date(y, mo-2, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` })}
+                    className="text-gray-600 hover:text-blue-600 px-1 font-bold text-base">‹</button>
+                  <input type="month" value={month} onChange={e => setMonth(e.target.value)}
+                    className="flex-1 text-center text-sm font-semibold text-gray-800 border-0 outline-none bg-transparent min-w-0" />
+                  <button onClick={() => setMonth(m => { const [y,mo] = m.split("-").map(Number); const d = new Date(y, mo, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` })}
+                    className="text-gray-600 hover:text-blue-600 px-1 font-bold text-base">›</button>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>

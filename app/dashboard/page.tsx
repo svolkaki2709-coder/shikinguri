@@ -30,10 +30,26 @@ interface AssetRow { month: string; savings: number; investment: number; total: 
 
 type Tab = "monthly" | "budget" | "assets"
 
+function prevMonth(m: string) {
+  const [y, mo] = m.split("-").map(Number)
+  const d = new Date(y, mo - 2, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+}
+function nextMonth(m: string) {
+  const [y, mo] = m.split("-").map(Number)
+  const d = new Date(y, mo, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+}
+
 export default function DashboardPage() {
   const now = new Date()
-  const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+  // デフォルトは前月（当月にはまだデータがないことが多い）
+  const defaultMonth = (() => {
+    const d = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+  })()
   const [month, setMonth] = useState(defaultMonth)
+  const [apiError, setApiError] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>("monthly")
   const [loading, setLoading] = useState(true)
 
@@ -49,15 +65,18 @@ export default function DashboardPage() {
 
   useEffect(() => {
     setLoading(true)
+    setApiError(null)
     fetch(`/api/dashboard?month=${month}`)
       .then(r => r.json())
       .then(d => {
+        if (d.error) { setApiError(d.error); return }
         setCardSummary(d.cardSummary ?? [])
         setCategoryBreakdown(d.categoryBreakdown ?? [])
         setMonthly(d.monthly ?? [])
         setIncomeTotal(d.incomeTotal ?? 0)
         setBudgetVsActual(d.budgetVsActual ?? [])
       })
+      .catch(e => setApiError(e.message))
       .finally(() => setLoading(false))
   }, [month])
 
@@ -82,14 +101,29 @@ export default function DashboardPage() {
       <PageHeader title="ダッシュボード" />
       <main className="max-w-md mx-auto px-4 py-4 space-y-4">
         {/* 月選択 */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 bg-white rounded-xl shadow-sm px-3 py-2">
+          <button
+            onClick={() => setMonth(prevMonth(month))}
+            className="text-gray-600 hover:text-blue-600 px-2 py-1 rounded hover:bg-gray-100 text-lg font-bold"
+          >‹</button>
           <input
             type="month"
             value={month}
             onChange={e => setMonth(e.target.value)}
-            className="flex-1 border rounded-lg px-3 py-2 text-sm"
+            className="flex-1 text-center text-base font-semibold text-gray-800 border-0 outline-none bg-transparent"
           />
+          <button
+            onClick={() => setMonth(nextMonth(month))}
+            className="text-gray-600 hover:text-blue-600 px-2 py-1 rounded hover:bg-gray-100 text-lg font-bold"
+          >›</button>
         </div>
+
+        {/* APIエラー表示 */}
+        {apiError && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600">
+            エラー: {apiError}
+          </div>
+        )}
 
         {/* タブ */}
         <div className="flex rounded-xl bg-gray-100 p-1">

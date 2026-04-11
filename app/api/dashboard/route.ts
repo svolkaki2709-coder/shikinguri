@@ -3,8 +3,9 @@ import { auth } from "@/auth"
 import { sql } from "@/lib/db"
 
 export async function GET(req: NextRequest) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  try {
+    const session = await auth()
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { searchParams } = new URL(req.url)
   const now = new Date()
@@ -102,4 +103,9 @@ export async function GET(req: NextRequest) {
     })),
     currentMonth: month,
   })
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e)
+    console.error("[dashboard API error]", message)
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
 }
