@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { sql } from "@/lib/db"
 import { decode as iconvDecode } from "iconv-lite"
+import { STORE_CATEGORY_MAP, CATEGORY_LIST } from "@/lib/categoryData"
 
 // CSVパース（簡易実装）
 function parseCSV(text: string): string[][] {
@@ -125,6 +126,10 @@ async function ensureImportLogsTable() {
   `
   // transactionsテーブルにsourceカラムがなければ追加
   await sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS source TEXT`
+  // カテゴリマスタをDBに同期（なければ追加）
+  for (const cat of CATEGORY_LIST) {
+    await sql`INSERT INTO categories (name) VALUES (${cat}) ON CONFLICT (name) DO NOTHING`
+  }
 }
 
 export async function GET(req: NextRequest) {
@@ -239,9 +244,27 @@ export async function POST(req: NextRequest) {
       continue
     }
 
+    // 店舗名でカテゴリを自動振り分け（部分一致でマッチ）
+    let category = "未分類"
+    const memoNorm = rawMemo.trim()
+    if (memoNorm) {
+      // 完全一致
+      if (STORE_CATEGORY_MAP[memoNorm]) {
+        category = STORE_CATEGORY_MAP[memoNorm]
+      } else {
+        // 部分一致（登録済みキーが店舗名に含まれる、またはその逆）
+        for (const [key, cat] of Object.entries(STORE_CATEGORY_MAP)) {
+          if (memoNorm.includes(key) || key.includes(memoNorm)) {
+            category = cat
+            break
+          }
+        }
+      }
+    }
+
     await sql`
       INSERT INTO transactions (date, card_id, category, amount, memo, source)
-      VALUES (${date}, ${Number(cardId)}, '未分類', ${amount}, ${rawMemo}, 'csv')
+      VALUES (${date}, ${Number(cardId)}, ${category}, ${amount}, ${rawMemo}, 'csv')
     `
     count++
   }
