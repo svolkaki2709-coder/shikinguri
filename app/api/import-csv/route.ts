@@ -134,6 +134,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  try {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -242,4 +243,9 @@ export async function POST(req: NextRequest) {
   `
 
   return NextResponse.json({ success: true, imported: count, skipped: skipped.length })
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e)
+    console.error("[import-csv]", msg)
+    return NextResponse.json({ error: `サーバーエラー: ${e instanceof Error ? e.message : String(e)}` }, { status: 500 })
+  }
 }

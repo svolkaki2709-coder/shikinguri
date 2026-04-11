@@ -65,8 +65,8 @@ export default function ImportPage() {
       } else {
         setError(data.error ?? "インポートに失敗しました")
       }
-    } catch {
-      setError("通信エラーが発生しました")
+    } catch (e: unknown) {
+      setError("通信エラー: " + (e instanceof Error ? e.message : String(e)))
     } finally {
       setLoading(false)
     }
