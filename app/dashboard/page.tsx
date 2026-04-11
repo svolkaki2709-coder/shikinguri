@@ -185,31 +185,49 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* カード別支出 */}
-            <div className="bg-white rounded-xl shadow-sm p-3">
-              <h2 className="text-sm font-semibold text-gray-700 mb-3">用途別支出</h2>
-              <div className="space-y-3">
-                {cardSummary.map(c => (
-                  <div key={c.cardId}>
-                    <div className="flex justify-between items-center mb-1">
+            {/* 用途別支出（個人 / 共用） */}
+            <div className="bg-white rounded-xl shadow-sm p-3 space-y-4">
+              <h2 className="text-sm font-semibold text-gray-700">用途別支出</h2>
+              {[
+                { label: "個人の支出", type: "self", color: "#6366f1" },
+                { label: "共用の支出", type: "joint", color: "#f59e0b" },
+              ].map(group => {
+                const groupCards = cardSummary.filter(c => c.cardType === group.type)
+                const groupTotal = groupCards.reduce((s, c) => s + c.total, 0)
+                if (groupCards.length === 0) return null
+                return (
+                  <div key={group.type}>
+                    {/* グループ合計行 */}
+                    <div className="flex justify-between items-center mb-1.5">
                       <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c.color }} />
-                        <span className="text-sm font-medium text-gray-800">{c.cardName}</span>
-                        <span className="text-xs px-1.5 py-0.5 rounded font-medium" style={{ backgroundColor: c.color + "22", color: c.color }}>
-                          {c.cardType === "joint" ? "共用" : "個人"}
-                        </span>
+                        <span className="w-3 h-3 rounded-full" style={{ backgroundColor: group.color }} />
+                        <span className="text-sm font-semibold text-gray-800">{group.label}</span>
                       </div>
-                      <span className="text-sm font-bold text-gray-800">{toJPY(c.total)}</span>
+                      <span className="text-sm font-bold text-gray-800">{toJPY(groupTotal)}</span>
                     </div>
-                    <div className="w-full bg-gray-100 rounded-full h-1.5">
+                    <div className="w-full bg-gray-100 rounded-full h-2 mb-2">
                       <div
-                        className="h-1.5 rounded-full"
-                        style={{ width: `${totalExpense > 0 ? (c.total / totalExpense) * 100 : 0}%`, backgroundColor: c.color }}
+                        className="h-2 rounded-full"
+                        style={{ width: `${totalExpense > 0 ? (groupTotal / totalExpense) * 100 : 0}%`, backgroundColor: group.color }}
                       />
                     </div>
+                    {/* 支払手段の内訳（複数ある場合のみ） */}
+                    {groupCards.length > 1 && (
+                      <div className="pl-5 space-y-1 mt-1">
+                        {groupCards.map(c => (
+                          <div key={c.cardId} className="flex justify-between items-center text-xs text-gray-500">
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: c.color }} />
+                              <span>{c.cardName}</span>
+                            </div>
+                            <span>{toJPY(c.total)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
+                )
+              })}
             </div>
 
             {/* カテゴリ別円グラフ */}
@@ -294,12 +312,12 @@ export default function DashboardPage() {
               </div>
             ) : (
               <>
-                {/* カード別サマリー */}
+                {/* 用途別サマリー */}
                 <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
-                  <h2 className="text-sm font-semibold text-gray-700">カード別サマリー</h2>
+                  <h2 className="text-sm font-semibold text-gray-700">用途別サマリー</h2>
                   {[
-                    { label: "個人カード", budget: selfBudget, actual: selfTotal, color: "#6366f1" },
-                    { label: "共用カード", budget: jointBudget, actual: jointTotal, color: "#f59e0b" },
+                    { label: "個人の支出", budget: selfBudget, actual: selfTotal, color: "#6366f1" },
+                    { label: "共用の支出", budget: jointBudget, actual: jointTotal, color: "#f59e0b" },
                   ].filter(r => r.budget > 0 || r.actual > 0).map(row => {
                     const diff = row.budget - row.actual
                     const isOver = row.actual > row.budget
@@ -336,7 +354,7 @@ export default function DashboardPage() {
                 {budgetVsActual.filter(b => b.cardType === "self").length > 0 && (
                   <div className="bg-white rounded-xl shadow-sm overflow-hidden">
                     <div className="px-4 py-2 bg-indigo-50 border-b">
-                      <h3 className="text-xs font-semibold text-indigo-600">個人カード　カテゴリ別</h3>
+                      <h3 className="text-xs font-semibold text-indigo-600">個人　用途別</h3>
                     </div>
                     <div className="divide-y divide-gray-100">
                       {budgetVsActual.filter(b => b.cardType === "self").map(b => {
@@ -364,7 +382,7 @@ export default function DashboardPage() {
                 {budgetVsActual.filter(b => b.cardType === "joint").length > 0 && (
                   <div className="bg-white rounded-xl shadow-sm overflow-hidden">
                     <div className="px-4 py-2 bg-amber-50 border-b">
-                      <h3 className="text-xs font-semibold text-amber-600">共用カード　カテゴリ別</h3>
+                      <h3 className="text-xs font-semibold text-amber-600">共用　用途別</h3>
                     </div>
                     <div className="divide-y divide-gray-100">
                       {budgetVsActual.filter(b => b.cardType === "joint").map(b => {
