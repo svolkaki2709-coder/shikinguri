@@ -545,17 +545,17 @@ function SettingsContent() {
                 ) : (
                   <>
                     <div className="grid grid-cols-[1fr_auto_auto] bg-gray-50 border-b text-xs text-gray-500 font-medium">
-                      <div className="px-3 py-1.5">カテゴリ名</div>
-                      <div className="px-2 py-1.5">グループ</div>
-                      <div className="px-2 py-1.5"></div>
+                      <div className="px-2 py-1">カテゴリ名</div>
+                      <div className="px-2 py-1">グループ</div>
+                      <div className="w-7"></div>
                     </div>
                     {categoryRows.filter(r => catViewType === "joint" ? r.card_type === "joint" : r.card_type !== "joint").map(r => (
                       <div key={r.name} className="grid grid-cols-[1fr_auto_auto] items-center border-b last:border-0 hover:bg-gray-50">
-                        <span className="px-3 py-2 text-sm text-gray-800">{r.name}</span>
+                        <span className="px-2 py-1 text-xs text-gray-800">{r.name}</span>
                         <select
                           value={r.group_type ?? ""}
                           onChange={e => handleSetGroupType(r.name, r.card_type, e.target.value || null)}
-                          className="text-xs border-0 border-l bg-transparent text-gray-700 py-2 px-2 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                          className="text-xs border-0 border-l bg-transparent text-gray-700 py-1 px-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
                         >
                           <option value="">—</option>
                           <option value="収入">収入</option>
@@ -566,7 +566,7 @@ function SettingsContent() {
                           <option value="立替">立替</option>
                         </select>
                         <button onClick={() => handleDeleteCategory(r.name)}
-                          className="px-3 py-2 text-gray-300 hover:text-red-500 text-lg leading-none border-l">×</button>
+                          className="w-7 py-1 text-gray-300 hover:text-red-500 text-base leading-none border-l text-center">×</button>
                       </div>
                     ))}
                   </>
