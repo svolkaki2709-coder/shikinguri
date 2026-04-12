@@ -11,14 +11,14 @@ export function PageHeader({ title }: PageHeaderProps) {
   const { mode, toggle } = useViewMode()
 
   return (
-    <header className="sticky top-0 bg-white border-b border-gray-200 z-40">
-      <div className={`flex items-center justify-between px-4 py-3 ${mode === "mobile" ? "max-w-md mx-auto" : ""}`}>
-        <h1 className="text-lg font-bold text-gray-800">{title}</h1>
+    <header className="sticky top-0 bg-white border-b border-gray-100 z-40">
+      <div className={`flex items-center justify-between px-4 py-2.5 ${mode === "mobile" ? "max-w-md mx-auto" : ""}`}>
+        <h1 className="text-base font-bold text-gray-800">{title}</h1>
         <div className="flex items-center gap-3">
           <button
             onClick={toggle}
             title={mode === "pc" ? "スマホ表示に切り替え" : "PC表示に切り替え"}
-            className="flex items-center gap-1.5 text-xs text-gray-700 hover:text-blue-600 border border-gray-200 rounded-md px-2 py-1 transition-colors"
+            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-blue-600 border border-gray-200 rounded-md px-2 py-1 transition-colors"
           >
             {mode === "pc" ? (
               <>📱 <span>スマホ</span></>
@@ -26,12 +26,14 @@ export function PageHeader({ title }: PageHeaderProps) {
               <>🖥️ <span>PC</span></>
             )}
           </button>
-          <button
-            onClick={() => signOut({ callbackUrl: "/" })}
-            className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
-          >
-            ログアウト
-          </button>
+          {mode === "mobile" && (
+            <button
+              onClick={() => signOut({ callbackUrl: "/" })}
+              className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              ログアウト
+            </button>
+          )}
         </div>
       </div>
     </header>

@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
+import { useViewMode } from "@/components/ViewModeContext"
 
 interface Card { id: number; name: string; card_type: string; color: string }
 interface Recurring { id: number; day_of_month: number; card_id: number; card_name: string; color: string; category: string; amount: number; memo: string }
@@ -30,6 +31,8 @@ function SettingsContent() {
   const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { mode } = useViewMode()
+  const isPC = mode === "pc"
 
   const validTabs: Tab[] = ["recurring", "income", "budget", "category"]
   const initialTab = (searchParams.get("tab") as Tab | null)
@@ -271,9 +274,9 @@ function SettingsContent() {
   ]
 
   return (
-    <div className="pb-20">
+    <div className={mode === "mobile" ? "pb-20" : ""}>
       <PageHeader title="設定" />
-      <main className="max-w-md mx-auto px-4 py-2 space-y-3">
+      <div className={isPC ? "px-6 py-4 space-y-4" : "max-w-md mx-auto px-4 py-2 space-y-3"}>
         {/* タブ */}
         <div className="flex rounded-xl bg-gray-100 p-1">
           {tabs.map(t => (
@@ -286,7 +289,7 @@ function SettingsContent() {
 
         {/* === 定期支出タブ === */}
         {tab === "recurring" && (
-          <>
+          <div className={isPC ? "grid grid-cols-2 gap-4 items-start" : "space-y-3"}>
             <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
               <h2 className="text-sm font-semibold text-gray-700">定期支出を追加</h2>
               <div className="grid grid-cols-3 gap-2">
@@ -373,7 +376,7 @@ function SettingsContent() {
                 ))}
               </div>
             )}
-          </>
+          </div>
         )}
 
         {/* === 収入入力タブ === */}
@@ -426,7 +429,7 @@ function SettingsContent() {
 
         {/* === 予算設定タブ === */}
         {tab === "budget" && (
-          <>
+          <div className={isPC ? "grid grid-cols-2 gap-4 items-start" : "space-y-3"}>
           <div className={`bg-white rounded-xl shadow-sm p-3 space-y-3 ${editingBudgetKey ? "ring-2 ring-blue-400" : ""}`}>
             <div className="flex justify-between items-center">
               <h2 className="text-sm font-semibold text-gray-700">
@@ -514,32 +517,28 @@ function SettingsContent() {
               </div>
             )
           })()}
-          </>
+          </div>
         )}
 
         {/* === カテゴリ管理タブ === */}
-        {tab === "category" && (
-          <>
-            {/* カテゴリ一覧 */}
-            <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
-              <h2 className="text-sm font-semibold text-gray-700">カテゴリ一覧</h2>
-
-              {/* 個人/共用 トグル（表示切り替え＋追加先切り替え） */}
-              <div className="flex gap-2">
+        {tab === "category" && (() => {
+          // 共通: カテゴリリストブロック
+          const CategoryBlock = () => (
+            <div className="bg-white rounded-xl shadow-sm p-3 space-y-2">
+              <h2 className="text-xs font-semibold text-gray-700">カテゴリ一覧</h2>
+              <div className="flex gap-1.5">
                 <button type="button"
                   onClick={() => { setCatViewType("self"); setNewCatCardType("self") }}
-                  className={`flex-1 py-2 rounded-lg text-sm font-semibold border transition-colors ${catViewType === "self" ? "bg-indigo-600 text-white border-indigo-600" : "border-gray-300 text-gray-600"}`}>
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${catViewType === "self" ? "bg-indigo-600 text-white border-indigo-600" : "border-gray-300 text-gray-600"}`}>
                   個人
                 </button>
                 <button type="button"
                   onClick={() => { setCatViewType("joint"); setNewCatCardType("joint") }}
-                  className={`flex-1 py-2 rounded-lg text-sm font-semibold border transition-colors ${catViewType === "joint" ? "bg-amber-500 text-white border-amber-500" : "border-gray-300 text-gray-600"}`}>
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${catViewType === "joint" ? "bg-amber-500 text-white border-amber-500" : "border-gray-300 text-gray-600"}`}>
                   共用
                 </button>
               </div>
-
-              {/* カテゴリ一覧（選択中の用途のみ）リスト形式 */}
-              <div className="border rounded-lg overflow-hidden max-w-2xl">
+              <div className="border rounded-lg overflow-hidden">
                 {categoryRows.filter(r => catViewType === "joint" ? r.card_type === "joint" : r.card_type !== "joint").length === 0 ? (
                   <p className="text-xs text-gray-400 px-3 py-3">なし</p>
                 ) : (
@@ -549,87 +548,51 @@ function SettingsContent() {
                       <div className="px-2 py-1">グループ</div>
                       <div className="w-7"></div>
                     </div>
-                    {categoryRows.filter(r => catViewType === "joint" ? r.card_type === "joint" : r.card_type !== "joint").map(r => (
-                      <div key={r.name} className="grid grid-cols-[1fr_auto_auto] items-center border-b last:border-0 hover:bg-gray-50">
-                        <span className="px-2 py-1 text-xs text-gray-800">{r.name}</span>
-                        <select
-                          value={r.group_type ?? ""}
-                          onChange={e => handleSetGroupType(r.name, r.card_type, e.target.value || null)}
-                          className="text-xs border-0 border-l bg-transparent text-gray-700 py-1 px-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                        >
-                          <option value="">—</option>
-                          <option value="収入">収入</option>
-                          <option value="支出">支出</option>
-                          <option value="振替">振替</option>
-                          <option value="投資">投資</option>
-                          <option value="貯蓄">貯蓄</option>
-                          <option value="立替">立替</option>
-                        </select>
-                        <button onClick={() => handleDeleteCategory(r.name)}
-                          className="w-7 py-1 text-gray-300 hover:text-red-500 text-base leading-none border-l text-center">×</button>
-                      </div>
-                    ))}
+                    <div className="max-h-72 overflow-y-auto">
+                      {categoryRows.filter(r => catViewType === "joint" ? r.card_type === "joint" : r.card_type !== "joint").map(r => (
+                        <div key={r.name} className="grid grid-cols-[1fr_auto_auto] items-center border-b last:border-0 hover:bg-gray-50">
+                          <span className="px-2 py-1 text-xs text-gray-800">{r.name}</span>
+                          <select
+                            value={r.group_type ?? ""}
+                            onChange={e => handleSetGroupType(r.name, r.card_type, e.target.value || null)}
+                            className="text-xs border-0 border-l bg-transparent text-gray-700 py-1 px-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                          >
+                            <option value="">—</option>
+                            <option value="収入">収入</option>
+                            <option value="支出">支出</option>
+                            <option value="振替">振替</option>
+                            <option value="投資">投資</option>
+                            <option value="貯蓄">貯蓄</option>
+                            <option value="立替">立替</option>
+                          </select>
+                          <button onClick={() => handleDeleteCategory(r.name)}
+                            className="w-7 py-1 text-gray-300 hover:text-red-500 text-base leading-none border-l text-center">×</button>
+                        </div>
+                      ))}
+                    </div>
                   </>
                 )}
               </div>
-
-              {/* 追加フォーム */}
               <div className="flex gap-2 pt-1 border-t">
                 <input type="text" value={newCatName} onChange={e => setNewCatName(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && handleAddCategory()}
                   placeholder={`新しい${catViewType === "joint" ? "共用" : "個人"}カテゴリ名`}
-                  className="flex-1 border rounded-lg px-3 py-1.5 text-sm text-gray-800"
+                  className="flex-1 border rounded-lg px-2 py-1.5 text-xs text-gray-800"
                 />
                 <button onClick={handleAddCategory} disabled={catSaving || !newCatName.trim()}
-                  className="bg-blue-600 text-white rounded-lg px-3 py-1.5 text-sm font-semibold disabled:opacity-50">
+                  className="bg-blue-600 text-white rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50">
                   追加
                 </button>
               </div>
             </div>
+          )
 
-            {/* 未分類の明細（選択中の用途のみ） */}
-            {(() => {
-              const filtered = uncategorizedMemos.filter(m =>
-                catViewType === "joint" ? m.card_type === "joint" : m.card_type !== "joint"
-              )
-              if (filtered.length === 0) return null
-              return (
-              <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-                <div className="px-3 py-2 bg-orange-50 border-b border-orange-100 flex items-center justify-between">
-                  <h2 className="text-sm font-semibold text-orange-700">⚠ 未分類の明細（{filtered.length}件）</h2>
-                  <span className="text-xs text-orange-500">タップしてルールを追加</span>
-                </div>
-                {filtered.map(m => (
-                  <div key={`${m.memo}-${m.card_type}`}
-                    className="flex items-center gap-2 px-3 py-2 border-b last:border-0 hover:bg-orange-50 cursor-pointer"
-                    onClick={() => {
-                      setNewRuleKeyword(m.memo)
-                      setNewRuleCategory("")
-                      setEditingRule(null)
-                      // スクロール用に少し待ってからルール欄にフォーカス
-                      setTimeout(() => {
-                        document.getElementById("rule-keyword-input")?.focus()
-                      }, 100)
-                    }}>
-                    <span className={`text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${m.card_type === "joint" ? "bg-amber-100 text-amber-700" : "bg-indigo-100 text-indigo-700"}`}>
-                      {m.card_type === "joint" ? "共用" : "個人"}
-                    </span>
-                    <span className="flex-1 text-xs text-gray-800 truncate">{m.memo}</span>
-                    <span className="text-xs text-gray-400 shrink-0">{m.count}件</span>
-                    <span className="text-xs text-blue-500 shrink-0">+ ルール追加</span>
-                  </div>
-                ))}
-              </div>
-              )
-            })()}
-
-            {/* 自動振り分けルール */}
-            <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
-              <h2 className="text-sm font-semibold text-gray-700">自動振り分けルール</h2>
-              <p className="text-xs text-gray-500">CSVインポート時、メモ欄のキーワードからカテゴリを自動設定します</p>
-
-              {/* 新規ルール追加／編集 */}
-              <div className={`border rounded-lg p-2.5 space-y-2 ${editingRule ? "border-blue-400 bg-blue-50" : "border-gray-200"}`}>
+          // 共通: 振り分けルールブロック
+          const RulesBlock = () => (
+            <div className="bg-white rounded-xl shadow-sm p-3 space-y-2">
+              <h2 className="text-xs font-semibold text-gray-700">自動振り分けルール</h2>
+              <p className="text-xs text-gray-400">CSVインポート時、メモのキーワードからカテゴリを自動設定</p>
+              <div className={`border rounded-lg p-2 space-y-2 ${editingRule ? "border-blue-400 bg-blue-50" : "border-gray-200"}`}>
                 <p className="text-xs font-medium text-gray-600">{editingRule ? "ルールを編集" : "ルールを追加"}</p>
                 <div className="flex gap-2">
                   <input
@@ -638,12 +601,12 @@ function SettingsContent() {
                     value={newRuleKeyword}
                     onChange={e => setNewRuleKeyword(e.target.value)}
                     placeholder="キーワード（店舗名など）"
-                    className="flex-1 border rounded-lg px-2 py-1.5 text-xs text-gray-800"
+                    className="flex-1 border rounded px-2 py-1.5 text-xs text-gray-800 min-w-0"
                   />
                   <select
                     value={newRuleCategory}
                     onChange={e => setNewRuleCategory(e.target.value)}
-                    className="border rounded-lg px-2 py-1.5 text-xs text-gray-800 bg-white"
+                    className="border rounded px-2 py-1.5 text-xs text-gray-800 bg-white"
                   >
                     <option value="">カテゴリ選択</option>
                     {categoryRows
@@ -654,43 +617,38 @@ function SettingsContent() {
                 <div className="flex gap-2">
                   {editingRule && (
                     <button onClick={() => { setEditingRule(null); setNewRuleKeyword(""); setNewRuleCategory("") }}
-                      className="flex-1 border border-gray-300 text-gray-600 rounded-lg py-1.5 text-xs">
+                      className="flex-1 border border-gray-300 text-gray-600 rounded py-1.5 text-xs">
                       キャンセル
                     </button>
                   )}
                   <button
                     onClick={handleSaveRule}
                     disabled={ruleSaving || !newRuleKeyword.trim() || !newRuleCategory}
-                    className="flex-1 bg-blue-600 text-white rounded-lg py-1.5 text-xs font-semibold disabled:opacity-50"
+                    className="flex-1 bg-blue-600 text-white rounded py-1.5 text-xs font-semibold disabled:opacity-50"
                   >
                     {ruleSaving ? "保存中..." : editingRule ? "更新" : "追加"}
                   </button>
                 </div>
               </div>
-
-              {/* 検索 */}
               <input
                 type="text"
                 value={ruleSearch}
                 onChange={e => { setRuleSearch(e.target.value); fetchStoreRules(e.target.value) }}
-                placeholder="キーワード・カテゴリで検索"
-                className="w-full border rounded-lg px-3 py-1.5 text-sm text-gray-800"
+                placeholder="検索..."
+                className="w-full border rounded px-2 py-1.5 text-xs text-gray-800"
               />
-
-              {/* ルール一覧 */}
-              <div className="border rounded-lg overflow-hidden max-h-96 overflow-y-auto">
+              <div className="border rounded-lg overflow-hidden max-h-80 overflow-y-auto">
                 {storeRules.length === 0 ? (
-                  <p className="text-center py-4 text-sm text-gray-500">ルールがありません</p>
+                  <p className="text-center py-4 text-xs text-gray-400">ルールがありません</p>
                 ) : (
                   storeRules.map(r => (
-                    <div key={r.id} className="flex items-center gap-2 px-3 py-2 border-b last:border-0 hover:bg-gray-50">
+                    <div key={r.id} className="flex items-center gap-2 px-2 py-1.5 border-b last:border-0 hover:bg-gray-50">
                       <span className="flex-1 text-xs text-gray-800 truncate">{r.keyword}</span>
                       <span className="text-xs text-gray-400">→</span>
-                      <span className="text-xs font-medium text-blue-600 w-24 truncate text-right">{r.category}</span>
+                      <span className="text-xs font-medium text-blue-600 w-20 truncate text-right">{r.category}</span>
                       <button
                         onClick={() => { setEditingRule(r); setNewRuleKeyword(r.keyword); setNewRuleCategory(r.category) }}
-                        className="text-xs text-gray-400 hover:text-blue-500 px-1"
-                      >
+                        className="text-xs text-gray-400 hover:text-blue-500 px-1">
                         編集
                       </button>
                       <button onClick={() => handleDeleteRule(r.id)} className="text-gray-300 hover:text-red-400 text-lg leading-none w-5">×</button>
@@ -700,9 +658,60 @@ function SettingsContent() {
               </div>
               <p className="text-xs text-gray-400 text-right">{storeRules.length}件</p>
             </div>
-          </>
-        )}
-      </main>
+          )
+
+          // 共通: 未分類メモブロック
+          const filtered = uncategorizedMemos.filter(m =>
+            catViewType === "joint" ? m.card_type === "joint" : m.card_type !== "joint"
+          )
+          const UncategorizedBlock = () => filtered.length === 0 ? (
+            <div className="bg-white rounded-xl shadow-sm p-3">
+              <h2 className="text-xs font-semibold text-gray-700 mb-2">未分類の明細</h2>
+              <p className="text-xs text-gray-400 text-center py-4">未分類の明細はありません ✅</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+              <div className="px-3 py-2 bg-orange-50 border-b border-orange-100 flex items-center justify-between">
+                <h2 className="text-xs font-semibold text-orange-700">⚠ 未分類の明細（{filtered.length}件）</h2>
+                <span className="text-xs text-orange-400">クリックしてルール追加</span>
+              </div>
+              <div className="max-h-80 overflow-y-auto">
+                {filtered.map(m => (
+                  <div key={`${m.memo}-${m.card_type}`}
+                    className="flex items-center gap-2 px-3 py-1.5 border-b last:border-0 hover:bg-orange-50 cursor-pointer"
+                    onClick={() => {
+                      setNewRuleKeyword(m.memo)
+                      setNewRuleCategory("")
+                      setEditingRule(null)
+                      setTimeout(() => { document.getElementById("rule-keyword-input")?.focus() }, 100)
+                    }}>
+                    <span className={`text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${m.card_type === "joint" ? "bg-amber-100 text-amber-700" : "bg-indigo-100 text-indigo-700"}`}>
+                      {m.card_type === "joint" ? "共" : "個"}
+                    </span>
+                    <span className="flex-1 text-xs text-gray-800 truncate">{m.memo}</span>
+                    <span className="text-xs text-gray-400 shrink-0">{m.count}件</span>
+                    <span className="text-xs text-blue-400 shrink-0">+ルール</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+
+          return isPC ? (
+            <div className="grid grid-cols-3 gap-4 items-start">
+              {CategoryBlock()}
+              {RulesBlock()}
+              {UncategorizedBlock()}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {CategoryBlock()}
+              {UncategorizedBlock()}
+              {RulesBlock()}
+            </div>
+          )
+        })()}
+      </div>
       <BottomNav />
     </div>
   )

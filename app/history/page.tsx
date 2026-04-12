@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
+import { useViewMode } from "@/components/ViewModeContext"
 
 interface Card { id: number; name: string; card_type: string; color: string }
 interface Transaction {
@@ -36,6 +37,8 @@ function HistoryContent() {
   const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { mode } = useViewMode()
+  const isPC = mode === "pc"
 
   const [cards, setCards] = useState<Card[]>([])
   const [categories, setCategories] = useState<string[]>([])
@@ -109,89 +112,189 @@ function HistoryContent() {
   const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a))
 
   return (
-    <div className="pb-20">
+    <div className={mode === "mobile" ? "pb-20" : ""}>
       <PageHeader title="明細履歴" />
-      <main className="max-w-md mx-auto px-4 py-2 space-y-2">
-        {/* フィルター */}
-        <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
-          {/* カードタブ */}
-          <div className="flex gap-1.5 flex-wrap">
-            <button
-              onClick={() => setCardId("")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                cardId === "" ? "bg-gray-700 text-white border-gray-700" : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"
-              }`}
-            >
-              すべて
-            </button>
-            {cards.map(c => (
-              <button
-                key={c.id}
-                onClick={() => setCardId(String(c.id))}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all"
-                style={{
-                  backgroundColor: cardId === String(c.id) ? c.color : "white",
-                  borderColor: cardId === String(c.id) ? c.color : "#e5e7eb",
-                  color: cardId === String(c.id) ? "white" : "#6b7280",
-                }}
-              >
-                {c.name}
-              </button>
-            ))}
-          </div>
-
-          {/* 月選択 */}
-          <div className="flex items-center gap-1 border rounded-lg px-1 py-1">
-            <button onClick={() => { const [y,mo] = month.split("-").map(Number); const d = new Date(y, mo-2, 1); setMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`) }}
-              className="text-gray-600 hover:text-blue-600 px-1 font-bold text-base">‹</button>
-            <input type="month" value={month} onChange={e => setMonth(e.target.value)}
-              className="flex-1 text-center text-sm font-semibold text-gray-800 border-0 outline-none bg-transparent min-w-0" />
-            <button onClick={() => { const [y,mo] = month.split("-").map(Number); const d = new Date(y, mo, 1); setMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`) }}
-              className="text-gray-600 hover:text-blue-600 px-1 font-bold text-base">›</button>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs text-gray-700">カテゴリ</label>
-                <button
-                  onClick={() => setCategory(category === "未分類" ? "" : "未分類")}
-                  className={`text-xs px-2 py-0.5 rounded-full border transition-all ${
-                    category === "未分類"
-                      ? "bg-orange-500 text-white border-orange-500"
-                      : "text-orange-500 border-orange-300 hover:bg-orange-50"
-                  }`}
-                >
-                  未分類のみ
+      <div className={isPC ? "px-6 py-4" : "max-w-md mx-auto px-4 py-2"}>
+        {/* フィルターバー */}
+        <div className={`bg-white rounded-xl shadow-sm p-3 ${isPC ? "mb-4" : "mb-3 space-y-3"}`}>
+          {isPC ? (
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* カードフィルター */}
+              <div className="flex gap-1.5 flex-wrap">
+                <button onClick={() => setCardId("")}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${cardId === "" ? "bg-gray-700 text-white border-gray-700" : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"}`}>
+                  すべて
+                </button>
+                {cards.map(c => (
+                  <button key={c.id} onClick={() => setCardId(String(c.id))}
+                    className="px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all"
+                    style={{
+                      backgroundColor: cardId === String(c.id) ? c.color : "white",
+                      borderColor: cardId === String(c.id) ? c.color : "#e5e7eb",
+                      color: cardId === String(c.id) ? "white" : "#6b7280",
+                    }}>
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+              {/* 月選択 */}
+              <div className="flex items-center gap-1 border rounded-lg px-2 py-1 bg-white">
+                <button onClick={() => { const [y,mo] = month.split("-").map(Number); const d = new Date(y, mo-2, 1); setMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`) }}
+                  className="text-gray-600 hover:text-blue-600 px-1 font-bold text-sm">‹</button>
+                <input type="month" value={month} onChange={e => setMonth(e.target.value)}
+                  className="text-center text-xs font-semibold text-gray-800 border-0 outline-none bg-transparent w-28" />
+                <button onClick={() => { const [y,mo] = month.split("-").map(Number); const d = new Date(y, mo, 1); setMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`) }}
+                  className="text-gray-600 hover:text-blue-600 px-1 font-bold text-sm">›</button>
+              </div>
+              {/* カテゴリ */}
+              <div className="flex items-center gap-1.5">
+                <select value={category} onChange={e => setCategory(e.target.value)}
+                  className="border rounded-lg px-2 py-1 text-xs bg-white text-gray-800">
+                  <option value="">全カテゴリ</option>
+                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <button onClick={() => setCategory(category === "未分類" ? "" : "未分類")}
+                  className={`text-xs px-2 py-1 rounded-lg border transition-all whitespace-nowrap ${category === "未分類" ? "bg-orange-500 text-white border-orange-500" : "text-orange-500 border-orange-300 hover:bg-orange-50"}`}>
+                  ⚠ 未分類のみ
                 </button>
               </div>
-              <select value={category} onChange={e => setCategory(e.target.value)}
-                className="w-full border rounded-lg px-2 py-1.5 text-sm bg-white text-gray-800">
-                <option value="">すべて</option>
-                {categories.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-700 mb-1">キーワード</label>
+              {/* キーワード */}
               <input type="text" value={keyword} onChange={e => setKeyword(e.target.value)}
-                placeholder="メモ・カテゴリ"
-                className="w-full border rounded-lg px-2 py-1.5 text-sm" />
+                placeholder="キーワード検索"
+                className="border rounded-lg px-2 py-1 text-xs w-36" />
+              {/* 件数 */}
+              <div className="ml-auto flex items-center gap-3">
+                <span className="text-xs text-gray-500">{transactions.length}件</span>
+                <span className="text-sm font-bold text-gray-800">{toJPY(total)}</span>
+              </div>
             </div>
+          ) : (
+            <>
+              {/* モバイル: 従来レイアウト */}
+              <div className="flex gap-1.5 flex-wrap">
+                <button onClick={() => setCardId("")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${cardId === "" ? "bg-gray-700 text-white border-gray-700" : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"}`}>
+                  すべて
+                </button>
+                {cards.map(c => (
+                  <button key={c.id} onClick={() => setCardId(String(c.id))}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all"
+                    style={{
+                      backgroundColor: cardId === String(c.id) ? c.color : "white",
+                      borderColor: cardId === String(c.id) ? c.color : "#e5e7eb",
+                      color: cardId === String(c.id) ? "white" : "#6b7280",
+                    }}>
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-1 border rounded-lg px-1 py-1">
+                <button onClick={() => { const [y,mo] = month.split("-").map(Number); const d = new Date(y, mo-2, 1); setMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`) }}
+                  className="text-gray-600 hover:text-blue-600 px-1 font-bold text-base">‹</button>
+                <input type="month" value={month} onChange={e => setMonth(e.target.value)}
+                  className="flex-1 text-center text-sm font-semibold text-gray-800 border-0 outline-none bg-transparent min-w-0" />
+                <button onClick={() => { const [y,mo] = month.split("-").map(Number); const d = new Date(y, mo, 1); setMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`) }}
+                  className="text-gray-600 hover:text-blue-600 px-1 font-bold text-base">›</button>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs text-gray-700">カテゴリ</label>
+                    <button onClick={() => setCategory(category === "未分類" ? "" : "未分類")}
+                      className={`text-xs px-2 py-0.5 rounded-full border transition-all ${category === "未分類" ? "bg-orange-500 text-white border-orange-500" : "text-orange-500 border-orange-300 hover:bg-orange-50"}`}>
+                      未分類のみ
+                    </button>
+                  </div>
+                  <select value={category} onChange={e => setCategory(e.target.value)}
+                    className="w-full border rounded-lg px-2 py-1.5 text-sm bg-white text-gray-800">
+                    <option value="">すべて</option>
+                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-700 mb-1">キーワード</label>
+                  <input type="text" value={keyword} onChange={e => setKeyword(e.target.value)}
+                    placeholder="メモ・カテゴリ"
+                    className="w-full border rounded-lg px-2 py-1.5 text-sm" />
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {!isPC && (
+          <div className="flex justify-between items-center px-1 mb-2">
+            <span className="text-sm text-gray-500">{transactions.length}件</span>
+            <span className="text-base font-bold text-gray-800">{toJPY(total)}</span>
           </div>
-        </div>
+        )}
 
-        {/* 合計 */}
-        <div className="flex justify-between items-center px-1">
-          <span className="text-sm text-gray-700">{transactions.length}件</span>
-          <span className="text-base font-bold text-gray-800">{toJPY(total)}</span>
-        </div>
+        {loading && <div className="text-center py-4 text-gray-500 text-sm">読み込み中...</div>}
 
-        {loading && <div className="text-center py-4 text-gray-600">読み込み中...</div>}
+        {/* PC: テーブルビュー */}
+        {!loading && isPC && (
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-gray-50 border-b text-gray-500">
+                  <th className="text-left px-4 py-2 font-medium">日付</th>
+                  <th className="text-left px-3 py-2 font-medium">カード</th>
+                  <th className="text-left px-3 py-2 font-medium">カテゴリ</th>
+                  <th className="text-left px-3 py-2 font-medium">メモ</th>
+                  <th className="text-right px-3 py-2 font-medium">金額</th>
+                  <th className="text-center px-3 py-2 font-medium w-12">操作</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {transactions.length === 0 ? (
+                  <tr><td colSpan={6} className="text-center py-8 text-gray-400">明細がありません</td></tr>
+                ) : (
+                  transactions.map(t => (
+                    <tr key={t.id} className={`hover:bg-gray-50 transition-colors ${t.category === "未分類" ? "bg-orange-50 hover:bg-orange-100" : ""}`}>
+                      <td className="px-4 py-1.5 text-gray-600 whitespace-nowrap">{t.date}</td>
+                      <td className="px-3 py-1.5">
+                        {t.card_name && (
+                          <span className="text-xs px-1.5 py-0.5 rounded text-white font-medium whitespace-nowrap"
+                            style={{ backgroundColor: t.color ?? "#6366f1" }}>
+                            {t.card_name}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-1.5">
+                        {editingId === t.id ? (
+                          <select autoFocus value={t.category}
+                            onChange={e => handleCategoryChange(t.id, e.target.value)}
+                            onBlur={() => setEditingId(null)}
+                            className="border border-blue-400 rounded px-1 py-0.5 bg-white text-gray-800 outline-none text-xs">
+                            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                        ) : (
+                          <button onClick={() => setEditingId(t.id)}
+                            className={`text-xs hover:underline text-left ${t.category === "未分類" ? "text-orange-500 font-semibold" : "text-gray-700 hover:text-blue-600"}`}
+                            title="クリックしてカテゴリを変更">
+                            {t.category === "未分類" ? "⚠ 未分類" : t.category}
+                          </button>
+                        )}
+                      </td>
+                      <td className="px-3 py-1.5 text-gray-500 max-w-xs truncate">{t.memo}</td>
+                      <td className="px-3 py-1.5 text-right font-semibold text-gray-800 whitespace-nowrap">{toJPY(t.amount)}</td>
+                      <td className="px-3 py-1.5 text-center">
+                        <button onClick={() => handleDelete(t.id)}
+                          className="text-gray-300 hover:text-red-400 text-lg leading-none">×</button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-        {!loading && sortedDates.map(date => {
+        {/* Mobile: カードビュー */}
+        {!loading && !isPC && sortedDates.map(date => {
           const dayTotal = grouped[date].reduce((s, t) => s + t.amount, 0)
           return (
-            <div key={date} className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div key={date} className="bg-white rounded-xl shadow-sm overflow-hidden mb-2">
               <div className="flex justify-between items-center px-4 py-2 bg-gray-50 border-b">
                 <span className="text-xs font-medium text-gray-600">{date}</span>
                 <span className="text-xs font-semibold text-gray-600">{toJPY(dayTotal)}</span>
@@ -207,41 +310,32 @@ function HistoryContent() {
                         </span>
                       )}
                       {editingId === t.id ? (
-                        <select
-                          autoFocus
-                          value={t.category}
+                        <select autoFocus value={t.category}
                           onChange={e => handleCategoryChange(t.id, e.target.value)}
                           onBlur={() => setEditingId(null)}
-                          className="text-sm border border-blue-400 rounded px-1 py-0.5 bg-white text-gray-800 outline-none"
-                        >
+                          className="text-sm border border-blue-400 rounded px-1 py-0.5 bg-white text-gray-800 outline-none">
                           {categories.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
                       ) : (
-                        <button
-                          onClick={() => setEditingId(t.id)}
+                        <button onClick={() => setEditingId(t.id)}
                           className={`text-sm font-medium hover:underline truncate text-left ${
                             t.category === "未分類"
                               ? "text-orange-500 font-semibold hover:text-orange-600"
                               : "text-gray-800 hover:text-blue-600"
                           }`}
-                          title="タップしてカテゴリを変更"
-                        >
+                          title="タップしてカテゴリを変更">
                           {t.category === "未分類" ? "⚠ 未分類" : t.category}
                         </button>
                       )}
                       {t.source === "csv" && <span className="text-xs text-blue-400 shrink-0">CSV</span>}
                       {t.source === "recurring" && <span className="text-xs text-green-400 shrink-0">定期</span>}
                     </div>
-                    {t.memo && <p className="text-xs text-gray-700 truncate">{t.memo}</p>}
+                    {t.memo && <p className="text-xs text-gray-500 truncate">{t.memo}</p>}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="text-sm font-semibold text-gray-800">{toJPY(t.amount)}</span>
-                    <button
-                      onClick={() => handleDelete(t.id)}
-                      className="text-gray-300 hover:text-red-400 transition-colors text-xl leading-none w-6 text-center"
-                    >
-                      ×
-                    </button>
+                    <button onClick={() => handleDelete(t.id)}
+                      className="text-gray-300 hover:text-red-400 transition-colors text-xl leading-none w-6 text-center">×</button>
                   </div>
                 </div>
               ))}
@@ -249,10 +343,10 @@ function HistoryContent() {
           )
         })}
 
-        {!loading && transactions.length === 0 && (
-          <div className="text-center py-6 text-gray-600 text-sm">明細がありません</div>
+        {!loading && transactions.length === 0 && !isPC && (
+          <div className="text-center py-6 text-gray-500 text-sm">明細がありません</div>
         )}
-      </main>
+      </div>
       <BottomNav />
     </div>
   )
