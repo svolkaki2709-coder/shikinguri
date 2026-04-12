@@ -55,8 +55,10 @@ function parsePayslipText(text: string): ParsedPayslip {
     if (!inBlock) continue
     if (TIMESHEET.test(line)) continue
     const c = line.replace(/[,，\s]/g, "")
-    if (/^\d+$/.test(c)) {
-      nums.push(Number(c))
+    if (/^-?\d+$/.test(c)) {
+      nums.push(Number(c))  // マイナス値（年末調整還付など）も含む
+    } else if (/^[△▲]\d+$/.test(c)) {
+      nums.push(-parseInt(c.substring(1)))  // △表記のマイナス値
     } else if (c.length > 0) {
       break  // 非数値行 = 数値ブロック終了
     }
