@@ -539,7 +539,7 @@ function SettingsContent() {
               </div>
 
               {/* カテゴリ一覧（選択中の用途のみ）リスト形式 */}
-              <div className="border rounded-lg overflow-hidden">
+              <div className="border rounded-lg overflow-hidden max-w-2xl">
                 {categoryRows.filter(r => catViewType === "joint" ? r.card_type === "joint" : r.card_type !== "joint").length === 0 ? (
                   <p className="text-xs text-gray-400 px-3 py-3">なし</p>
                 ) : (
