@@ -76,6 +76,13 @@ function SettingsContent() {
   const [incomeMsg, setIncomeMsg] = useState("")
   const [monthIncomeRecords, setMonthIncomeRecords] = useState<IncomeRecord[]>([])
 
+  // PDF確認パネル
+  interface PayslipItem { key: string; label: string; amount: number; checked: boolean; type: "income" | "transaction"; category: string }
+  const [parsedPayslipItems, setParsedPayslipItems] = useState<PayslipItem[] | null>(null)
+  const [payslipMonth, setPayslipMonth] = useState<string | null>(null)
+  const [payslipCardId, setPayslipCardId] = useState<number | null>(null)
+  const [payslipSaving, setPayslipSaving] = useState(false)
+
   // 予算フォーム
   const [budgetCategory, setBudgetCategory] = useState("")
   const [budgetAmount, setBudgetAmount] = useState("")
@@ -212,6 +219,37 @@ function SettingsContent() {
     setIncomeMemo("")
     setIncomeSaving(false)
     await fetchMonthIncomes()
+  }
+
+  async function handlePayslipBulkRegister() {
+    if (!parsedPayslipItems) return
+    setPayslipSaving(true)
+    const month = payslipMonth ?? incomeMonth
+    const date = `${month}-01`
+    const checkedItems = parsedPayslipItems.filter(i => i.checked)
+
+    await Promise.all(checkedItems.map(async item => {
+      if (item.type === "income") {
+        await fetch("/api/income", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ date, amount: item.amount, category: item.category, memo: "給与明細より" }),
+        })
+      } else {
+        if (!payslipCardId) return
+        await fetch("/api/transactions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ date, card_id: payslipCardId, category: item.category, amount: item.amount, memo: "給与明細より" }),
+        })
+      }
+    }))
+
+    if (payslipMonth) setIncomeMonth(payslipMonth)
+    setParsedPayslipItems(null)
+    setPayslipMonth(null)
+    setPayslipSaving(false)
+    await fetchMonthIncomes(month)
   }
 
   async function handleSaveBudget() {
@@ -458,89 +496,146 @@ function SettingsContent() {
         {/* === 収入入力タブ === */}
         {tab === "income" && (
           <div className={isPC ? "grid grid-cols-2 gap-4 items-start" : "space-y-3"}>
-            {/* 入力フォーム */}
-            <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-gray-700">収入を記録</h2>
-                {/* PDF取込ボタン */}
-                <label className="flex items-center gap-1 cursor-pointer bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors">
-                  <span>📄 給与明細PDF</span>
-                  <input
-                    type="file"
-                    accept=".pdf,application/pdf"
-                    className="hidden"
-                    onChange={async e => {
-                      const file = e.target.files?.[0]
-                      if (!file) return
-                      const fd = new FormData()
-                      fd.append("file", file)
-                      const res = await fetch("/api/import-payslip", { method: "POST", body: fd })
-                      const d = await res.json()
-                      if (d.error) { alert("PDF解析エラー: " + d.error); return }
-                      // 解析結果をフォームに反映
-                      if (d.paymentMonth) setIncomeMonth(d.paymentMonth)
-                      if (d.netPay) setIncomeAmount(String(d.netPay))
-                      setIncomeCategory("給与")
-                      setIncomeMsg(`PDF読み込み完了: 差引支給額 ¥${d.netPay?.toLocaleString() ?? "—"}`)
-                      // 追加情報をアラートで表示
-                      const info = [
-                        d.incomeTax    ? `所得税: ¥${d.incomeTax.toLocaleString()}` : null,
-                        d.residentTax  ? `住民税: ¥${d.residentTax.toLocaleString()}` : null,
-                        d.travelReimbursement ? `営業交通費(立替): ¥${d.travelReimbursement.toLocaleString()}` : null,
-                      ].filter(Boolean).join("\n")
-                      if (info) alert(`以下の項目も検出されました（手動での別途登録をご検討ください）:\n\n${info}`)
-                      e.target.value = ""
-                    }}
-                  />
-                </label>
-              </div>
-              <div>
-                <label className="text-xs text-gray-700 mb-1 block">月</label>
-                <div className="flex items-center gap-1 border rounded-lg px-2 py-1">
-                  <button onClick={() => setIncomeMonth(m => { const [y,mo] = m.split("-").map(Number); const d = new Date(y, mo-2, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` })}
-                    className="text-gray-600 hover:text-blue-600 px-1 font-bold text-base">‹</button>
-                  <input type="month" value={incomeMonth} onChange={e => setIncomeMonth(e.target.value)}
-                    className="flex-1 text-center text-sm font-semibold text-gray-800 border-0 outline-none bg-transparent min-w-0" />
-                  <button onClick={() => setIncomeMonth(m => { const [y,mo] = m.split("-").map(Number); const d = new Date(y, mo, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` })}
-                    className="text-gray-600 hover:text-blue-600 px-1 font-bold text-base">›</button>
+            {/* Col1: PDF確認パネル or 通常フォーム */}
+            {parsedPayslipItems ? (
+              <div className="bg-white rounded-xl shadow-sm p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-sm font-semibold text-gray-800">📄 給与明細取込プレビュー</h2>
+                    {payslipMonth && <p className="text-xs text-gray-400 mt-0.5">{payslipMonth}分</p>}
+                  </div>
+                  <button onClick={() => { setParsedPayslipItems(null); setPayslipMonth(null) }}
+                    className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded hover:bg-gray-100">
+                    ✕ キャンセル
+                  </button>
                 </div>
-              </div>
-              <div>
-                <label className="text-xs text-gray-700 mb-1 block">種別</label>
-                <div className="flex gap-2">
-                  {["給与", "副収入", "その他"].map(cat => (
-                    <button key={cat} type="button" onClick={() => setIncomeCategory(cat)}
-                      className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${incomeCategory === cat ? "bg-green-600 text-white border-green-600" : "border-gray-300 text-gray-600"}`}>
-                      {cat}
-                    </button>
+
+                {/* 支出登録先カード（所得税・立替用） */}
+                {parsedPayslipItems.some(i => i.type === "transaction") && (
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">支出登録先カード（所得税・立替用）</label>
+                    <select value={payslipCardId ?? ""}
+                      onChange={e => setPayslipCardId(Number(e.target.value))}
+                      className="w-full border rounded-lg px-3 py-2 text-sm text-gray-800 bg-white">
+                      {cards.filter(c => c.card_type === "self").map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* 登録項目一覧 */}
+                <div className="border rounded-lg overflow-hidden divide-y">
+                  {parsedPayslipItems.map((item, i) => (
+                    <label key={item.key}
+                      className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-pointer">
+                      <input type="checkbox" checked={item.checked}
+                        onChange={e => setParsedPayslipItems(prev => prev!.map((p, j) => j === i ? { ...p, checked: e.target.checked } : p))}
+                        className="w-4 h-4 accent-indigo-600 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${item.type === "income" ? "bg-green-100 text-green-700" : "bg-red-50 text-red-600"}`}>
+                            {item.type === "income" ? "収入" : "支出"}
+                          </span>
+                          <span className="text-xs font-medium text-gray-800">{item.label}</span>
+                        </div>
+                        <p className="text-[10px] text-gray-400 mt-0.5">カテゴリ: {item.category}</p>
+                      </div>
+                      <span className="text-sm font-semibold text-gray-800 shrink-0">
+                        ¥{item.amount.toLocaleString()}
+                      </span>
+                    </label>
                   ))}
                 </div>
+
+                <button onClick={handlePayslipBulkRegister}
+                  disabled={payslipSaving || !parsedPayslipItems.some(i => i.checked)}
+                  className="w-full bg-indigo-600 text-white rounded-lg py-2.5 text-sm font-semibold disabled:opacity-50">
+                  {payslipSaving ? "登録中..." : `${parsedPayslipItems.filter(i => i.checked).length}件を一括登録`}
+                </button>
               </div>
-              <div>
-                <label className="text-xs text-gray-700 mb-1 block">金額（円）</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm">¥</span>
-                  <input type="number" value={incomeAmount} onChange={e => setIncomeAmount(e.target.value)}
-                    placeholder="0" className="w-full border rounded-lg pl-7 pr-3 py-2 text-sm text-gray-800" />
+            ) : (
+              /* 通常フォーム */
+              <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-semibold text-gray-700">収入を記録</h2>
+                  <label className="flex items-center gap-1 cursor-pointer bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors">
+                    <span>📄 給与明細PDF</span>
+                    <input
+                      type="file"
+                      accept=".pdf,application/pdf"
+                      className="hidden"
+                      onChange={async e => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        const fd = new FormData()
+                        fd.append("file", file)
+                        const res = await fetch("/api/import-payslip", { method: "POST", body: fd })
+                        const d = await res.json()
+                        if (d.error) { alert("PDF解析エラー: " + d.error); return }
+                        const selfCard = cards.find(c => c.card_type === "self")
+                        setPayslipCardId(selfCard?.id ?? null)
+                        setPayslipMonth(d.paymentMonth ?? null)
+                        const items: PayslipItem[] = []
+                        if (d.netPay) items.push({ key: "income", label: "差引総支給額（給与）", amount: d.netPay, checked: true, type: "income", category: "給与" })
+                        if (d.incomeTax) items.push({ key: "incomeTax", label: "所得税", amount: d.incomeTax, checked: true, type: "transaction", category: "給与源泉" })
+                        if (d.residentTax) items.push({ key: "residentTax", label: "住民税", amount: d.residentTax, checked: true, type: "transaction", category: "住民税" })
+                        if (d.travelReimbursement) items.push({ key: "travel", label: "営業交通費（立替）", amount: d.travelReimbursement, checked: true, type: "transaction", category: "立替" })
+                        setParsedPayslipItems(items.length > 0 ? items : null)
+                        if (items.length === 0) alert("PDF から金額を取得できませんでした。手動で入力してください。")
+                        e.target.value = ""
+                      }}
+                    />
+                  </label>
                 </div>
+                <div>
+                  <label className="text-xs text-gray-700 mb-1 block">月</label>
+                  <div className="flex items-center gap-1 border rounded-lg px-2 py-1">
+                    <button onClick={() => setIncomeMonth(m => { const [y,mo] = m.split("-").map(Number); const d = new Date(y, mo-2, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` })}
+                      className="text-gray-600 hover:text-blue-600 px-1 font-bold text-base">‹</button>
+                    <input type="month" value={incomeMonth} onChange={e => setIncomeMonth(e.target.value)}
+                      className="flex-1 text-center text-sm font-semibold text-gray-800 border-0 outline-none bg-transparent min-w-0" />
+                    <button onClick={() => setIncomeMonth(m => { const [y,mo] = m.split("-").map(Number); const d = new Date(y, mo, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` })}
+                      className="text-gray-600 hover:text-blue-600 px-1 font-bold text-base">›</button>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-700 mb-1 block">種別</label>
+                  <div className="flex gap-2">
+                    {["給与", "副収入", "その他"].map(cat => (
+                      <button key={cat} type="button" onClick={() => setIncomeCategory(cat)}
+                        className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${incomeCategory === cat ? "bg-green-600 text-white border-green-600" : "border-gray-300 text-gray-600"}`}>
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-700 mb-1 block">金額（円）</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm">¥</span>
+                    <input type="number" value={incomeAmount} onChange={e => setIncomeAmount(e.target.value)}
+                      placeholder="0" className="w-full border rounded-lg pl-7 pr-3 py-2 text-sm text-gray-800" />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-700 mb-1 block">メモ（任意）</label>
+                  <input type="text" value={incomeMemo} onChange={e => setIncomeMemo(e.target.value)}
+                    placeholder="例：3月分給与"
+                    className="w-full border rounded-lg px-3 py-2 text-sm text-gray-800" />
+                </div>
+                {incomeMsg && <p className="text-xs text-green-600">✅ {incomeMsg}</p>}
+                <button onClick={handleSaveIncome} disabled={incomeSaving || !incomeAmount}
+                  className="w-full bg-green-600 text-white rounded-lg py-2.5 text-sm font-semibold disabled:opacity-50">
+                  {incomeSaving ? "保存中..." : "収入を記録"}
+                </button>
               </div>
-              <div>
-                <label className="text-xs text-gray-700 mb-1 block">メモ（任意）</label>
-                <input type="text" value={incomeMemo} onChange={e => setIncomeMemo(e.target.value)}
-                  placeholder="例：3月分給与"
-                  className="w-full border rounded-lg px-3 py-2 text-sm text-gray-800" />
-              </div>
-              {incomeMsg && <p className="text-xs text-green-600">✅ {incomeMsg}</p>}
-              <button onClick={handleSaveIncome} disabled={incomeSaving || !incomeAmount}
-                className="w-full bg-green-600 text-white rounded-lg py-2.5 text-sm font-semibold disabled:opacity-50">
-                {incomeSaving ? "保存中..." : "収入を記録"}
-              </button>
-            </div>
+            )}
 
             {/* 入力済み一覧 */}
             <div className="bg-white rounded-xl shadow-sm overflow-hidden">
               <div className="px-3 py-2 bg-green-50 border-b border-green-100 flex items-center justify-between">
-                <h2 className="text-xs font-semibold text-green-700">{incomeMonth} の収入記録</h2>
+                <h2 className="text-xs font-semibold text-green-700">{payslipMonth ?? incomeMonth} の収入記録</h2>
                 {monthIncomeRecords.length > 0 && (
                   <span className="text-xs font-bold text-green-700">
                     合計 {new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 }).format(

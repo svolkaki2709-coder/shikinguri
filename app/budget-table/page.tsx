@@ -4,6 +4,10 @@ import { useEffect, useState, useMemo } from "react"
 import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
 import { useViewMode } from "@/components/ViewModeContext"
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  Legend, ResponsiveContainer, ReferenceLine,
+} from "recharts"
 
 function toJPY(n: number) {
   return new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 }).format(n)
@@ -35,6 +39,7 @@ interface CategoryData {
 }
 
 type ViewMode = "actual" | "diff" | "both"
+type DisplayMode = "table" | "chart"
 
 export default function BudgetTablePage() {
   const { mode } = useViewMode()
@@ -44,6 +49,7 @@ export default function BudgetTablePage() {
   const [year, setYear] = useState(currentYear)
   const [cardTypeFilter, setCardTypeFilter] = useState<"self" | "joint">("self")
   const [viewMode, setViewMode] = useState<ViewMode>("actual")
+  const [displayMode, setDisplayMode] = useState<DisplayMode>("table")
   const [loading, setLoading] = useState(true)
 
   const [months, setMonths] = useState<string[]>([])
@@ -97,6 +103,33 @@ export default function BudgetTablePage() {
   )
   const yearIncome = monthlyIncome.reduce((s, v) => s + v, 0)
 
+  // グラフ用データ: 月ごとの グループ別実績 + 予算合計
+  const chartData = useMemo(() => {
+    return months.map(m => {
+      const point: Record<string, number | string> = { month: m.replace(/^\d{4}-/, "") + "月" }
+      // グループ別実績
+      for (const { group, rows } of groups) {
+        if (group === "収入" || group === "振替") continue  // 収支グラフでは除外
+        point[group] = rows.reduce((s, r) => s + (r.byMonth[m]?.actual ?? 0), 0)
+      }
+      // 予算合計（振替・収入を除く）
+      point["予算"] = filtered
+        .filter(r => r.groupType !== "収入" && r.groupType !== "振替")
+        .reduce((s, r) => s + (r.byMonth[m]?.budget ?? 0), 0)
+      // 収入
+      if (cardTypeFilter === "self") {
+        point["収入"] = incomeByMonth[m] ?? 0
+      }
+      return point
+    })
+  }, [months, groups, filtered, incomeByMonth, cardTypeFilter])
+
+  // グラフで使うグループ（収入・振替を除く）
+  const chartGroups = useMemo(() =>
+    groups.filter(g => g.group !== "収入" && g.group !== "振替"),
+    [groups]
+  )
+
   const isPC = mode === "pc"
 
   return (
@@ -129,24 +162,140 @@ export default function BudgetTablePage() {
             ))}
           </div>
 
-          {/* 表示モード */}
+          {/* テーブル/グラフ切替 */}
           <div className="flex rounded-lg bg-gray-100 p-0.5">
-            {([["actual", "実績"], ["diff", "差額"], ["both", "両方"]] as const).map(([k, label]) => (
-              <button key={k} onClick={() => setViewMode(k)}
-                className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                  viewMode === k ? "bg-white text-blue-600 shadow-sm" : "text-gray-500"
+            {([["table", "📋 テーブル"], ["chart", "📊 グラフ"]] as const).map(([k, label]) => (
+              <button key={k} onClick={() => setDisplayMode(k)}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  displayMode === k ? "bg-white text-blue-600 shadow-sm" : "text-gray-500"
                 }`}>
                 {label}
               </button>
             ))}
           </div>
 
-          <span className="text-xs text-gray-400 ml-auto">{months.length}ヶ月表示</span>
+          {/* テーブル表示モード（テーブル時のみ） */}
+          {displayMode === "table" && (
+            <div className="flex rounded-lg bg-gray-100 p-0.5">
+              {([["actual", "実績"], ["diff", "差額"], ["both", "両方"]] as const).map(([k, label]) => (
+                <button key={k} onClick={() => setViewMode(k)}
+                  className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                    viewMode === k ? "bg-white text-blue-600 shadow-sm" : "text-gray-500"
+                  }`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <span className="text-xs text-gray-400 ml-auto">{months.length}ヶ月</span>
         </div>
 
         {loading && <div className="text-center py-12 text-gray-400 text-sm">読み込み中...</div>}
 
-        {!loading && (
+        {/* === グラフ表示 === */}
+        {!loading && displayMode === "chart" && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-4">
+            {/* 月次 実績 vs 予算 積み上げバーチャート */}
+            <div>
+              <h3 className="text-xs font-semibold text-gray-600 mb-3">月次支出: グループ別実績 vs 予算</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+                  barCategoryGap="25%">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                  <YAxis
+                    tick={{ fontSize: 10 }}
+                    tickFormatter={v => v >= 10000 ? `${(v / 10000).toFixed(0)}万` : String(v)}
+                    width={44}
+                  />
+                  <Tooltip
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    formatter={(v: any) => v != null ? [`¥${Number(v).toLocaleString()}`] : ["—"]}
+                    contentStyle={{ fontSize: 11 }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  {/* 予算ライン（透過バー） */}
+                  <Bar dataKey="予算" fill="#94a3b8" opacity={0.35} radius={[3, 3, 0, 0]} />
+                  {/* グループ別実績（積み上げ） */}
+                  {chartGroups.map(({ group }) => {
+                    const gc = GROUP_COLORS[group]
+                    const colorMap: Record<string, string> = {
+                      支出: "#6366f1", 投資: "#a855f7", 貯蓄: "#14b8a6", 立替: "#f97316",
+                    }
+                    return (
+                      <Bar key={group} dataKey={group} stackId="actual"
+                        fill={colorMap[group] ?? "#64748b"}
+                        radius={group === chartGroups[chartGroups.length - 1].group ? [3, 3, 0, 0] : [0, 0, 0, 0]}
+                      />
+                    )
+                  })}
+                  {/* 収入ライン（個人のみ） */}
+                  {cardTypeFilter === "self" && (
+                    <Bar dataKey="収入" fill="#22c55e" opacity={0.7} radius={[3, 3, 0, 0]} />
+                  )}
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* 月次差額（収支バランス）折れ線チャート */}
+            {cardTypeFilter === "self" && (
+              <div>
+                <h3 className="text-xs font-semibold text-gray-600 mb-3">月次収支バランス（収入 − 支出実績）</h3>
+                <ResponsiveContainer width="100%" height={160}>
+                  <BarChart data={chartData.map(d => {
+                    const expense = chartGroups.reduce((s, { group }) => s + (Number(d[group]) || 0), 0)
+                    return { month: d.month, 収支: (Number(d["収入"]) || 0) - expense }
+                  })} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                    <YAxis
+                      tick={{ fontSize: 10 }}
+                      tickFormatter={v => v >= 10000 ? `${(v / 10000).toFixed(0)}万` : v < -10000 ? `-${(Math.abs(v) / 10000).toFixed(0)}万` : String(v)}
+                      width={44}
+                    />
+                    <Tooltip
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      formatter={(v: any) => v != null ? [`¥${Number(v).toLocaleString()}`] : ["—"]}
+                      contentStyle={{ fontSize: 11 }}
+                    />
+                    <ReferenceLine y={0} stroke="#9ca3af" strokeWidth={1.5} />
+                    <Bar dataKey="収支"
+                      fill="#22c55e"
+                      radius={[3, 3, 0, 0]}
+                      // 赤/緑で色分け
+                      label={false}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {/* 年間サマリー */}
+            <div className="grid grid-cols-3 gap-3 pt-2 border-t border-gray-100">
+              {chartGroups.map(({ group, rows }) => {
+                const actual = rows.reduce((s, r) => s + r.yearActual, 0)
+                const budget = rows.reduce((s, r) => s + r.yearBudget, 0)
+                const over = actual > budget && budget > 0
+                return (
+                  <div key={group} className={`rounded-lg p-2.5 ${GROUP_COLORS[group]?.row ?? "bg-gray-50"}`}>
+                    <p className={`text-[10px] font-semibold ${GROUP_COLORS[group]?.text ?? "text-gray-600"}`}>{group}</p>
+                    <p className={`text-sm font-bold mt-0.5 ${over ? "text-red-500" : "text-gray-800"}`}>
+                      {actual >= 10000 ? `${(actual / 10000).toFixed(1)}万` : actual.toLocaleString()}
+                    </p>
+                    {budget > 0 && (
+                      <p className="text-[10px] text-gray-400">
+                        予算 {budget >= 10000 ? `${(budget / 10000).toFixed(1)}万` : budget.toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {!loading && displayMode === "table" && (
           <div className="overflow-x-auto rounded-xl shadow-sm border border-gray-200 bg-white">
             <table className="text-xs border-collapse" style={{ minWidth: `${180 + months.length * 90 + 100}px` }}>
               <thead>
