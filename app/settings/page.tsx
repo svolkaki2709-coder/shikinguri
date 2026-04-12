@@ -598,9 +598,8 @@ function SettingsContent() {
                         const grossPay = d.grossPay ?? d.netPay ?? 0
                         const incomeAmount = grossPay - travel
                         const items: PayslipItem[] = []
-                        if (incomeAmount > 0) items.push({ key: "income", label: "額面（支給合計）− 立替", amount: incomeAmount, checked: true, type: "income", category: "給与" })
-                        if (d.incomeTax) items.push({ key: "incomeTax", label: "所得税", amount: d.incomeTax, checked: true, type: "transaction", category: "給与源泉" })
-                        if (d.residentTax) items.push({ key: "residentTax", label: "住民税", amount: d.residentTax, checked: true, type: "transaction", category: "給与源泉" })
+                        if (incomeAmount > 0) items.push({ key: "income", label: `額面 ¥${grossPay.toLocaleString()} − 立替 ¥${travel.toLocaleString()}`, amount: incomeAmount, checked: true, type: "income", category: "給与" })
+                        if (d.totalDeduction) items.push({ key: "deduction", label: `控除合計（健保・厚生・雇保・税）`, amount: d.totalDeduction, checked: true, type: "transaction", category: "給与源泉" })
                         if (travel > 0) items.push({ key: "travel", label: "営業交通費（立替）", amount: travel, checked: true, type: "transaction", category: "立替" })
                         setParsedPayslipItems(items.length > 0 ? items : null)
                         if (items.length === 0) alert("PDF から金額を取得できませんでした。手動で入力してください。")

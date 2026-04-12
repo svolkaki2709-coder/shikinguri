@@ -20,98 +20,99 @@ interface ParsedPayslip {
 /**
  * アイドマ・ホールディングス給与明細PDFの解析
  *
- * PDFテキスト構造:
+ * PDFテキスト構造（特殊: 数値が先に並び、ラベルが後から出てくる）:
  *   名前・社員番号
  *   差引総支給額
  *   [数値ブロック: 差引総支給額, 月給, 固定残業, ..., 支給計, 健保, ..., 控除計]
- *   [タイムシートブロック]
- *   [ラベルブロック: 支給, 月給, ...]
- *   2026年2月支払分 ...
+ *   [タイムシートブロック: 日付・時間]
+ *   [ラベルブロック: 支給, 月給, 固定残業手当, ..., 計, 控除, 健康保険料, ..., 計]
+ *   YYYY年M月支払分 ...
+ *
+ * 解析方針: 数値ブロックとラベルブロックを別々に収集し、
+ *   nums[0]=差引総支給額, nums[i+1]=labels[i] として対応させる
  */
 function parsePayslipText(text: string): ParsedPayslip {
-  const lines = text
-    .split(/[\r\n]+/)
-    .map(l => l.trim())
-    .filter(l => l.length > 0)
+  const lines = text.split(/[\r\n]+/).map(l => l.trim()).filter(l => l.length > 0)
 
-  // ---- 支払月の抽出 ----
+  // ---- 支払月 ----
   const monthMatch = text.match(/(\d{4})年(\d{1,2})月支払分/)
   const paymentMonth = monthMatch
     ? `${monthMatch[1]}-${monthMatch[2].padStart(2, "0")}`
     : null
 
-  // ---- 数値行の抽出（タイムシート行を除く） ----
-  // タイムシート行パターン: "19.0 日", "00:25 / 0" など
-  const TIMESHEET_PATTERN = /[日時間\/:]|\d{2}:\d{2}/
-  const numericLines: number[] = []
+  // タイムシート行パターン（スキップ対象）
+  const TIMESHEET = /[日時間]|\d{2}:\d{2}|\d+\.\d+ 日/
 
-  let inNumberBlock = false
+  // ==== STEP 1: 数値ブロック収集 ====
+  // 「差引総支給額」行の直後から、非数値行が出るまで
+  const nums: number[] = []
+  let inBlock = false
+
   for (const line of lines) {
-    if (line.includes("差引総") || line.includes("差引総")) {
-      inNumberBlock = true
-      continue
-    }
-    // ラベルブロックが始まったら終了
-    if (inNumberBlock && /^[支給控除月給固定]/.test(line) && !/^\d/.test(line)) {
-      break
-    }
-    if (inNumberBlock) {
-      if (TIMESHEET_PATTERN.test(line)) continue
-      const cleaned = line.replace(/[,，\s]/g, "")
-      const n = parseInt(cleaned)
-      if (!isNaN(n) && /^\d+$/.test(cleaned)) {
-        numericLines.push(n)
-      }
+    if (line.includes("差引総")) { inBlock = true; continue }
+    if (!inBlock) continue
+    if (TIMESHEET.test(line)) continue
+    const c = line.replace(/[,，\s]/g, "")
+    if (/^\d+$/.test(c)) {
+      nums.push(Number(c))
+    } else if (c.length > 0) {
+      break  // 非数値行 = 数値ブロック終了
     }
   }
 
-  /**
-   * アイドマ形式の数値配列マッピング（0ベース）:
-   *  [0] 差引総支給額
-   *  [1] 月給
-   *  [2] 固定残業手当
-   *  [3] 固定残業手当超過額
-   *  [4] 勤怠控除
-   *  [5] 非課税通勤手当
-   *  [6] 課税通勤手当
-   *  [7] 営業交通費
-   *  [8] 支給合計
-   *  [9] 健康保険料
-   * [10] 介護保険料
-   * [11] 厚生年金保険料
-   * [12] 雇用保険料
-   * [13] 所得税
-   * [14] 住民税
-   * [15] 控除合計
-   */
-  const n = numericLines
+  // ==== STEP 2: ラベルブロック収集 ====
+  // 数値ブロック通過後の非数値・非タイムシート行を収集
+  // スキップ対象: セクションヘッダー（支給/控除/備考/勤怠）、大きな数値を含む行（備考欄）
+  const SECTION_HEADERS = new Set(["支給", "控除", "備考", "勤怠", "小計"])
+  const labels: string[] = []
+  let passedBlock = false
 
-  // フォールバック: ラベル付近を検索
-  function findNearLabel(label: string): number | null {
-    for (let i = 0; i < lines.length; i++) {
-      const normalized = lines[i].replace(/\s/g, "").replace(/⼿/g, "手").replace(/⽀/g, "支").replace(/⺠/g, "民")
-      if (normalized.includes(label)) {
-        for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
-          const cleaned = lines[j].replace(/[,，\s]/g, "")
-          const num = parseInt(cleaned)
-          if (!isNaN(num) && /^\d+$/.test(cleaned) && num > 0) return num
-        }
-      }
+  for (const line of lines) {
+    if (line.match(/\d{4}年\d{1,2}月支払分/)) break  // 支払月行で終了
+    if (line.includes("差引総")) { passedBlock = true; continue }
+    if (!passedBlock) continue
+    if (TIMESHEET.test(line)) continue
+    const c = line.replace(/[,，\s]/g, "")
+    if (/^\d+$/.test(c)) continue  // 数値行スキップ
+    // 4桁以上の数値を含む行はスキップ（備考欄: 課税支給累計額など）
+    if (/\d{4,}/.test(line.replace(/[（）()年月〜～]/g, ""))) continue
+    if (SECTION_HEADERS.has(line)) continue
+    if (line.trim().length === 0) continue
+    labels.push(line.trim())
+  }
+
+  // ==== STEP 3: ラベル→数値マッピング ====
+  // nums[0] = 差引総支給額, nums[i+1] = labels[i] に対応
+  const val: Record<string, number> = {}
+  if (nums[0] != null) val["差引総支給額"] = nums[0]
+  for (let i = 0; i < labels.length && i + 1 < nums.length; i++) {
+    val[labels[i]] = nums[i + 1]
+  }
+
+  // 「計」は2回出現: 1回目=支給合計, 2回目=控除合計
+  let grossPay: number | null = null
+  let totalDeduction: number | null = null
+  let calcCount = 0
+  for (let i = 0; i < labels.length; i++) {
+    if (labels[i] === "計") {
+      calcCount++
+      const v = nums[i + 1] ?? 0
+      if (calcCount === 1) grossPay = v || null
+      else if (calcCount === 2) totalDeduction = v || null
     }
-    return null
   }
 
   return {
     paymentMonth,
-    netPay: n[0] ?? findNearLabel("差引総支給額"),
-    grossPay: n[8] ?? null,
-    incomeTax: n[13] ?? findNearLabel("所得税"),
-    residentTax: n[14] ?? findNearLabel("住民税"),
-    healthInsurance: n[9] ?? findNearLabel("健康保険料"),
-    pension: n[11] ?? findNearLabel("厚生年金保険料"),
-    employmentInsurance: n[12] ?? findNearLabel("雇用保険料"),
-    travelReimbursement: n[7] ?? findNearLabel("営業交通費"),
-    totalDeduction: n[15] ?? null,
+    netPay:              val["差引総支給額"]    ?? null,
+    grossPay,
+    incomeTax:           val["所得税"]          ?? null,
+    residentTax:         val["住民税"]          ?? null,
+    healthInsurance:     val["健康保険料"]       ?? null,
+    pension:             val["厚生年金保険料"]   ?? null,
+    employmentInsurance: val["雇用保険料"]       ?? null,
+    travelReimbursement: val["営業交通費"]       ?? null,
+    totalDeduction,
   }
 }
 
