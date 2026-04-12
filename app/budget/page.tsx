@@ -207,6 +207,21 @@ export default function BudgetPage() {
     })
   }, [months, yearGroups, yearFiltered, incomeByMonth, yearCardTypeFilter])
 
+  // ─── グループ変更ハンドラ ──────────────────────────────────────
+  async function handleSetGroupType(category: string, cardType: string, groupType: string | null) {
+    await fetch("/api/categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: category, card_type: cardType, group_type: groupType }),
+    })
+    // ローカル state を即時更新（useMemoで再グループ化される）
+    setBudgets(prev => prev.map(b =>
+      b.category === category && b.cardType === cardType
+        ? { ...b, groupType }
+        : b
+    ))
+  }
+
   // ─── 月次タブ: グループカードレンダリング ────────────────────
   const renderMonthlyGroupCard = (group: string, rows: BudgetRow[]) => {
     const gc = GROUP_COLORS[group]
@@ -238,8 +253,20 @@ export default function BudgetPage() {
               <div key={`${b.category}-${b.cardType}`}
                 className={`px-3 py-2.5 border-l-4 ${gc?.border ?? "border-l-gray-300"} ${gc?.row ?? "bg-white"}`}>
                 <div className="flex justify-between items-center mb-1">
-                  <span className={`text-xs font-medium ${gc?.text ?? "text-gray-700"}`}>{b.category}</span>
-                  <span className={`text-xs font-semibold ${isOver ? "text-red-500" : "text-green-600"}`}>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className={`text-xs font-medium truncate ${gc?.text ?? "text-gray-700"}`}>{b.category}</span>
+                    {/* グループ変更ドロップダウン */}
+                    <select
+                      value={b.groupType ?? ""}
+                      onChange={e => handleSetGroupType(b.category, b.cardType, e.target.value || null)}
+                      onClick={e => e.stopPropagation()}
+                      className="text-[10px] border border-gray-200 rounded px-1 py-0.5 bg-white text-gray-400 hover:text-gray-700 hover:border-gray-400 cursor-pointer outline-none focus:ring-1 focus:ring-blue-300 transition-colors shrink-0"
+                    >
+                      <option value="">グループ未設定</option>
+                      {GROUP_ORDER.map(g => <option key={g} value={g}>{g}</option>)}
+                    </select>
+                  </div>
+                  <span className={`text-xs font-semibold shrink-0 ml-2 ${isOver ? "text-red-500" : "text-green-600"}`}>
                     {isOver ? "▲超過 " : "+残り "}{toJPY(Math.abs(diff))}
                   </span>
                 </div>
