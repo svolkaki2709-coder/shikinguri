@@ -546,13 +546,17 @@ function SettingsContent() {
                             </span>
                             <span className="text-xs font-medium text-gray-700">{item.label}</span>
                           </div>
-                          <input
-                            type="text"
+                          <select
                             value={item.category}
                             onChange={e => setParsedPayslipItems(prev => prev!.map((p, j) => j === i ? { ...p, category: e.target.value } : p))}
                             className="w-full border rounded px-2 py-1 text-xs text-gray-800 bg-white"
-                            placeholder="カテゴリ"
-                          />
+                          >
+                            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                            {/* 選択中のカテゴリが既存リストにない場合も表示 */}
+                            {!categories.includes(item.category) && (
+                              <option value={item.category}>{item.category}</option>
+                            )}
+                          </select>
                         </div>
                         <span className="text-sm font-semibold text-gray-800 shrink-0">
                           ¥{item.amount.toLocaleString()}
@@ -590,10 +594,11 @@ function SettingsContent() {
                         setPayslipExpenseCardType("self")
                         setPayslipMonth(d.paymentMonth ?? null)
                         const travel = d.travelReimbursement ?? 0
-                        // 収入 = 差引総支給額 − 営業交通費（立替は別途支出登録するため除外）
-                        const incomeAmount = (d.netPay ?? 0) - travel
+                        // 収入 = 額面（支給合計）− 営業交通費（立替は別途支出登録するため除外）
+                        const grossPay = d.grossPay ?? d.netPay ?? 0
+                        const incomeAmount = grossPay - travel
                         const items: PayslipItem[] = []
-                        if (incomeAmount > 0) items.push({ key: "income", label: "差引総支給額（給与）", amount: incomeAmount, checked: true, type: "income", category: "給与" })
+                        if (incomeAmount > 0) items.push({ key: "income", label: "額面（支給合計）− 立替", amount: incomeAmount, checked: true, type: "income", category: "給与" })
                         if (d.incomeTax) items.push({ key: "incomeTax", label: "所得税", amount: d.incomeTax, checked: true, type: "transaction", category: "給与源泉" })
                         if (d.residentTax) items.push({ key: "residentTax", label: "住民税", amount: d.residentTax, checked: true, type: "transaction", category: "給与源泉" })
                         if (travel > 0) items.push({ key: "travel", label: "営業交通費（立替）", amount: travel, checked: true, type: "transaction", category: "立替" })
