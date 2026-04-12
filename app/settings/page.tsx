@@ -557,14 +557,19 @@ function SettingsContent() {
               </div>
             </div>
 
-            {/* 未分類の明細 */}
-            {uncategorizedMemos.length > 0 && (
+            {/* 未分類の明細（選択中の用途のみ） */}
+            {(() => {
+              const filtered = uncategorizedMemos.filter(m =>
+                catViewType === "joint" ? m.card_type === "joint" : m.card_type !== "joint"
+              )
+              if (filtered.length === 0) return null
+              return (
               <div className="bg-white rounded-xl shadow-sm overflow-hidden">
                 <div className="px-3 py-2 bg-orange-50 border-b border-orange-100 flex items-center justify-between">
-                  <h2 className="text-sm font-semibold text-orange-700">⚠ 未分類の明細（{uncategorizedMemos.length}件）</h2>
+                  <h2 className="text-sm font-semibold text-orange-700">⚠ 未分類の明細（{filtered.length}件）</h2>
                   <span className="text-xs text-orange-500">タップしてルールを追加</span>
                 </div>
-                {uncategorizedMemos.map(m => (
+                {filtered.map(m => (
                   <div key={`${m.memo}-${m.card_type}`}
                     className="flex items-center gap-2 px-3 py-2 border-b last:border-0 hover:bg-orange-50 cursor-pointer"
                     onClick={() => {
@@ -585,7 +590,8 @@ function SettingsContent() {
                   </div>
                 ))}
               </div>
-            )}
+              )
+            })()}
 
             {/* 自動振り分けルール */}
             <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
