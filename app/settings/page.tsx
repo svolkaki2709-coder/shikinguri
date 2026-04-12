@@ -80,7 +80,7 @@ function SettingsContent() {
   interface PayslipItem { key: string; label: string; amount: number; checked: boolean; type: "income" | "transaction"; category: string }
   const [parsedPayslipItems, setParsedPayslipItems] = useState<PayslipItem[] | null>(null)
   const [payslipMonth, setPayslipMonth] = useState<string | null>(null)
-  const [payslipCardId, setPayslipCardId] = useState<number | null>(null)
+  const [payslipExpenseCardType, setPayslipExpenseCardType] = useState<"self" | "joint">("self")
   const [payslipSaving, setPayslipSaving] = useState(false)
 
   // 予算フォーム
@@ -228,6 +228,8 @@ function SettingsContent() {
     const date = `${month}-01`
     const checkedItems = parsedPayslipItems.filter(i => i.checked)
 
+    const expenseCard = cards.find(c => c.card_type === payslipExpenseCardType) ?? cards[0]
+
     await Promise.all(checkedItems.map(async item => {
       if (item.type === "income") {
         await fetch("/api/income", {
@@ -236,11 +238,11 @@ function SettingsContent() {
           body: JSON.stringify({ date, amount: item.amount, category: item.category, memo: "給与明細より" }),
         })
       } else {
-        if (!payslipCardId) return
+        if (!expenseCard) return
         await fetch("/api/transactions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ date, card_id: payslipCardId, category: item.category, amount: item.amount, memo: "給与明細より" }),
+          body: JSON.stringify({ date, card_id: expenseCard.id, category: item.category, amount: item.amount, memo: "給与明細より" }),
         })
       }
     }))
@@ -510,41 +512,53 @@ function SettingsContent() {
                   </button>
                 </div>
 
-                {/* 支出登録先カード（所得税・立替用） */}
+                {/* 支出の登録先: 個人/共用トグル */}
                 {parsedPayslipItems.some(i => i.type === "transaction") && (
                   <div>
-                    <label className="text-xs text-gray-500 mb-1 block">支出登録先カード（所得税・立替用）</label>
-                    <select value={payslipCardId ?? ""}
-                      onChange={e => setPayslipCardId(Number(e.target.value))}
-                      className="w-full border rounded-lg px-3 py-2 text-sm text-gray-800 bg-white">
-                      {cards.filter(c => c.card_type === "self").map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
+                    <label className="text-xs text-gray-500 mb-1.5 block">支出の登録先</label>
+                    <div className="flex rounded-lg bg-gray-100 p-0.5 w-fit">
+                      {([["self", "個人"], ["joint", "共用"]] as const).map(([k, label]) => (
+                        <button key={k} type="button" onClick={() => setPayslipExpenseCardType(k)}
+                          className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                            payslipExpenseCardType === k
+                              ? k === "self" ? "bg-white text-indigo-600 shadow-sm" : "bg-white text-amber-600 shadow-sm"
+                              : "text-gray-500"
+                          }`}>
+                          {label}
+                        </button>
                       ))}
-                    </select>
+                    </div>
                   </div>
                 )}
 
-                {/* 登録項目一覧 */}
+                {/* 登録項目一覧（カテゴリ編集可） */}
                 <div className="border rounded-lg overflow-hidden divide-y">
                   {parsedPayslipItems.map((item, i) => (
-                    <label key={item.key}
-                      className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-pointer">
-                      <input type="checkbox" checked={item.checked}
-                        onChange={e => setParsedPayslipItems(prev => prev!.map((p, j) => j === i ? { ...p, checked: e.target.checked } : p))}
-                        className="w-4 h-4 accent-indigo-600 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${item.type === "income" ? "bg-green-100 text-green-700" : "bg-red-50 text-red-600"}`}>
-                            {item.type === "income" ? "収入" : "支出"}
-                          </span>
-                          <span className="text-xs font-medium text-gray-800">{item.label}</span>
+                    <div key={item.key} className="px-3 py-2.5 hover:bg-gray-50">
+                      <div className="flex items-center gap-3">
+                        <input type="checkbox" checked={item.checked}
+                          onChange={e => setParsedPayslipItems(prev => prev!.map((p, j) => j === i ? { ...p, checked: e.target.checked } : p))}
+                          className="w-4 h-4 accent-indigo-600 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${item.type === "income" ? "bg-green-100 text-green-700" : "bg-red-50 text-red-600"}`}>
+                              {item.type === "income" ? "収入" : "支出"}
+                            </span>
+                            <span className="text-xs font-medium text-gray-700">{item.label}</span>
+                          </div>
+                          <input
+                            type="text"
+                            value={item.category}
+                            onChange={e => setParsedPayslipItems(prev => prev!.map((p, j) => j === i ? { ...p, category: e.target.value } : p))}
+                            className="w-full border rounded px-2 py-1 text-xs text-gray-800 bg-white"
+                            placeholder="カテゴリ"
+                          />
                         </div>
-                        <p className="text-[10px] text-gray-400 mt-0.5">カテゴリ: {item.category}</p>
+                        <span className="text-sm font-semibold text-gray-800 shrink-0">
+                          ¥{item.amount.toLocaleString()}
+                        </span>
                       </div>
-                      <span className="text-sm font-semibold text-gray-800 shrink-0">
-                        ¥{item.amount.toLocaleString()}
-                      </span>
-                    </label>
+                    </div>
                   ))}
                 </div>
 
@@ -573,14 +587,16 @@ function SettingsContent() {
                         const res = await fetch("/api/import-payslip", { method: "POST", body: fd })
                         const d = await res.json()
                         if (d.error) { alert("PDF解析エラー: " + d.error); return }
-                        const selfCard = cards.find(c => c.card_type === "self")
-                        setPayslipCardId(selfCard?.id ?? null)
+                        setPayslipExpenseCardType("self")
                         setPayslipMonth(d.paymentMonth ?? null)
+                        const travel = d.travelReimbursement ?? 0
+                        // 収入 = 差引総支給額 − 営業交通費（立替は別途支出登録するため除外）
+                        const incomeAmount = (d.netPay ?? 0) - travel
                         const items: PayslipItem[] = []
-                        if (d.netPay) items.push({ key: "income", label: "差引総支給額（給与）", amount: d.netPay, checked: true, type: "income", category: "給与" })
+                        if (incomeAmount > 0) items.push({ key: "income", label: "差引総支給額（給与）", amount: incomeAmount, checked: true, type: "income", category: "給与" })
                         if (d.incomeTax) items.push({ key: "incomeTax", label: "所得税", amount: d.incomeTax, checked: true, type: "transaction", category: "給与源泉" })
-                        if (d.residentTax) items.push({ key: "residentTax", label: "住民税", amount: d.residentTax, checked: true, type: "transaction", category: "住民税" })
-                        if (d.travelReimbursement) items.push({ key: "travel", label: "営業交通費（立替）", amount: d.travelReimbursement, checked: true, type: "transaction", category: "立替" })
+                        if (d.residentTax) items.push({ key: "residentTax", label: "住民税", amount: d.residentTax, checked: true, type: "transaction", category: "給与源泉" })
+                        if (travel > 0) items.push({ key: "travel", label: "営業交通費（立替）", amount: travel, checked: true, type: "transaction", category: "立替" })
                         setParsedPayslipItems(items.length > 0 ? items : null)
                         if (items.length === 0) alert("PDF から金額を取得できませんでした。手動で入力してください。")
                         e.target.value = ""
