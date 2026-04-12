@@ -12,6 +12,16 @@ interface Category { name: string }
 interface BudgetRow { category: string; card_type: string; budget: number }
 interface StoreRule { id: number; keyword: string; category: string }
 
+const GROUP_ORDER = ["収入", "支出", "振替", "投資", "貯蓄", "立替"]
+const GROUP_COLORS: Record<string, { bg: string; text: string; border: string; light: string }> = {
+  収入: { bg: "bg-green-500", text: "text-green-700", border: "border-l-green-400", light: "bg-green-50" },
+  支出: { bg: "bg-blue-500",  text: "text-blue-700",  border: "border-l-blue-400",  light: "bg-blue-50"  },
+  振替: { bg: "bg-gray-400",  text: "text-gray-600",  border: "border-l-gray-400",  light: "bg-gray-50"  },
+  投資: { bg: "bg-purple-500",text: "text-purple-700",border: "border-l-purple-400",light: "bg-purple-50"},
+  貯蓄: { bg: "bg-teal-500",  text: "text-teal-700",  border: "border-l-teal-400",  light: "bg-teal-50"  },
+  立替: { bg: "bg-orange-400",text: "text-orange-700",border: "border-l-orange-400",light: "bg-orange-50"},
+}
+
 function toJPY(n: number) {
   return new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 }).format(n)
 }
@@ -479,41 +489,88 @@ function SettingsContent() {
             </button>
           </div>
 
-          {/* 設定済み予算一覧（選択中の用途のみ表示） */}
-          {(() => {
-            const filteredBudgets = existingBudgets.filter(b => b.card_type === budgetCardType)
-            if (filteredBudgets.length === 0) return null
-            const isJoint = budgetCardType === "joint"
+          {/* 設定済み予算一覧（グループ別・カラーコーディング） */}
+          {existingBudgets.length > 0 && (() => {
+            // カテゴリのgroup_typeをlookup
+            const groupTypeMap: Record<string, string | null> = {}
+            for (const r of categoryRows) {
+              groupTypeMap[`${r.name}:${r.card_type}`] = r.group_type
+            }
+
+            // グループ別に分類
+            const grouped: Record<string, BudgetRow[]> = {}
+            const ungrouped: BudgetRow[] = []
+            for (const b of existingBudgets) {
+              const gt = groupTypeMap[`${b.category}:${b.card_type}`] ?? null
+              if (gt && GROUP_ORDER.includes(gt)) {
+                if (!grouped[gt]) grouped[gt] = []
+                grouped[gt].push(b)
+              } else {
+                ungrouped.push(b)
+              }
+            }
+            const allGroups = [
+              ...GROUP_ORDER.filter(g => grouped[g]?.length),
+              ...(ungrouped.length ? ["未設定"] : []),
+            ]
+            const totalBudget = existingBudgets.reduce((s, b) => s + b.budget, 0)
+
             return (
               <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-                <div className={`px-4 py-2 border-b flex justify-between items-center ${isJoint ? "bg-amber-50" : "bg-indigo-50"}`}>
-                  <h2 className={`text-sm font-semibold ${isJoint ? "text-amber-600" : "text-indigo-600"}`}>
-                    {isJoint ? "共用" : "個人"}の設定済み予算
-                  </h2>
-                  <span className="text-xs text-gray-500">行をタップして編集</span>
+                <div className="px-3 py-2 bg-gray-50 border-b flex justify-between items-center">
+                  <h2 className="text-xs font-semibold text-gray-700">設定済み予算一覧</h2>
+                  <span className="text-xs text-gray-400">クリックして編集</span>
                 </div>
-                {filteredBudgets.map(b => {
-                  const key = `${b.category}:${b.card_type}`
-                  const isEditing = editingBudgetKey === key
+                {allGroups.map(group => {
+                  const rows = group === "未設定" ? ungrouped : (grouped[group] ?? [])
+                  const gc = GROUP_COLORS[group]
+                  const groupTotal = rows.reduce((s, b) => s + b.budget, 0)
                   return (
-                    <div
-                      key={b.category}
-                      className={`flex items-center justify-between px-4 py-2.5 border-b last:border-0 cursor-pointer transition-colors ${isEditing ? "bg-blue-50" : "hover:bg-gray-50"}`}
-                      onClick={() => handleEditBudget(b)}
-                    >
-                      <span className={`text-sm ${isEditing ? "text-blue-700 font-medium" : "text-gray-700"}`}>{b.category}</span>
-                      <div className="flex items-center gap-3">
-                        <span className={`text-sm font-medium ${isEditing ? "text-blue-600" : "text-gray-700"}`}>{toJPY(b.budget)}</span>
-                        {isEditing
-                          ? <span className="text-blue-400 text-xs font-medium">編集中</span>
-                          : <button
-                              onClick={e => { e.stopPropagation(); handleDeleteBudget(b.category, b.card_type) }}
-                              className="text-gray-300 hover:text-red-400 text-xl leading-none w-6">×</button>
-                        }
+                    <div key={group}>
+                      {/* グループヘッダー */}
+                      <div className={`flex items-center justify-between px-3 py-1.5 border-b border-l-2 ${gc ? `${gc.light} ${gc.border} ${gc.text}` : "bg-gray-50 border-l-gray-300 text-gray-500"}`}>
+                        <div className="flex items-center gap-1.5">
+                          {gc && <span className={`text-[10px] px-1 py-0.5 rounded text-white font-bold ${gc.bg}`}>{group}</span>}
+                          {!gc && <span className="text-xs font-medium">{group}</span>}
+                        </div>
+                        <span className="text-xs font-semibold">{toJPY(groupTotal)}</span>
                       </div>
+                      {/* カテゴリ行 */}
+                      {rows.map(b => {
+                        const key = `${b.category}:${b.card_type}`
+                        const isEditing = editingBudgetKey === key
+                        return (
+                          <div
+                            key={key}
+                            className={`flex items-center justify-between px-3 py-2 border-b last:border-0 cursor-pointer transition-colors border-l-2 ${gc ? gc.border : "border-l-transparent"} ${isEditing ? "bg-blue-50" : `hover:${gc?.light ?? "bg-gray-50"}`}`}
+                            onClick={() => handleEditBudget(b)}
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <span className={`text-[10px] px-1 py-0.5 rounded font-medium ${b.card_type === "joint" ? "bg-amber-100 text-amber-700" : "bg-indigo-100 text-indigo-700"}`}>
+                                {b.card_type === "joint" ? "共" : "個"}
+                              </span>
+                              <span className={`text-xs ${isEditing ? "text-blue-700 font-medium" : "text-gray-700"}`}>{b.category}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs font-medium ${isEditing ? "text-blue-600" : "text-gray-700"}`}>{toJPY(b.budget)}</span>
+                              {isEditing
+                                ? <span className="text-blue-400 text-[10px] font-medium">編集中</span>
+                                : <button
+                                    onClick={e => { e.stopPropagation(); handleDeleteBudget(b.category, b.card_type) }}
+                                    className="text-gray-300 hover:text-red-400 text-lg leading-none w-5">×</button>
+                              }
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
                   )
                 })}
+                {/* 合計 */}
+                <div className="flex justify-between items-center px-3 py-2 bg-gray-800 text-white">
+                  <span className="text-xs font-bold">合計</span>
+                  <span className="text-xs font-bold">{toJPY(totalBudget)}</span>
+                </div>
               </div>
             )
           })()}
@@ -539,39 +596,56 @@ function SettingsContent() {
                 </button>
               </div>
               <div className="border rounded-lg overflow-hidden">
-                {categoryRows.filter(r => catViewType === "joint" ? r.card_type === "joint" : r.card_type !== "joint").length === 0 ? (
-                  <p className="text-xs text-gray-400 px-3 py-3">なし</p>
-                ) : (
-                  <>
-                    <div className="grid grid-cols-[1fr_auto_auto] bg-gray-50 border-b text-xs text-gray-500 font-medium">
-                      <div className="px-2 py-1">カテゴリ名</div>
-                      <div className="px-2 py-1">グループ</div>
-                      <div className="w-7"></div>
-                    </div>
-                    <div className="max-h-72 overflow-y-auto">
-                      {categoryRows.filter(r => catViewType === "joint" ? r.card_type === "joint" : r.card_type !== "joint").map(r => (
-                        <div key={r.name} className="grid grid-cols-[1fr_auto_auto] items-center border-b last:border-0 hover:bg-gray-50">
-                          <span className="px-2 py-1 text-xs text-gray-800">{r.name}</span>
-                          <select
-                            value={r.group_type ?? ""}
-                            onChange={e => handleSetGroupType(r.name, r.card_type, e.target.value || null)}
-                            className="text-xs border-0 border-l bg-transparent text-gray-700 py-1 px-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                          >
-                            <option value="">—</option>
-                            <option value="収入">収入</option>
-                            <option value="支出">支出</option>
-                            <option value="振替">振替</option>
-                            <option value="投資">投資</option>
-                            <option value="貯蓄">貯蓄</option>
-                            <option value="立替">立替</option>
-                          </select>
-                          <button onClick={() => handleDeleteCategory(r.name)}
-                            className="w-7 py-1 text-gray-300 hover:text-red-500 text-base leading-none border-l text-center">×</button>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
+                {(() => {
+                  const visibleRows = categoryRows
+                    .filter(r => catViewType === "joint" ? r.card_type === "joint" : r.card_type !== "joint")
+                    .sort((a, b) => {
+                      const ai = GROUP_ORDER.indexOf(a.group_type ?? "")
+                      const bi = GROUP_ORDER.indexOf(b.group_type ?? "")
+                      const aIdx = ai === -1 ? GROUP_ORDER.length : ai
+                      const bIdx = bi === -1 ? GROUP_ORDER.length : bi
+                      if (aIdx !== bIdx) return aIdx - bIdx
+                      return a.name.localeCompare(b.name, "ja")
+                    })
+                  if (visibleRows.length === 0) return <p className="text-xs text-gray-400 px-3 py-3">なし</p>
+                  return (
+                    <>
+                      <div className="grid grid-cols-[1fr_auto_auto] bg-gray-50 border-b text-xs text-gray-500 font-medium">
+                        <div className="px-2 py-1">カテゴリ名</div>
+                        <div className="px-2 py-1">グループ</div>
+                        <div className="w-7"></div>
+                      </div>
+                      <div className="max-h-80 overflow-y-auto">
+                        {visibleRows.map(r => {
+                          const gc = r.group_type ? GROUP_COLORS[r.group_type] : null
+                          return (
+                            <div key={`${r.name}-${r.card_type}`}
+                              className={`grid grid-cols-[1fr_auto_auto] items-center border-b last:border-0 border-l-2 ${gc ? gc.border : "border-l-transparent"} ${gc ? gc.light : "hover:bg-gray-50"}`}>
+                              <div className="flex items-center gap-1.5 px-2 py-1">
+                                {gc && (
+                                  <span className={`text-[10px] px-1 py-0.5 rounded font-bold text-white ${gc.bg}`}>
+                                    {r.group_type}
+                                  </span>
+                                )}
+                                <span className="text-xs text-gray-800">{r.name}</span>
+                              </div>
+                              <select
+                                value={r.group_type ?? ""}
+                                onChange={e => handleSetGroupType(r.name, r.card_type, e.target.value || null)}
+                                className={`text-xs border-0 border-l bg-transparent py-1 px-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400 ${gc ? gc.text : "text-gray-700"}`}
+                              >
+                                <option value="">—</option>
+                                {GROUP_ORDER.map(g => <option key={g} value={g}>{g}</option>)}
+                              </select>
+                              <button onClick={() => handleDeleteCategory(r.name)}
+                                className="w-7 py-1 text-gray-300 hover:text-red-500 text-base leading-none border-l text-center">×</button>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </>
+                  )
+                })()}
               </div>
               <div className="flex gap-2 pt-1 border-t">
                 <input type="text" value={newCatName} onChange={e => setNewCatName(e.target.value)}

@@ -50,6 +50,7 @@ export default function DashboardPage() {
   const [apiError, setApiError] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>("monthly")
   const [viewType, setViewType] = useState<"self" | "joint">("self")
+  const [budgetViewType, setBudgetViewType] = useState<"self" | "joint">("self")
   const [loading, setLoading] = useState(true)
 
   const [cardSummary, setCardSummary] = useState<CardSummary[]>([])
@@ -322,9 +323,12 @@ export default function DashboardPage() {
             貯蓄: "text-teal-700 bg-teal-50 border-teal-200",
             立替: "text-orange-700 bg-orange-50 border-orange-200",
           }
+          // 個人/共用フィルタ
+          const filteredBudgets = budgetVsActual.filter(b => b.cardType === budgetViewType)
+
           const grouped: Record<string, BudgetRow[]> = {}
           const ungrouped: BudgetRow[] = []
-          for (const b of budgetVsActual) {
+          for (const b of filteredBudgets) {
             if (b.groupType && GROUP_ORDER.includes(b.groupType)) {
               if (!grouped[b.groupType]) grouped[b.groupType] = []
               grouped[b.groupType].push(b)
@@ -336,8 +340,8 @@ export default function DashboardPage() {
             ...GROUP_ORDER.filter(g => grouped[g]?.length),
             ...(ungrouped.length ? ["未分類"] : []),
           ]
-          const totalBudget = budgetVsActual.reduce((s, b) => s + b.budget, 0)
-          const totalActual = budgetVsActual.reduce((s, b) => s + b.actual, 0)
+          const totalBudget = filteredBudgets.reduce((s, b) => s + b.budget, 0)
+          const totalActual = filteredBudgets.reduce((s, b) => s + b.actual, 0)
 
           if (budgetVsActual.length === 0) return (
             <div className="bg-white rounded-xl shadow-sm p-6 text-center text-gray-500 text-sm">
@@ -376,14 +380,7 @@ export default function DashboardPage() {
                       const over = b.actual > b.budget && b.budget > 0
                       return (
                         <tr key={`${b.category}-${b.cardType}`} className="hover:bg-gray-50">
-                          <td className="px-3 py-1.5 text-gray-700">
-                            <div className="flex items-center gap-1.5">
-                              <span className={`text-xs px-1 py-0.5 rounded font-medium ${b.cardType === "joint" ? "bg-amber-100 text-amber-700" : "bg-indigo-100 text-indigo-700"}`}>
-                                {b.cardType === "joint" ? "共" : "個"}
-                              </span>
-                              {b.category}
-                            </div>
-                          </td>
+                          <td className="px-3 py-1.5 text-gray-700 text-xs">{b.category}</td>
                           <td className="text-right px-2 py-1.5 text-gray-500">{b.budget > 0 ? toJPY(b.budget) : "—"}</td>
                           <td className={`text-right px-2 py-1.5 font-medium ${over ? "text-red-500" : "text-gray-700"}`}>{toJPY(b.actual)}</td>
                           <td className={`text-right px-3 py-1.5 font-semibold ${diff < 0 ? "text-red-500" : diff > 0 ? "text-green-600" : "text-gray-400"}`}>
@@ -401,24 +398,45 @@ export default function DashboardPage() {
           const half = Math.ceil(allGroups.length / 2)
 
           return (
-            <div className={isPC ? "grid grid-cols-2 gap-4 items-start" : "space-y-3"}>
-              <div className="space-y-3">
-                {allGroups.slice(0, half).map(group => renderGroupCard(group))}
+            <>
+              {/* 個人/共用トグル */}
+              <div className="flex rounded-lg bg-gray-100 p-0.5 mb-3 max-w-xs">
+                {[
+                  { key: "self" as const, label: "個人", active: "bg-white text-indigo-600", inactive: "text-gray-500" },
+                  { key: "joint" as const, label: "共用", active: "bg-white text-amber-600", inactive: "text-gray-500" },
+                ].map(v => (
+                  <button key={v.key} onClick={() => setBudgetViewType(v.key)}
+                    className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-colors shadow-sm ${budgetViewType === v.key ? v.active + " shadow-sm" : v.inactive}`}>
+                    {v.label}
+                  </button>
+                ))}
               </div>
-              <div className="space-y-3">
-                {allGroups.slice(half).map(group => renderGroupCard(group))}
-                <div className="bg-gray-800 rounded-xl px-4 py-2.5 flex justify-between items-center text-white text-sm">
-                  <span className="font-bold text-xs">合計</span>
-                  <div className="flex gap-4 text-xs">
-                    <span>予算 {toJPY(totalBudget)}</span>
-                    <span>実績 {toJPY(totalActual)}</span>
-                    <span className={totalBudget - totalActual < 0 ? "text-red-300 font-bold" : "text-green-300 font-bold"}>
-                      {totalBudget - totalActual >= 0 ? "+" : ""}{toJPY(totalBudget - totalActual)}
-                    </span>
+
+              {filteredBudgets.length === 0 ? (
+                <div className="bg-white rounded-xl shadow-sm p-6 text-center text-gray-500 text-sm">
+                  {budgetViewType === "self" ? "個人" : "共用"}の予算が設定されていません。
+                </div>
+              ) : (
+                <div className={isPC ? "grid grid-cols-2 gap-4 items-start" : "space-y-3"}>
+                  <div className="space-y-3">
+                    {allGroups.slice(0, half).map(group => renderGroupCard(group))}
+                  </div>
+                  <div className="space-y-3">
+                    {allGroups.slice(half).map(group => renderGroupCard(group))}
+                    <div className="bg-gray-800 rounded-xl px-4 py-2.5 flex justify-between items-center text-white text-sm">
+                      <span className="font-bold text-xs">合計</span>
+                      <div className="flex gap-4 text-xs">
+                        <span>予算 {toJPY(totalBudget)}</span>
+                        <span>実績 {toJPY(totalActual)}</span>
+                        <span className={totalBudget - totalActual < 0 ? "text-red-300 font-bold" : "text-green-300 font-bold"}>
+                          {totalBudget - totalActual >= 0 ? "+" : ""}{toJPY(totalBudget - totalActual)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
+              )}
+            </>
           )
         })()}
 

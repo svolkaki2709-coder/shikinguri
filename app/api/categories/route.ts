@@ -5,6 +5,22 @@ import { sql } from "@/lib/db"
 async function migrateCategories() {
   await sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS card_type TEXT NOT NULL DEFAULT 'self'`
   await sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS group_type TEXT`
+  // name のみの UNIQUE 制約を削除し、(name, card_type) の複合 UNIQUE に変更
+  // → 個人と共用で同じカテゴリ名を共存可能にする
+  try {
+    await sql`ALTER TABLE categories DROP CONSTRAINT IF EXISTS categories_name_key`
+  } catch (_) { /* 制約がなければ無視 */ }
+  try {
+    await sql`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'categories_name_cardtype_key'
+        ) THEN
+          ALTER TABLE categories ADD CONSTRAINT categories_name_cardtype_key UNIQUE (name, card_type);
+        END IF;
+      END $$
+    `
+  } catch (_) { /* 既に存在すれば無視 */ }
 }
 
 export async function GET(req: NextRequest) {
@@ -39,15 +55,15 @@ export async function POST(req: Request) {
   if (!name) return NextResponse.json({ error: "名前が必要です" }, { status: 400 })
 
   const ct = card_type ?? "self"
-  const existing = await sql`SELECT id FROM categories WHERE name = ${name}`
+  // (name, card_type) の組み合わせで存在確認（同名カテゴリを個人・共用両方で持てる）
+  const existing = await sql`SELECT id FROM categories WHERE name = ${name} AND card_type = ${ct}`
   if (existing.length === 0) {
     await sql`INSERT INTO categories (name, card_type, group_type) VALUES (${name}, ${ct}, ${group_type ?? null})`
   } else {
     if (group_type !== undefined) {
-      await sql`UPDATE categories SET card_type = ${ct}, group_type = ${group_type ?? null} WHERE name = ${name}`
-    } else {
-      await sql`UPDATE categories SET card_type = ${ct} WHERE name = ${name}`
+      await sql`UPDATE categories SET group_type = ${group_type ?? null} WHERE name = ${name} AND card_type = ${ct}`
     }
+    // card_type の更新は行わない（個人→共用の移動は削除→追加で対応）
   }
   return NextResponse.json({ success: true })
 }
