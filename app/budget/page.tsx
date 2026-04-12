@@ -207,6 +207,10 @@ export default function BudgetPage() {
     })
   }, [months, yearGroups, yearFiltered, incomeByMonth, yearCardTypeFilter])
 
+  // ─── ドラッグ状態 ─────────────────────────────────────────────
+  const [dragItem, setDragItem] = useState<{ group: string; idx: number } | null>(null)
+  const [dragOverIdx, setDragOverIdx] = useState<{ group: string; idx: number } | null>(null)
+
   // ─── グループ変更ハンドラ ──────────────────────────────────────
   async function handleSetGroupType(category: string, cardType: string, groupType: string | null) {
     await fetch("/api/categories", {
@@ -214,12 +218,52 @@ export default function BudgetPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: category, card_type: cardType, group_type: groupType }),
     })
-    // ローカル state を即時更新（useMemoで再グループ化される）
     setBudgets(prev => prev.map(b =>
       b.category === category && b.cardType === cardType
         ? { ...b, groupType }
         : b
     ))
+  }
+
+  // ─── 並び替えハンドラ ─────────────────────────────────────────
+  async function handleReorderDrop(group: string, toIdx: number) {
+    if (!dragItem || dragItem.group !== group || dragItem.idx === toIdx) {
+      setDragItem(null)
+      setDragOverIdx(null)
+      return
+    }
+    const fromIdx = dragItem.idx
+    const groupRows = monthlyGroups.find(g => g.group === group)?.rows ?? []
+    const newRows = [...groupRows]
+    const [moved] = newRows.splice(fromIdx, 1)
+    newRows.splice(toIdx, 0, moved)
+
+    // ローカル state を即時反映
+    const baseOrder = Math.min(...newRows.map(r => r.sortOrder ?? 0))
+    setBudgets(prev => {
+      const updated = [...prev]
+      newRows.forEach((row, i) => {
+        const idx = updated.findIndex(b => b.category === row.category && b.cardType === row.cardType)
+        if (idx >= 0) updated[idx] = { ...updated[idx], sortOrder: baseOrder + i }
+      })
+      return updated
+    })
+
+    // API 更新
+    await fetch("/api/categories", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "reorder",
+        items: newRows.map((row, i) => ({
+          name: row.category,
+          card_type: row.cardType,
+          sort_order: baseOrder + i,
+        })),
+      }),
+    })
+    setDragItem(null)
+    setDragOverIdx(null)
   }
 
   // ─── 月次タブ: グループカードレンダリング ────────────────────
@@ -230,7 +274,7 @@ export default function BudgetPage() {
     const gDiff = gBudget - gActual
 
     return (
-      <div key={group} className="bg-white rounded-xl shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
         {/* グループヘッダー */}
         <div className={`px-3 py-2 flex items-center justify-between ${gc?.header ?? "bg-gray-700 text-white"}`}>
           <span className="text-xs font-bold">{group}</span>
@@ -245,21 +289,37 @@ export default function BudgetPage() {
 
         {/* カテゴリ行 */}
         <div className="divide-y divide-gray-100">
-          {rows.map(b => {
+          {rows.map((b, rowIdx) => {
             const diff = b.budget - b.actual
             const pct = b.budget > 0 ? Math.min((b.actual / b.budget) * 100, 100) : 0
             const isOver = b.actual > b.budget && b.budget > 0
+            const isDraggingOver = dragOverIdx?.group === group && dragOverIdx.idx === rowIdx
+            const isDragging = dragItem?.group === group && dragItem.idx === rowIdx
             return (
-              <div key={`${b.category}-${b.cardType}`}
-                className={`px-3 py-2.5 border-l-4 ${gc?.border ?? "border-l-gray-300"} ${gc?.row ?? "bg-white"}`}>
+              <div
+                key={`${b.category}-${b.cardType}`}
+                draggable
+                onDragStart={() => setDragItem({ group, idx: rowIdx })}
+                onDragOver={e => { e.preventDefault(); setDragOverIdx({ group, idx: rowIdx }) }}
+                onDragEnd={() => { setDragItem(null); setDragOverIdx(null) }}
+                onDrop={() => handleReorderDrop(group, rowIdx)}
+                className={`px-3 py-2.5 border-l-4 cursor-grab active:cursor-grabbing transition-opacity ${
+                  gc?.border ?? "border-l-gray-300"
+                } ${gc?.row ?? "bg-white"} ${isDragging ? "opacity-40" : "opacity-100"} ${
+                  isDraggingOver ? "border-t-2 border-t-blue-400" : ""
+                }`}
+              >
                 <div className="flex justify-between items-center mb-1">
                   <div className="flex items-center gap-1.5 min-w-0">
+                    {/* ドラッグハンドル */}
+                    <span className="text-gray-400 text-xs cursor-grab shrink-0 select-none font-bold tracking-tighter">⋮⋮</span>
                     <span className={`text-xs font-medium truncate ${gc?.text ?? "text-gray-700"}`}>{b.category}</span>
                     {/* グループ変更ドロップダウン */}
                     <select
                       value={b.groupType ?? ""}
                       onChange={e => handleSetGroupType(b.category, b.cardType, e.target.value || null)}
                       onClick={e => e.stopPropagation()}
+                      onDragStart={e => e.stopPropagation()}
                       className="text-[10px] border border-gray-200 rounded px-1 py-0.5 bg-white text-gray-400 hover:text-gray-700 hover:border-gray-400 cursor-pointer outline-none focus:ring-1 focus:ring-blue-300 transition-colors shrink-0"
                     >
                       <option value="">グループ未設定</option>
@@ -377,21 +437,19 @@ export default function BudgetPage() {
 
             {!monthlyLoading && filteredBudgets.length > 0 && (
               isPC ? (
-                <div className="grid grid-cols-2 gap-4 items-start">
-                  <div className="space-y-3">
-                    {monthlyGroups.slice(0, Math.ceil(monthlyGroups.length / 2)).map(({ group, rows }) =>
-                      renderMonthlyGroupCard(group, rows)
-                    )}
-                  </div>
-                  <div className="space-y-3">
-                    {monthlyGroups.slice(Math.ceil(monthlyGroups.length / 2)).map(({ group, rows }) =>
-                      renderMonthlyGroupCard(group, rows)
-                    )}
-                  </div>
+                /* PC: CSS columns で高さを自動バランス */
+                <div style={{ columnCount: 2, columnGap: "1rem" }}>
+                  {monthlyGroups.map(({ group, rows }) => (
+                    <div key={group} style={{ breakInside: "avoid" as const, marginBottom: "0.75rem" }}>
+                      {renderMonthlyGroupCard(group, rows)}
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {monthlyGroups.map(({ group, rows }) => renderMonthlyGroupCard(group, rows))}
+                  {monthlyGroups.map(({ group, rows }) => (
+                    <div key={group}>{renderMonthlyGroupCard(group, rows)}</div>
+                  ))}
                 </div>
               )
             )}
