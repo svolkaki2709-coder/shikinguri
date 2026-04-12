@@ -639,6 +639,8 @@ function SettingsContent() {
             </button>
           </div>
 
+          {/* 右列: 月ナビ + 予算一覧 */}
+          <div className="space-y-2">
           {/* 表示月ナビ */}
           <div className="flex items-center gap-1 bg-white rounded-lg border px-2 py-1.5">
             <button onClick={() => { const [y,mo] = budgetViewMonth.split("-").map(Number); const d = new Date(y, mo-2, 1); setBudgetViewMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`) }}
@@ -748,6 +750,7 @@ function SettingsContent() {
               </div>
             )
           })()}
+          </div>{/* /右列 */}
           </div>
         )}
 
