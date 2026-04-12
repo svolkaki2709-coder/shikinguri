@@ -455,12 +455,28 @@ function SettingsContent() {
               <label className="text-xs text-gray-700 mb-1 block">対象</label>
               <div className="flex gap-2">
                 <button type="button"
-                  onClick={() => { setBudgetCardType("self"); if (editingBudgetKey) setEditingBudgetKey(null) }}
+                  onClick={() => {
+                    setBudgetCardType("self")
+                    if (editingBudgetKey) setEditingBudgetKey(null)
+                    // カテゴリを個人の先頭に切り替え
+                    const firstSelf = categoryRows.filter(r => r.card_type === "self")[0]
+                    if (firstSelf) setBudgetCategory(firstSelf.name)
+                    setBudgetAmount("")
+                    setBudgetMsg("")
+                  }}
                   className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${budgetCardType === "self" ? "bg-indigo-600 text-white border-indigo-600" : "border-gray-300 text-gray-600"}`}>
                   個人
                 </button>
                 <button type="button"
-                  onClick={() => { setBudgetCardType("joint"); if (editingBudgetKey) setEditingBudgetKey(null) }}
+                  onClick={() => {
+                    setBudgetCardType("joint")
+                    if (editingBudgetKey) setEditingBudgetKey(null)
+                    // カテゴリを共用の先頭に切り替え
+                    const firstJoint = categoryRows.filter(r => r.card_type === "joint")[0]
+                    if (firstJoint) setBudgetCategory(firstJoint.name)
+                    setBudgetAmount("")
+                    setBudgetMsg("")
+                  }}
                   className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${budgetCardType === "joint" ? "bg-amber-500 text-white border-amber-500" : "border-gray-300 text-gray-600"}`}>
                   共用
                 </button>
@@ -470,8 +486,17 @@ function SettingsContent() {
               <label className="text-xs text-gray-700 mb-1 block">カテゴリ</label>
               <select value={budgetCategory} onChange={e => setBudgetCategory(e.target.value)}
                 disabled={!!editingBudgetKey}
-                className="w-full border rounded-lg px-3 py-2 text-sm bg-white disabled:bg-gray-50 disabled:text-gray-600">
-                {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                className="w-full border rounded-lg px-3 py-2 text-sm bg-white disabled:bg-gray-50 disabled:text-gray-600 text-gray-800">
+                {categoryRows
+                  .filter(r => r.card_type === budgetCardType)
+                  .sort((a, b) => {
+                    const ai = GROUP_ORDER.indexOf(a.group_type ?? "")
+                    const bi = GROUP_ORDER.indexOf(b.group_type ?? "")
+                    const aIdx = ai === -1 ? GROUP_ORDER.length : ai
+                    const bIdx = bi === -1 ? GROUP_ORDER.length : bi
+                    return aIdx !== bIdx ? aIdx - bIdx : a.name.localeCompare(b.name, "ja")
+                  })
+                  .map(r => <option key={r.name} value={r.name}>{r.name}</option>)}
               </select>
             </div>
             <div>
@@ -489,8 +514,12 @@ function SettingsContent() {
             </button>
           </div>
 
-          {/* 設定済み予算一覧（グループ別・カラーコーディング） */}
-          {existingBudgets.length > 0 && (() => {
+          {/* 設定済み予算一覧（budgetCardTypeでフィルタ・グループ別カラーコーディング） */}
+          {(() => {
+            // 左トグルで選択中の種別のみ表示
+            const filteredBudgets = existingBudgets.filter(b => b.card_type === budgetCardType)
+            const isJoint = budgetCardType === "joint"
+
             // カテゴリのgroup_typeをlookup
             const groupTypeMap: Record<string, string | null> = {}
             for (const r of categoryRows) {
@@ -500,7 +529,7 @@ function SettingsContent() {
             // グループ別に分類
             const grouped: Record<string, BudgetRow[]> = {}
             const ungrouped: BudgetRow[] = []
-            for (const b of existingBudgets) {
+            for (const b of filteredBudgets) {
               const gt = groupTypeMap[`${b.category}:${b.card_type}`] ?? null
               if (gt && GROUP_ORDER.includes(gt)) {
                 if (!grouped[gt]) grouped[gt] = []
@@ -513,12 +542,20 @@ function SettingsContent() {
               ...GROUP_ORDER.filter(g => grouped[g]?.length),
               ...(ungrouped.length ? ["未設定"] : []),
             ]
-            const totalBudget = existingBudgets.reduce((s, b) => s + b.budget, 0)
+            const totalBudget = filteredBudgets.reduce((s, b) => s + b.budget, 0)
+
+            if (filteredBudgets.length === 0) return (
+              <div className="bg-white rounded-xl shadow-sm p-6 text-center text-gray-400 text-xs">
+                {isJoint ? "共用" : "個人"}の予算がまだ設定されていません
+              </div>
+            )
 
             return (
               <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-                <div className="px-3 py-2 bg-gray-50 border-b flex justify-between items-center">
-                  <h2 className="text-xs font-semibold text-gray-700">設定済み予算一覧</h2>
+                <div className={`px-3 py-2 border-b flex justify-between items-center ${isJoint ? "bg-amber-50" : "bg-indigo-50"}`}>
+                  <h2 className={`text-xs font-semibold ${isJoint ? "text-amber-700" : "text-indigo-700"}`}>
+                    {isJoint ? "共用" : "個人"}の設定済み予算
+                  </h2>
                   <span className="text-xs text-gray-400">クリックして編集</span>
                 </div>
                 {allGroups.map(group => {
@@ -530,8 +567,10 @@ function SettingsContent() {
                       {/* グループヘッダー */}
                       <div className={`flex items-center justify-between px-3 py-1.5 border-b border-l-2 ${gc ? `${gc.light} ${gc.border} ${gc.text}` : "bg-gray-50 border-l-gray-300 text-gray-500"}`}>
                         <div className="flex items-center gap-1.5">
-                          {gc && <span className={`text-[10px] px-1 py-0.5 rounded text-white font-bold ${gc.bg}`}>{group}</span>}
-                          {!gc && <span className="text-xs font-medium">{group}</span>}
+                          {gc
+                            ? <span className={`text-[10px] px-1 py-0.5 rounded text-white font-bold ${gc.bg}`}>{group}</span>
+                            : <span className="text-xs font-medium">{group}</span>
+                          }
                         </div>
                         <span className="text-xs font-semibold">{toJPY(groupTotal)}</span>
                       </div>
@@ -542,15 +581,10 @@ function SettingsContent() {
                         return (
                           <div
                             key={key}
-                            className={`flex items-center justify-between px-3 py-2 border-b last:border-0 cursor-pointer transition-colors border-l-2 ${gc ? gc.border : "border-l-transparent"} ${isEditing ? "bg-blue-50" : `hover:${gc?.light ?? "bg-gray-50"}`}`}
+                            className={`flex items-center justify-between px-3 py-2 border-b last:border-0 cursor-pointer transition-colors border-l-2 ${gc ? gc.border : "border-l-transparent"} ${isEditing ? "bg-blue-50" : "hover:bg-gray-50"}`}
                             onClick={() => handleEditBudget(b)}
                           >
-                            <div className="flex items-center gap-1.5">
-                              <span className={`text-[10px] px-1 py-0.5 rounded font-medium ${b.card_type === "joint" ? "bg-amber-100 text-amber-700" : "bg-indigo-100 text-indigo-700"}`}>
-                                {b.card_type === "joint" ? "共" : "個"}
-                              </span>
-                              <span className={`text-xs ${isEditing ? "text-blue-700 font-medium" : "text-gray-700"}`}>{b.category}</span>
-                            </div>
+                            <span className={`text-xs ${isEditing ? "text-blue-700 font-medium" : "text-gray-700"}`}>{b.category}</span>
                             <div className="flex items-center gap-2">
                               <span className={`text-xs font-medium ${isEditing ? "text-blue-600" : "text-gray-700"}`}>{toJPY(b.budget)}</span>
                               {isEditing
@@ -567,8 +601,8 @@ function SettingsContent() {
                   )
                 })}
                 {/* 合計 */}
-                <div className="flex justify-between items-center px-3 py-2 bg-gray-800 text-white">
-                  <span className="text-xs font-bold">合計</span>
+                <div className={`flex justify-between items-center px-3 py-2 ${isJoint ? "bg-amber-600" : "bg-indigo-700"} text-white`}>
+                  <span className="text-xs font-bold">{isJoint ? "共用" : "個人"} 合計</span>
                   <span className="text-xs font-bold">{toJPY(totalBudget)}</span>
                 </div>
               </div>
