@@ -593,14 +593,20 @@ function SettingsContent() {
                         if (d.error) { alert("PDF解析エラー: " + d.error); return }
                         setPayslipExpenseCardType("self")
                         setPayslipMonth(d.paymentMonth ?? null)
-                        const travel = d.travelReimbursement ?? 0
-                        // 収入 = 額面（支給合計）− 営業交通費（立替は別途支出登録するため除外）
-                        const grossPay = d.grossPay ?? d.netPay ?? 0
-                        const incomeAmount = grossPay - travel
+                        // 立替 = 営業交通費 + 非課税通勤手当 + 課税通勤手当
+                        const travelExp   = d.travelReimbursement ?? 0
+                        const nonTaxCom   = d.nonTaxableCommute ?? 0
+                        const taxCom      = d.taxableCommute ?? 0
+                        const totalTravel = travelExp + nonTaxCom + taxCom
+                        // 収入 = 額面（支給合計）− 立替合計
+                        const grossPay    = d.grossPay ?? d.netPay ?? 0
+                        const incomeAmount = grossPay - totalTravel
                         const items: PayslipItem[] = []
-                        if (incomeAmount > 0) items.push({ key: "income", label: `額面 ¥${grossPay.toLocaleString()} − 立替 ¥${travel.toLocaleString()}`, amount: incomeAmount, checked: true, type: "income", category: "給与" })
-                        if (d.totalDeduction) items.push({ key: "deduction", label: `控除合計（健保・厚生・雇保・税）`, amount: d.totalDeduction, checked: true, type: "transaction", category: "給与源泉" })
-                        if (travel > 0) items.push({ key: "travel", label: "営業交通費（立替）", amount: travel, checked: true, type: "transaction", category: "立替" })
+                        if (incomeAmount > 0) items.push({ key: "income", label: `額面 ¥${grossPay.toLocaleString()} − 立替計 ¥${totalTravel.toLocaleString()}`, amount: incomeAmount, checked: true, type: "income", category: "給与" })
+                        if (d.totalDeduction) items.push({ key: "deduction", label: "控除合計（健保・厚生・雇保・税）", amount: d.totalDeduction, checked: true, type: "transaction", category: "給与源泉" })
+                        if (travelExp > 0) items.push({ key: "travel", label: "営業交通費", amount: travelExp, checked: true, type: "transaction", category: "立替" })
+                        if (nonTaxCom > 0) items.push({ key: "nonTaxCom", label: "非課税通勤手当", amount: nonTaxCom, checked: true, type: "transaction", category: "立替" })
+                        if (taxCom > 0) items.push({ key: "taxCom", label: "課税通勤手当", amount: taxCom, checked: true, type: "transaction", category: "立替" })
                         setParsedPayslipItems(items.length > 0 ? items : null)
                         if (items.length === 0) alert("PDF から金額を取得できませんでした。手動で入力してください。")
                         e.target.value = ""

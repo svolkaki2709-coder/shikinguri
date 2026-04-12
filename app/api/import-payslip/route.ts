@@ -5,15 +5,17 @@ import { auth } from "@/auth"
 const pdfParse = require("pdf-parse/lib/pdf-parse")
 
 interface ParsedPayslip {
-  paymentMonth: string | null   // "2026-02"
+  paymentMonth: string | null
   netPay: number | null          // 差引総支給額
-  grossPay: number | null        // 支給合計
+  grossPay: number | null        // 支給合計（額面）
   incomeTax: number | null       // 所得税
   residentTax: number | null     // 住民税
   healthInsurance: number | null // 健康保険料
   pension: number | null         // 厚生年金保険料
   employmentInsurance: number | null // 雇用保険料
-  travelReimbursement: number | null // 営業交通費
+  travelReimbursement: number | null // 営業交通費（立替）
+  nonTaxableCommute: number | null   // 非課税通勤手当（立替）
+  taxableCommute: number | null      // 課税通勤手当（立替）
   totalDeduction: number | null  // 控除合計
 }
 
@@ -112,6 +114,8 @@ function parsePayslipText(text: string): ParsedPayslip {
     pension:             val["厚生年金保険料"]   ?? null,
     employmentInsurance: val["雇用保険料"]       ?? null,
     travelReimbursement: val["営業交通費"]       ?? null,
+    nonTaxableCommute:   val["非課税通勤手当"]   ?? null,
+    taxableCommute:      val["課税通勤手当"]     ?? null,
     totalDeduction,
   }
 }
