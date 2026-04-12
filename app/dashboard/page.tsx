@@ -26,7 +26,7 @@ function fmt(n: number) {
 interface CardSummary { cardId: number; cardName: string; cardType: string; color: string; total: number }
 interface CategoryRow { category: string; amount: number }
 interface MonthlyRow { month: string; total: number; jointTotal: number; selfTotal: number }
-interface BudgetRow { category: string; cardType: string; budget: number; actual: number; groupType: string | null }
+interface BudgetRow { category: string; cardType: string; budget: number; actual: number; groupType: string | null; sortOrder: number | null }
 interface AssetRow { month: string; savings: number; investment: number; total: number }
 
 type Tab = "monthly" | "budget" | "assets"
@@ -323,8 +323,10 @@ export default function DashboardPage() {
             貯蓄: "text-teal-700 bg-teal-50 border-teal-200",
             立替: "text-orange-700 bg-orange-50 border-orange-200",
           }
-          // 個人/共用フィルタ
-          const filteredBudgets = budgetVsActual.filter(b => b.cardType === budgetViewType)
+          // 個人/共用フィルタ + sort_order順でソート
+          const filteredBudgets = budgetVsActual
+            .filter(b => b.cardType === budgetViewType)
+            .sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999))
 
           const grouped: Record<string, BudgetRow[]> = {}
           const ungrouped: BudgetRow[] = []

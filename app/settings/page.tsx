@@ -88,7 +88,10 @@ function SettingsContent() {
   const [catSaving, setCatSaving] = useState(false)
   const [catViewType, setCatViewType] = useState<"self" | "joint">("self")
   const [newCatCardType, setNewCatCardType] = useState<"self" | "joint">("self")
-  const [categoryRows, setCategoryRows] = useState<{ name: string; card_type: string; group_type: string | null }[]>([])
+  const [categoryRows, setCategoryRows] = useState<{ name: string; card_type: string; group_type: string | null; sort_order: number | null }[]>([])
+  // ドラッグ&ドロップ
+  const [dragIdx, setDragIdx] = useState<number | null>(null)
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
   const [storeRules, setStoreRules] = useState<StoreRule[]>([])
   const [ruleSearch, setRuleSearch] = useState("")
   const [newRuleKeyword, setNewRuleKeyword] = useState("")
@@ -110,7 +113,7 @@ function SettingsContent() {
       if (c.length > 0) setRCardId(c[0].id)
       const cats = catd.categories ?? []
       setCategories(cats)
-      setCategoryRows((catd.rows ?? []).map((r: { name: string; card_type: string; group_type?: string | null }) => ({ ...r, group_type: r.group_type ?? null })))
+      setCategoryRows((catd.rows ?? []).map((r: { name: string; card_type: string; group_type?: string | null; sort_order?: number | null }) => ({ ...r, group_type: r.group_type ?? null, sort_order: r.sort_order ?? null })))
       if (cats.length > 0) { setRCategory(cats[0]); setBudgetCategory(cats[0]) }
       setRecurring(recd.recurring ?? [])
       const bRaw: Array<{ category: string; cardType: string; budget: number }> = budgetData.budgets ?? []
@@ -125,9 +128,9 @@ function SettingsContent() {
       // 初回のみ取引履歴から共用カテゴリを自動分類
       if (!catMigrated) {
         setCatMigrated(true)
-        fetch("/api/categories", { method: "PATCH" }).then(r => r.json()).then(d => {
+        fetch("/api/categories", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }).then(r => r.json()).then(d => {
           setCategories(d.categories ?? [])
-          setCategoryRows(d.rows ?? [])
+          setCategoryRows((d.rows ?? []).map((r: { name: string; card_type: string; group_type?: string | null; sort_order?: number | null }) => ({ ...r, group_type: r.group_type ?? null, sort_order: r.sort_order ?? null })))
         })
       }
     }
@@ -250,7 +253,38 @@ function SettingsContent() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, card_type, group_type }),
     })
-    setCategoryRows(prev => prev.map(r => r.name === name ? { ...r, group_type } : r))
+    setCategoryRows(prev => prev.map(r => r.name === name && r.card_type === card_type ? { ...r, group_type } : r))
+  }
+
+  // ドラッグ&ドロップによる並び替え
+  async function handleReorder(fromIdx: number, toIdx: number) {
+    if (fromIdx === toIdx) return
+    // 表示中の種別の行を取得（現在の並び順で）
+    const visibleRows = categoryRows
+      .filter(r => catViewType === "joint" ? r.card_type === "joint" : r.card_type !== "joint")
+      .sort((a, b) => (a.sort_order ?? 9999) - (b.sort_order ?? 9999))
+    const other = categoryRows.filter(r => catViewType === "joint" ? r.card_type !== "joint" : r.card_type === "joint")
+
+    // 並び替え
+    const reordered = [...visibleRows]
+    const [moved] = reordered.splice(fromIdx, 1)
+    reordered.splice(toIdx, 0, moved)
+
+    // sort_orderを1から振り直し
+    const updated = reordered.map((r, i) => ({ ...r, sort_order: i + 1 }))
+
+    // 楽観的更新
+    setCategoryRows([...other, ...updated])
+
+    // APIへ保存
+    await fetch("/api/categories", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "reorder",
+        updates: updated.map(r => ({ name: r.name, card_type: r.card_type, sort_order: r.sort_order })),
+      }),
+    })
   }
 
   async function handleSaveRule() {
@@ -631,33 +665,49 @@ function SettingsContent() {
               </div>
               <div className="border rounded-lg overflow-hidden">
                 {(() => {
+                  // sort_order順で並べる（ドラッグ&ドロップで変更可能）
                   const visibleRows = categoryRows
                     .filter(r => catViewType === "joint" ? r.card_type === "joint" : r.card_type !== "joint")
-                    .sort((a, b) => {
-                      const ai = GROUP_ORDER.indexOf(a.group_type ?? "")
-                      const bi = GROUP_ORDER.indexOf(b.group_type ?? "")
-                      const aIdx = ai === -1 ? GROUP_ORDER.length : ai
-                      const bIdx = bi === -1 ? GROUP_ORDER.length : bi
-                      if (aIdx !== bIdx) return aIdx - bIdx
-                      return a.name.localeCompare(b.name, "ja")
-                    })
+                    .sort((a, b) => (a.sort_order ?? 9999) - (b.sort_order ?? 9999))
                   if (visibleRows.length === 0) return <p className="text-xs text-gray-400 px-3 py-3">なし</p>
                   return (
                     <>
-                      <div className="grid grid-cols-[1fr_auto_auto] bg-gray-50 border-b text-xs text-gray-500 font-medium">
+                      <div className="grid grid-cols-[18px_1fr_auto_auto] bg-gray-50 border-b text-xs text-gray-500 font-medium">
+                        <div></div>
                         <div className="px-2 py-1">カテゴリ名</div>
                         <div className="px-2 py-1">グループ</div>
                         <div className="w-7"></div>
                       </div>
                       <div className="max-h-80 overflow-y-auto">
-                        {visibleRows.map(r => {
+                        {visibleRows.map((r, idx) => {
                           const gc = r.group_type ? GROUP_COLORS[r.group_type] : null
+                          const isDragging = dragIdx === idx
+                          const isDragOver = dragOverIdx === idx && dragIdx !== idx
                           return (
-                            <div key={`${r.name}-${r.card_type}`}
-                              className={`grid grid-cols-[1fr_auto_auto] items-center border-b last:border-0 border-l-2 ${gc ? gc.border : "border-l-transparent"} ${gc ? gc.light : "hover:bg-gray-50"}`}>
-                              <div className="flex items-center gap-1.5 px-2 py-1">
+                            <div
+                              key={`${r.name}-${r.card_type}`}
+                              draggable
+                              onDragStart={() => setDragIdx(idx)}
+                              onDragOver={e => { e.preventDefault(); setDragOverIdx(idx) }}
+                              onDragEnd={() => { setDragIdx(null); setDragOverIdx(null) }}
+                              onDrop={() => {
+                                if (dragIdx !== null) handleReorder(dragIdx, idx)
+                                setDragIdx(null)
+                                setDragOverIdx(null)
+                              }}
+                              className={`grid grid-cols-[18px_1fr_auto_auto] items-center border-b last:border-0 border-l-2 transition-all
+                                ${gc ? gc.border : "border-l-transparent"}
+                                ${isDragging ? "opacity-40 bg-blue-50" : gc ? gc.light : "hover:bg-gray-50"}
+                                ${isDragOver ? "border-t-2 border-t-blue-400" : ""}
+                              `}
+                            >
+                              {/* ドラッグハンドル */}
+                              <span className="flex items-center justify-center text-gray-300 cursor-grab active:cursor-grabbing select-none text-sm h-full">
+                                ⠿
+                              </span>
+                              <div className="flex items-center gap-1.5 px-2 py-1.5">
                                 {gc && (
-                                  <span className={`text-[10px] px-1 py-0.5 rounded font-bold text-white ${gc.bg}`}>
+                                  <span className={`text-[10px] px-1 py-0.5 rounded font-bold text-white shrink-0 ${gc.bg}`}>
                                     {r.group_type}
                                   </span>
                                 )}

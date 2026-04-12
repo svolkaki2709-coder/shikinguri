@@ -61,20 +61,21 @@ export async function GET(req: NextRequest) {
     sql`
       SELECT * FROM assets ORDER BY month DESC LIMIT 1
     `,
-    // 予算 vs 実績（当月）+ カテゴリのgroup_type
+    // 予算 vs 実績（当月）+ カテゴリのgroup_type・sort_order
     sql`
       SELECT
         b.category,
         b.card_type,
         b.amount AS budget,
         COALESCE(SUM(t.amount), 0) AS actual,
-        c.group_type
+        c.group_type,
+        c.sort_order
       FROM budgets b
       LEFT JOIN transactions t ON t.category = b.category
         AND TO_CHAR(t.date, 'YYYY-MM') = ${month}
-      LEFT JOIN categories c ON c.name = b.category
-      GROUP BY b.category, b.card_type, b.amount, c.group_type
-      ORDER BY c.group_type NULLS LAST, b.card_type, b.category
+      LEFT JOIN categories c ON c.name = b.category AND c.card_type = b.card_type
+      GROUP BY b.category, b.card_type, b.amount, c.group_type, c.sort_order
+      ORDER BY c.group_type NULLS LAST, COALESCE(c.sort_order, 9999), b.category
     `,
   ])
 
@@ -104,6 +105,7 @@ export async function GET(req: NextRequest) {
       budget: Number(r.budget),
       actual: Number(r.actual),
       groupType: (r.group_type ?? null) as string | null,
+      sortOrder: (r.sort_order ?? null) as number | null,
     })),
     currentMonth: month,
   })
