@@ -305,11 +305,13 @@ export default function DashboardPage() {
 
         {/* === 予算タブ === */}
         {!loading && tab === "budget" && (() => {
-          const GROUP_ORDER = ["収入", "支出", "投資", "立替"]
+          const GROUP_ORDER = ["収入", "支出", "振替", "投資", "貯蓄", "立替"]
           const GROUP_COLORS: Record<string, string> = {
             収入: "text-green-700 bg-green-50 border-green-200",
             支出: "text-blue-700 bg-blue-50 border-blue-200",
+            振替: "text-gray-700 bg-gray-50 border-gray-200",
             投資: "text-purple-700 bg-purple-50 border-purple-200",
+            貯蓄: "text-teal-700 bg-teal-50 border-teal-200",
             立替: "text-orange-700 bg-orange-50 border-orange-200",
           }
           // グループ別に集計
@@ -332,7 +334,7 @@ export default function DashboardPage() {
 
           if (budgetVsActual.length === 0) return (
             <div className="bg-white rounded-xl shadow-sm p-6 text-center text-gray-600 text-sm">
-              予算が設定されていません。設定 → 予算設定 からカテゴリ毎の予算を入力し、設定 → カテゴリ からグループ（収入/支出/投資/立替）を設定してください。
+              予算が設定されていません。設定 → 予算設定 からカテゴリ毎の予算を入力し、設定 → カテゴリ からグループ（収入/支出/振替/投資/貯蓄/立替）を設定してください。
             </div>
           )
 

@@ -560,7 +560,9 @@ function SettingsContent() {
                           <option value="">—</option>
                           <option value="収入">収入</option>
                           <option value="支出">支出</option>
+                          <option value="振替">振替</option>
                           <option value="投資">投資</option>
+                          <option value="貯蓄">貯蓄</option>
                           <option value="立替">立替</option>
                         </select>
                         <button onClick={() => handleDeleteCategory(r.name)}
