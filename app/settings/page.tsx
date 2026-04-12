@@ -10,6 +10,7 @@ interface Card { id: number; name: string; card_type: string; color: string }
 interface Recurring { id: number; day_of_month: number; card_id: number; card_name: string; color: string; category: string; amount: number; memo: string }
 interface Category { name: string }
 interface BudgetRow { category: string; card_type: string; budget: number; is_monthly?: boolean }
+interface IncomeRecord { id: number; date: string; amount: number; category: string; memo: string }
 interface StoreRule { id: number; keyword: string; category: string }
 
 const GROUP_ORDER = ["収入", "支出", "振替", "投資", "貯蓄", "立替"]
@@ -73,6 +74,7 @@ function SettingsContent() {
   const [incomeMemo, setIncomeMemo] = useState("")
   const [incomeSaving, setIncomeSaving] = useState(false)
   const [incomeMsg, setIncomeMsg] = useState("")
+  const [monthIncomeRecords, setMonthIncomeRecords] = useState<IncomeRecord[]>([])
 
   // 予算フォーム
   const [budgetCategory, setBudgetCategory] = useState("")
@@ -139,6 +141,12 @@ function SettingsContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab])
 
+  // 収入タブ or 月が変わったら記録一覧を再取得
+  useEffect(() => {
+    if (tab === "income") fetchMonthIncomes(incomeMonth)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [incomeMonth, tab])
+
   // 表示月が変わったら予算一覧を再取得
   useEffect(() => {
     if (tab === "budget") refreshBudgets()
@@ -178,6 +186,18 @@ function SettingsContent() {
     alert(`${d.count}件の定期支出を ${m} に生成しました`)
   }
 
+  async function fetchMonthIncomes(m?: string) {
+    const target = m ?? incomeMonth
+    const d = await fetch(`/api/income?month=${target}`).then(r => r.json())
+    setMonthIncomeRecords(d.incomes ?? [])
+  }
+
+  async function handleDeleteIncome(id: number) {
+    if (!confirm("この収入記録を削除しますか？")) return
+    await fetch(`/api/income?id=${id}`, { method: "DELETE" })
+    setMonthIncomeRecords(prev => prev.filter(r => r.id !== id))
+  }
+
   async function handleSaveIncome() {
     if (!incomeAmount) return
     setIncomeSaving(true)
@@ -191,6 +211,7 @@ function SettingsContent() {
     setIncomeAmount("")
     setIncomeMemo("")
     setIncomeSaving(false)
+    await fetchMonthIncomes()
   }
 
   async function handleSaveBudget() {
@@ -436,49 +457,88 @@ function SettingsContent() {
 
         {/* === 収入入力タブ === */}
         {tab === "income" && (
-          <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
-            <h2 className="text-sm font-semibold text-gray-700">収入を記録</h2>
-            <div>
-              <label className="text-xs text-gray-700 mb-1 block">月</label>
-              <div className="flex items-center gap-1 border rounded-lg px-2 py-1">
-                <button onClick={() => setIncomeMonth(m => { const [y,mo] = m.split("-").map(Number); const d = new Date(y, mo-2, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` })}
-                  className="text-gray-600 hover:text-blue-600 px-1 font-bold text-base">‹</button>
-                <input type="month" value={incomeMonth} onChange={e => setIncomeMonth(e.target.value)}
-                  className="flex-1 text-center text-sm font-semibold text-gray-800 border-0 outline-none bg-transparent min-w-0" />
-                <button onClick={() => setIncomeMonth(m => { const [y,mo] = m.split("-").map(Number); const d = new Date(y, mo, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` })}
-                  className="text-gray-600 hover:text-blue-600 px-1 font-bold text-base">›</button>
+          <div className={isPC ? "grid grid-cols-2 gap-4 items-start" : "space-y-3"}>
+            {/* 入力フォーム */}
+            <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
+              <h2 className="text-sm font-semibold text-gray-700">収入を記録</h2>
+              <div>
+                <label className="text-xs text-gray-700 mb-1 block">月</label>
+                <div className="flex items-center gap-1 border rounded-lg px-2 py-1">
+                  <button onClick={() => setIncomeMonth(m => { const [y,mo] = m.split("-").map(Number); const d = new Date(y, mo-2, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` })}
+                    className="text-gray-600 hover:text-blue-600 px-1 font-bold text-base">‹</button>
+                  <input type="month" value={incomeMonth} onChange={e => setIncomeMonth(e.target.value)}
+                    className="flex-1 text-center text-sm font-semibold text-gray-800 border-0 outline-none bg-transparent min-w-0" />
+                  <button onClick={() => setIncomeMonth(m => { const [y,mo] = m.split("-").map(Number); const d = new Date(y, mo, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` })}
+                    className="text-gray-600 hover:text-blue-600 px-1 font-bold text-base">›</button>
+                </div>
               </div>
-            </div>
-            <div>
-              <label className="text-xs text-gray-700 mb-1 block">種別</label>
-              <div className="flex gap-2">
-                {["給与", "副収入", "その他"].map(cat => (
-                  <button key={cat} type="button" onClick={() => setIncomeCategory(cat)}
-                    className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${incomeCategory === cat ? "bg-green-600 text-white border-green-600" : "border-gray-300 text-gray-600"}`}>
-                    {cat}
-                  </button>
-                ))}
+              <div>
+                <label className="text-xs text-gray-700 mb-1 block">種別</label>
+                <div className="flex gap-2">
+                  {["給与", "副収入", "その他"].map(cat => (
+                    <button key={cat} type="button" onClick={() => setIncomeCategory(cat)}
+                      className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${incomeCategory === cat ? "bg-green-600 text-white border-green-600" : "border-gray-300 text-gray-600"}`}>
+                      {cat}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-            <div>
-              <label className="text-xs text-gray-700 mb-1 block">金額（円）</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm">¥</span>
-                <input type="number" value={incomeAmount} onChange={e => setIncomeAmount(e.target.value)}
-                  placeholder="0" className="w-full border rounded-lg pl-7 pr-3 py-2 text-sm" />
+              <div>
+                <label className="text-xs text-gray-700 mb-1 block">金額（円）</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm">¥</span>
+                  <input type="number" value={incomeAmount} onChange={e => setIncomeAmount(e.target.value)}
+                    placeholder="0" className="w-full border rounded-lg pl-7 pr-3 py-2 text-sm text-gray-800" />
+                </div>
               </div>
+              <div>
+                <label className="text-xs text-gray-700 mb-1 block">メモ（任意）</label>
+                <input type="text" value={incomeMemo} onChange={e => setIncomeMemo(e.target.value)}
+                  placeholder="例：3月分給与"
+                  className="w-full border rounded-lg px-3 py-2 text-sm text-gray-800" />
+              </div>
+              {incomeMsg && <p className="text-xs text-green-600">✅ {incomeMsg}</p>}
+              <button onClick={handleSaveIncome} disabled={incomeSaving || !incomeAmount}
+                className="w-full bg-green-600 text-white rounded-lg py-2.5 text-sm font-semibold disabled:opacity-50">
+                {incomeSaving ? "保存中..." : "収入を記録"}
+              </button>
             </div>
-            <div>
-              <label className="text-xs text-gray-700 mb-1 block">メモ（任意）</label>
-              <input type="text" value={incomeMemo} onChange={e => setIncomeMemo(e.target.value)}
-                placeholder="例：3月分給与"
-                className="w-full border rounded-lg px-3 py-2 text-sm" />
+
+            {/* 入力済み一覧 */}
+            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+              <div className="px-3 py-2 bg-green-50 border-b border-green-100 flex items-center justify-between">
+                <h2 className="text-xs font-semibold text-green-700">{incomeMonth} の収入記録</h2>
+                {monthIncomeRecords.length > 0 && (
+                  <span className="text-xs font-bold text-green-700">
+                    合計 {new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 }).format(
+                      monthIncomeRecords.reduce((s, r) => s + r.amount, 0)
+                    )}
+                  </span>
+                )}
+              </div>
+              {monthIncomeRecords.length === 0 ? (
+                <p className="text-center text-xs text-gray-400 py-6">この月の収入記録はありません</p>
+              ) : (
+                monthIncomeRecords.map(r => (
+                  <div key={r.id} className="flex items-center gap-2 px-3 py-2.5 border-b last:border-0">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium shrink-0">
+                          {r.category}
+                        </span>
+                        {r.memo && <span className="text-xs text-gray-500 truncate">{r.memo}</span>}
+                      </div>
+                      <p className="text-xs text-gray-400">{r.date}</p>
+                    </div>
+                    <span className="text-sm font-semibold text-gray-800 shrink-0">
+                      {new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 }).format(r.amount)}
+                    </span>
+                    <button onClick={() => handleDeleteIncome(r.id)}
+                      className="text-gray-300 hover:text-red-400 text-xl leading-none w-6 shrink-0">×</button>
+                  </div>
+                ))
+              )}
             </div>
-            {incomeMsg && <p className="text-xs text-green-600">✅ {incomeMsg}</p>}
-            <button onClick={handleSaveIncome} disabled={incomeSaving || !incomeAmount}
-              className="w-full bg-green-600 text-white rounded-lg py-2.5 text-sm font-semibold disabled:opacity-50">
-              {incomeSaving ? "保存中..." : "収入を記録"}
-            </button>
           </div>
         )}
 
