@@ -75,7 +75,7 @@ function SettingsContent() {
   const [catSaving, setCatSaving] = useState(false)
   const [catViewType, setCatViewType] = useState<"self" | "joint">("self")
   const [newCatCardType, setNewCatCardType] = useState<"self" | "joint">("self")
-  const [categoryRows, setCategoryRows] = useState<{ name: string; card_type: string }[]>([])
+  const [categoryRows, setCategoryRows] = useState<{ name: string; card_type: string; group_type: string | null }[]>([])
   const [storeRules, setStoreRules] = useState<StoreRule[]>([])
   const [ruleSearch, setRuleSearch] = useState("")
   const [newRuleKeyword, setNewRuleKeyword] = useState("")
@@ -97,7 +97,7 @@ function SettingsContent() {
       if (c.length > 0) setRCardId(c[0].id)
       const cats = catd.categories ?? []
       setCategories(cats)
-      setCategoryRows(catd.rows ?? [])
+      setCategoryRows((catd.rows ?? []).map((r: { name: string; card_type: string; group_type?: string | null }) => ({ ...r, group_type: r.group_type ?? null })))
       if (cats.length > 0) { setRCategory(cats[0]); setBudgetCategory(cats[0]) }
       setRecurring(recd.recurring ?? [])
       const bRaw: Array<{ category: string; cardType: string; budget: number }> = budgetData.budgets ?? []
@@ -229,6 +229,15 @@ function SettingsContent() {
     await fetch(`/api/categories?name=${encodeURIComponent(name)}`, { method: "DELETE" })
     setCategories(prev => prev.filter(c => c !== name))
     setCategoryRows(prev => prev.filter(r => r.name !== name))
+  }
+
+  async function handleSetGroupType(name: string, card_type: string, group_type: string | null) {
+    await fetch("/api/categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, card_type, group_type }),
+    })
+    setCategoryRows(prev => prev.map(r => r.name === name ? { ...r, group_type } : r))
   }
 
   async function handleSaveRule() {
@@ -529,17 +538,36 @@ function SettingsContent() {
                 </button>
               </div>
 
-              {/* カテゴリ一覧（選択中の用途のみ） */}
-              <div className="flex flex-wrap gap-1.5 min-h-8">
-                {categoryRows.filter(r => catViewType === "joint" ? r.card_type === "joint" : r.card_type !== "joint").map(r => (
-                  <div key={r.name} className={`flex items-center gap-1 rounded-full pl-2.5 pr-1 py-0.5 border ${catViewType === "joint" ? "bg-amber-50 border-amber-100" : "bg-indigo-50 border-indigo-100"}`}>
-                    <span className={`text-xs ${catViewType === "joint" ? "text-amber-700" : "text-indigo-700"}`}>{r.name}</span>
-                    <button onClick={() => handleDeleteCategory(r.name)}
-                      className={`text-sm leading-none w-4 ${catViewType === "joint" ? "text-amber-300 hover:text-red-500" : "text-indigo-300 hover:text-red-500"}`}>×</button>
-                  </div>
-                ))}
-                {categoryRows.filter(r => catViewType === "joint" ? r.card_type === "joint" : r.card_type !== "joint").length === 0 && (
-                  <p className="text-xs text-gray-400">なし</p>
+              {/* カテゴリ一覧（選択中の用途のみ）リスト形式 */}
+              <div className="border rounded-lg overflow-hidden">
+                {categoryRows.filter(r => catViewType === "joint" ? r.card_type === "joint" : r.card_type !== "joint").length === 0 ? (
+                  <p className="text-xs text-gray-400 px-3 py-3">なし</p>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-[1fr_auto_auto] bg-gray-50 border-b text-xs text-gray-500 font-medium">
+                      <div className="px-3 py-1.5">カテゴリ名</div>
+                      <div className="px-2 py-1.5">グループ</div>
+                      <div className="px-2 py-1.5"></div>
+                    </div>
+                    {categoryRows.filter(r => catViewType === "joint" ? r.card_type === "joint" : r.card_type !== "joint").map(r => (
+                      <div key={r.name} className="grid grid-cols-[1fr_auto_auto] items-center border-b last:border-0 hover:bg-gray-50">
+                        <span className="px-3 py-2 text-sm text-gray-800">{r.name}</span>
+                        <select
+                          value={r.group_type ?? ""}
+                          onChange={e => handleSetGroupType(r.name, r.card_type, e.target.value || null)}
+                          className="text-xs border-0 border-l bg-transparent text-gray-700 py-2 px-2 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                        >
+                          <option value="">—</option>
+                          <option value="収入">収入</option>
+                          <option value="支出">支出</option>
+                          <option value="投資">投資</option>
+                          <option value="立替">立替</option>
+                        </select>
+                        <button onClick={() => handleDeleteCategory(r.name)}
+                          className="px-3 py-2 text-gray-300 hover:text-red-500 text-lg leading-none border-l">×</button>
+                      </div>
+                    ))}
+                  </>
                 )}
               </div>
 
@@ -616,7 +644,9 @@ function SettingsContent() {
                     className="border rounded-lg px-2 py-1.5 text-xs text-gray-800 bg-white"
                   >
                     <option value="">カテゴリ選択</option>
-                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                    {categoryRows
+                      .filter(r => catViewType === "joint" ? r.card_type === "joint" : r.card_type !== "joint")
+                      .map(r => <option key={r.name} value={r.name}>{r.name}</option>)}
                   </select>
                 </div>
                 <div className="flex gap-2">

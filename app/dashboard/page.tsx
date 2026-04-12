@@ -25,7 +25,7 @@ function fmt(n: number) {
 interface CardSummary { cardId: number; cardName: string; cardType: string; color: string; total: number }
 interface CategoryRow { category: string; amount: number }
 interface MonthlyRow { month: string; total: number; jointTotal: number; selfTotal: number }
-interface BudgetRow { category: string; cardType: string; budget: number; actual: number }
+interface BudgetRow { category: string; cardType: string; budget: number; actual: number; groupType: string | null }
 interface AssetRow { month: string; savings: number; investment: number; total: number }
 
 type Tab = "monthly" | "budget" | "assets"
@@ -304,111 +304,110 @@ export default function DashboardPage() {
         )}
 
         {/* === 予算タブ === */}
-        {!loading && tab === "budget" && (
-          <>
-            {budgetVsActual.length === 0 ? (
-              <div className="bg-white rounded-xl shadow-sm p-6 text-center text-gray-600 text-sm">
-                予算が設定されていません
-              </div>
-            ) : (
-              <>
-                {/* 用途別サマリー */}
-                <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
-                  <h2 className="text-sm font-semibold text-gray-700">用途別サマリー</h2>
-                  {[
-                    { label: "個人の支出", budget: selfBudget, actual: selfTotal, color: "#6366f1" },
-                    { label: "共用の支出", budget: jointBudget, actual: jointTotal, color: "#f59e0b" },
-                  ].filter(r => r.budget > 0 || r.actual > 0).map(row => {
-                    const diff = row.budget - row.actual
-                    const isOver = row.actual > row.budget
-                    const pct = row.budget > 0 ? Math.min((row.actual / row.budget) * 100, 100) : 0
-                    return (
-                      <div key={row.label}>
-                        <div className="flex justify-between text-sm mb-1">
-                          <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: row.color }} />
-                            <span className="text-gray-800 font-medium">{row.label}</span>
-                          </div>
-                          <div className="text-right">
-                            <span className={isOver ? "text-red-500 font-semibold" : "text-gray-800"}>{toJPY(row.actual)}</span>
-                            <span className="text-gray-500 text-xs"> / {toJPY(row.budget)}</span>
-                          </div>
-                        </div>
-                        <div className="w-full bg-gray-100 rounded-full h-1.5 mb-1">
-                          <div
-                            className={`h-1.5 rounded-full ${isOver ? "bg-red-400" : ""}`}
-                            style={{ width: `${pct}%`, backgroundColor: isOver ? undefined : row.color }}
-                          />
-                        </div>
-                        <div className="flex justify-end">
-                          <span className={`text-xs font-semibold ${isOver ? "text-red-500" : "text-green-600"}`}>
-                            {isOver ? "▲超過 " : "▼残り "}{toJPY(Math.abs(diff))}
-                          </span>
-                        </div>
+        {!loading && tab === "budget" && (() => {
+          const GROUP_ORDER = ["収入", "支出", "投資", "立替"]
+          const GROUP_COLORS: Record<string, string> = {
+            収入: "text-green-700 bg-green-50 border-green-200",
+            支出: "text-blue-700 bg-blue-50 border-blue-200",
+            投資: "text-purple-700 bg-purple-50 border-purple-200",
+            立替: "text-orange-700 bg-orange-50 border-orange-200",
+          }
+          // グループ別に集計
+          const grouped: Record<string, BudgetRow[]> = {}
+          const ungrouped: BudgetRow[] = []
+          for (const b of budgetVsActual) {
+            if (b.groupType && GROUP_ORDER.includes(b.groupType)) {
+              if (!grouped[b.groupType]) grouped[b.groupType] = []
+              grouped[b.groupType].push(b)
+            } else {
+              ungrouped.push(b)
+            }
+          }
+          const allGroups = [
+            ...GROUP_ORDER.filter(g => grouped[g]?.length),
+            ...(ungrouped.length ? ["未分類"] : []),
+          ]
+          const totalBudget = budgetVsActual.reduce((s, b) => s + b.budget, 0)
+          const totalActual = budgetVsActual.reduce((s, b) => s + b.actual, 0)
+
+          if (budgetVsActual.length === 0) return (
+            <div className="bg-white rounded-xl shadow-sm p-6 text-center text-gray-600 text-sm">
+              予算が設定されていません。設定 → 予算設定 からカテゴリ毎の予算を入力し、設定 → カテゴリ からグループ（収入/支出/投資/立替）を設定してください。
+            </div>
+          )
+
+          return (
+            <>
+              {/* グループ別テーブル */}
+              {allGroups.map(group => {
+                const rows = group === "未分類" ? ungrouped : (grouped[group] ?? [])
+                const gBudget = rows.reduce((s, b) => s + b.budget, 0)
+                const gActual = rows.reduce((s, b) => s + b.actual, 0)
+                const gDiff = gBudget - gActual
+                const colorClass = GROUP_COLORS[group] ?? "text-gray-700 bg-gray-50 border-gray-200"
+                return (
+                  <div key={group} className="bg-white rounded-xl shadow-sm overflow-hidden">
+                    {/* グループヘッダー */}
+                    <div className={`px-3 py-2 border-b flex items-center justify-between ${colorClass}`}>
+                      <span className="text-xs font-bold">{group}</span>
+                      <div className="flex gap-3 text-xs font-semibold">
+                        <span>予算 {toJPY(gBudget)}</span>
+                        <span>実績 {toJPY(gActual)}</span>
+                        <span className={gDiff < 0 ? "text-red-500" : ""}>差額 {gDiff >= 0 ? "+" : ""}{toJPY(gDiff)}</span>
                       </div>
-                    )
-                  })}
+                    </div>
+                    {/* カテゴリ行 */}
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b bg-gray-50 text-gray-500">
+                          <th className="text-left px-3 py-1.5 font-medium">カテゴリ</th>
+                          <th className="text-right px-2 py-1.5 font-medium">予算</th>
+                          <th className="text-right px-2 py-1.5 font-medium">実績</th>
+                          <th className="text-right px-3 py-1.5 font-medium">差額</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {rows.map(b => {
+                          const diff = b.budget - b.actual
+                          const over = b.actual > b.budget && b.budget > 0
+                          return (
+                            <tr key={`${b.category}-${b.cardType}`} className="hover:bg-gray-50">
+                              <td className="px-3 py-2 text-gray-700">
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`text-xs px-1 py-0.5 rounded font-medium ${b.cardType === "joint" ? "bg-amber-100 text-amber-700" : "bg-indigo-100 text-indigo-700"}`}>
+                                    {b.cardType === "joint" ? "共" : "個"}
+                                  </span>
+                                  {b.category}
+                                </div>
+                              </td>
+                              <td className="text-right px-2 py-2 text-gray-600">{b.budget > 0 ? toJPY(b.budget) : "—"}</td>
+                              <td className={`text-right px-2 py-2 font-medium ${over ? "text-red-500" : "text-gray-700"}`}>{toJPY(b.actual)}</td>
+                              <td className={`text-right px-3 py-2 font-semibold ${diff < 0 ? "text-red-500" : diff > 0 ? "text-green-600" : "text-gray-400"}`}>
+                                {b.budget > 0 ? `${diff >= 0 ? "+" : ""}${toJPY(diff)}` : "—"}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              })}
+
+              {/* 合計行 */}
+              <div className="bg-gray-800 rounded-xl px-4 py-3 flex justify-between items-center text-white text-sm">
+                <span className="font-bold">合計</span>
+                <div className="flex gap-4 text-xs">
+                  <span>予算 {toJPY(totalBudget)}</span>
+                  <span>実績 {toJPY(totalActual)}</span>
+                  <span className={totalBudget - totalActual < 0 ? "text-red-300 font-bold" : "text-green-300 font-bold"}>
+                    差額 {totalBudget - totalActual >= 0 ? "+" : ""}{toJPY(totalBudget - totalActual)}
+                  </span>
                 </div>
-
-                {/* カテゴリ別詳細（個人） */}
-                {budgetVsActual.filter(b => b.cardType === "self").length > 0 && (
-                  <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-                    <div className="px-4 py-2 bg-indigo-50 border-b">
-                      <h3 className="text-xs font-semibold text-indigo-600">個人　用途別</h3>
-                    </div>
-                    <div className="divide-y divide-gray-100">
-                      {budgetVsActual.filter(b => b.cardType === "self").map(b => {
-                        const pct = b.budget > 0 ? Math.min((b.actual / b.budget) * 100, 100) : 0
-                        const over = b.actual > b.budget
-                        return (
-                          <div key={b.category} className="px-4 py-2.5">
-                            <div className="flex justify-between text-sm mb-1">
-                              <span className="text-gray-700">{b.category}</span>
-                              <span className={over ? "text-red-500 font-semibold" : "text-gray-700"}>
-                                {toJPY(b.actual)} / {toJPY(b.budget)}
-                              </span>
-                            </div>
-                            <div className="w-full bg-gray-100 rounded-full h-1.5">
-                              <div className={`h-1.5 rounded-full ${over ? "bg-red-400" : "bg-indigo-400"}`} style={{ width: `${pct}%` }} />
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* カテゴリ別詳細（共用） */}
-                {budgetVsActual.filter(b => b.cardType === "joint").length > 0 && (
-                  <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-                    <div className="px-4 py-2 bg-amber-50 border-b">
-                      <h3 className="text-xs font-semibold text-amber-600">共用　用途別</h3>
-                    </div>
-                    <div className="divide-y divide-gray-100">
-                      {budgetVsActual.filter(b => b.cardType === "joint").map(b => {
-                        const pct = b.budget > 0 ? Math.min((b.actual / b.budget) * 100, 100) : 0
-                        const over = b.actual > b.budget
-                        return (
-                          <div key={b.category} className="px-4 py-2.5">
-                            <div className="flex justify-between text-sm mb-1">
-                              <span className="text-gray-700">{b.category}</span>
-                              <span className={over ? "text-red-500 font-semibold" : "text-gray-700"}>
-                                {toJPY(b.actual)} / {toJPY(b.budget)}
-                              </span>
-                            </div>
-                            <div className="w-full bg-gray-100 rounded-full h-1.5">
-                              <div className={`h-1.5 rounded-full ${over ? "bg-red-400" : "bg-amber-400"}`} style={{ width: `${pct}%` }} />
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </>
-        )}
+              </div>
+            </>
+          )
+        })()}
 
         {/* === 資産タブ === */}
         {tab === "assets" && (
