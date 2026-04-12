@@ -2,9 +2,32 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { sql } from "@/lib/db"
 
+async function migrateBudgets() {
+  // month カラム追加（NULL = 毎月共通デフォルト、'YYYY-MM' = その月専用）
+  await sql`ALTER TABLE budgets ADD COLUMN IF NOT EXISTS month TEXT`
+  // (category, card_type, month) のユニーク制約に変更
+  try {
+    await sql`ALTER TABLE budgets DROP CONSTRAINT IF EXISTS budgets_category_card_type_key`
+  } catch (_) { /* 無視 */ }
+  try {
+    await sql`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'budgets_category_cardtype_month_key'
+        ) THEN
+          ALTER TABLE budgets ADD CONSTRAINT budgets_category_cardtype_month_key
+            UNIQUE (category, card_type, month);
+        END IF;
+      END $$
+    `
+  } catch (_) { /* 無視 */ }
+}
+
 export async function GET(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  await migrateBudgets()
 
   const { searchParams } = new URL(req.url)
   const now = new Date()
@@ -12,16 +35,22 @@ export async function GET(req: NextRequest) {
     searchParams.get("month") ??
     `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
 
-  const [budgets, actuals] = await Promise.all([
-    sql`SELECT category, amount, card_type FROM budgets ORDER BY card_type, category`,
-    sql`
-      SELECT t.category, c.card_type, SUM(t.amount) AS actual
-      FROM transactions t
-      LEFT JOIN cards c ON t.card_id = c.id
-      WHERE TO_CHAR(t.date, 'YYYY-MM') = ${month}
-      GROUP BY t.category, c.card_type
-    `,
-  ])
+  // 当月専用設定 → なければデフォルト(month IS NULL) でフォールバック
+  const budgets = await sql`
+    SELECT DISTINCT ON (category, card_type)
+      category, card_type, amount, month
+    FROM budgets
+    WHERE month = ${month} OR month IS NULL
+    ORDER BY category, card_type, (month IS NOT NULL) DESC
+  `
+
+  const actuals = await sql`
+    SELECT t.category, c.card_type, SUM(t.amount) AS actual
+    FROM transactions t
+    LEFT JOIN cards c ON t.card_id = c.id
+    WHERE TO_CHAR(t.date, 'YYYY-MM') = ${month}
+    GROUP BY t.category, c.card_type
+  `
 
   const actualMap: Record<string, number> = {}
   for (const r of actuals) {
@@ -33,21 +62,44 @@ export async function GET(req: NextRequest) {
     cardType: b.card_type,
     budget: Number(b.amount),
     actual: actualMap[`${b.category}__${b.card_type}`] ?? 0,
+    isMonthly: b.month === month,  // この月専用かデフォルトか
   }))
 
-  return NextResponse.json({ budgets: rows, month })
+  // 全デフォルト一覧も返す（設定UI用）
+  const defaults = await sql`SELECT category, card_type, amount FROM budgets WHERE month IS NULL ORDER BY card_type, category`
+
+  return NextResponse.json({
+    budgets: rows,
+    defaults: defaults.map(b => ({ category: b.category, cardType: b.card_type, budget: Number(b.amount) })),
+    month,
+  })
 }
 
 export async function PUT(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { category, amount, card_type } = await req.json()
-  await sql`
-    INSERT INTO budgets (category, amount, card_type)
-    VALUES (${category}, ${Number(amount)}, ${card_type ?? "self"})
-    ON CONFLICT (category, card_type) DO UPDATE SET amount = EXCLUDED.amount
-  `
+  await migrateBudgets()
+
+  const { category, amount, card_type, month } = await req.json()
+
+  if (month) {
+    // 月別専用予算
+    await sql`
+      INSERT INTO budgets (category, amount, card_type, month)
+      VALUES (${category}, ${Number(amount)}, ${card_type ?? "self"}, ${month})
+      ON CONFLICT (category, card_type, month) DO UPDATE SET amount = EXCLUDED.amount
+    `
+  } else {
+    // デフォルト予算（month = NULL）
+    // NULLはON CONFLICTで扱えないのでUPSERT的に処理
+    const existing = await sql`SELECT id FROM budgets WHERE category = ${category} AND card_type = ${card_type ?? "self"} AND month IS NULL`
+    if (existing.length > 0) {
+      await sql`UPDATE budgets SET amount = ${Number(amount)} WHERE category = ${category} AND card_type = ${card_type ?? "self"} AND month IS NULL`
+    } else {
+      await sql`INSERT INTO budgets (category, amount, card_type, month) VALUES (${category}, ${Number(amount)}, ${card_type ?? "self"}, NULL)`
+    }
+  }
   return NextResponse.json({ success: true })
 }
 
@@ -58,8 +110,14 @@ export async function DELETE(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const category = searchParams.get("category")
   const cardType = searchParams.get("card_type")
+  const month = searchParams.get("month")  // なければデフォルトを削除
+
   if (!category || !cardType) return NextResponse.json({ error: "category, card_type は必須です" }, { status: 400 })
 
-  await sql`DELETE FROM budgets WHERE category = ${category} AND card_type = ${cardType}`
+  if (month) {
+    await sql`DELETE FROM budgets WHERE category = ${category} AND card_type = ${cardType} AND month = ${month}`
+  } else {
+    await sql`DELETE FROM budgets WHERE category = ${category} AND card_type = ${cardType} AND month IS NULL`
+  }
   return NextResponse.json({ success: true })
 }

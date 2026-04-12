@@ -9,7 +9,7 @@ import { useViewMode } from "@/components/ViewModeContext"
 interface Card { id: number; name: string; card_type: string; color: string }
 interface Recurring { id: number; day_of_month: number; card_id: number; card_name: string; color: string; category: string; amount: number; memo: string }
 interface Category { name: string }
-interface BudgetRow { category: string; card_type: string; budget: number }
+interface BudgetRow { category: string; card_type: string; budget: number; is_monthly?: boolean }
 interface StoreRule { id: number; keyword: string; category: string }
 
 const GROUP_ORDER = ["収入", "支出", "振替", "投資", "貯蓄", "立替"]
@@ -78,10 +78,12 @@ function SettingsContent() {
   const [budgetCategory, setBudgetCategory] = useState("")
   const [budgetAmount, setBudgetAmount] = useState("")
   const [budgetCardType, setBudgetCardType] = useState("self")
+  const [budgetMonth, setBudgetMonth] = useState<string | null>(null)  // null=毎月共通
   const [budgetSaving, setBudgetSaving] = useState(false)
   const [budgetMsg, setBudgetMsg] = useState("")
   const [existingBudgets, setExistingBudgets] = useState<BudgetRow[]>([])
   const [editingBudgetKey, setEditingBudgetKey] = useState<string | null>(null)
+  const [budgetViewMonth, setBudgetViewMonth] = useState(defaultMonth)  // 一覧の表示月
 
   // カテゴリ管理
   const [newCatName, setNewCatName] = useState("")
@@ -116,8 +118,8 @@ function SettingsContent() {
       setCategoryRows((catd.rows ?? []).map((r: { name: string; card_type: string; group_type?: string | null; sort_order?: number | null }) => ({ ...r, group_type: r.group_type ?? null, sort_order: r.sort_order ?? null })))
       if (cats.length > 0) { setRCategory(cats[0]); setBudgetCategory(cats[0]) }
       setRecurring(recd.recurring ?? [])
-      const bRaw: Array<{ category: string; cardType: string; budget: number }> = budgetData.budgets ?? []
-      setExistingBudgets(bRaw.map(b => ({ category: b.category, card_type: b.cardType, budget: b.budget })))
+      const bRaw: Array<{ category: string; cardType: string; budget: number; isMonthly?: boolean }> = budgetData.budgets ?? []
+      setExistingBudgets(bRaw.map(b => ({ category: b.category, card_type: b.cardType, budget: b.budget, is_monthly: b.isMonthly ?? false })))
     })
   }, [])
 
@@ -136,6 +138,12 @@ function SettingsContent() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab])
+
+  // 表示月が変わったら予算一覧を再取得
+  useEffect(() => {
+    if (tab === "budget") refreshBudgets()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [budgetViewMonth, tab])
 
   async function handleAddRecurring() {
     if (!rCardId || !rCategory || !rAmount) return
@@ -192,16 +200,19 @@ function SettingsContent() {
     await fetch("/api/budget", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ category: budgetCategory, amount: Number(budgetAmount), card_type: budgetCardType }),
+      body: JSON.stringify({ category: budgetCategory, amount: Number(budgetAmount), card_type: budgetCardType, month: budgetMonth }),
     })
-    setBudgetMsg("保存しました")
+    setBudgetMsg(budgetMonth ? `${budgetMonth}の予算を設定しました` : "共通予算を設定しました")
     setBudgetAmount("")
     setBudgetSaving(false)
     setEditingBudgetKey(null)
-    // 一覧を更新
-    const d = await fetch("/api/budget").then(r => r.json())
-    const bRaw: Array<{ category: string; cardType: string; budget: number }> = d.budgets ?? []
-    setExistingBudgets(bRaw.map(b => ({ category: b.category, card_type: b.cardType, budget: b.budget })))
+    await refreshBudgets()
+  }
+
+  async function refreshBudgets() {
+    const d = await fetch(`/api/budget?month=${budgetViewMonth}`).then(r => r.json())
+    const bRaw: Array<{ category: string; cardType: string; budget: number; isMonthly?: boolean }> = d.budgets ?? []
+    setExistingBudgets(bRaw.map(b => ({ category: b.category, card_type: b.cardType, budget: b.budget, is_monthly: b.isMonthly ?? false })))
   }
 
   function handleEditBudget(b: BudgetRow) {
@@ -533,6 +544,26 @@ function SettingsContent() {
                   .map(r => <option key={r.name} value={r.name}>{r.name}</option>)}
               </select>
             </div>
+            {/* 適用期間：毎月共通 / この月だけ */}
+            <div>
+              <label className="text-xs text-gray-700 mb-1 block">適用期間</label>
+              <div className="flex gap-2 mb-2">
+                <button type="button"
+                  onClick={() => setBudgetMonth(null)}
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${budgetMonth === null ? "bg-blue-600 text-white border-blue-600" : "border-gray-300 text-gray-600"}`}>
+                  🔁 毎月共通
+                </button>
+                <button type="button"
+                  onClick={() => setBudgetMonth(budgetViewMonth)}
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${budgetMonth !== null ? "bg-purple-600 text-white border-purple-600" : "border-gray-300 text-gray-600"}`}>
+                  📅 この月だけ
+                </button>
+              </div>
+              {budgetMonth !== null && (
+                <input type="month" value={budgetMonth} onChange={e => setBudgetMonth(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-1.5 text-sm bg-white text-gray-800" />
+              )}
+            </div>
             <div>
               <label className="text-xs text-gray-700 mb-1 block">月間予算（円）</label>
               <div className="relative">
@@ -546,6 +577,16 @@ function SettingsContent() {
               className="w-full bg-blue-600 text-white rounded-lg py-2.5 text-sm font-semibold disabled:opacity-50">
               {budgetSaving ? "保存中..." : editingBudgetKey ? "金額を更新" : "予算を設定"}
             </button>
+          </div>
+
+          {/* 表示月ナビ */}
+          <div className="flex items-center gap-1 bg-white rounded-lg border px-2 py-1.5">
+            <button onClick={() => { const [y,mo] = budgetViewMonth.split("-").map(Number); const d = new Date(y, mo-2, 1); setBudgetViewMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`) }}
+              className="text-gray-600 hover:text-blue-600 px-1 font-bold">‹</button>
+            <input type="month" value={budgetViewMonth} onChange={e => setBudgetViewMonth(e.target.value)}
+              className="flex-1 text-center text-xs font-semibold text-gray-800 border-0 outline-none bg-transparent" />
+            <button onClick={() => { const [y,mo] = budgetViewMonth.split("-").map(Number); const d = new Date(y, mo, 1); setBudgetViewMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`) }}
+              className="text-gray-600 hover:text-blue-600 px-1 font-bold">›</button>
           </div>
 
           {/* 設定済み予算一覧（budgetCardTypeでフィルタ・グループ別カラーコーディング） */}
@@ -618,7 +659,12 @@ function SettingsContent() {
                             className={`flex items-center justify-between px-3 py-2 border-b last:border-0 cursor-pointer transition-colors border-l-2 ${gc ? gc.border : "border-l-transparent"} ${isEditing ? "bg-blue-50" : "hover:bg-gray-50"}`}
                             onClick={() => handleEditBudget(b)}
                           >
-                            <span className={`text-xs ${isEditing ? "text-blue-700 font-medium" : "text-gray-700"}`}>{b.category}</span>
+                            <div className="flex items-center gap-1.5">
+                              <span className={`text-xs ${isEditing ? "text-blue-700 font-medium" : "text-gray-700"}`}>{b.category}</span>
+                              {b.is_monthly && (
+                                <span className="text-[10px] px-1 py-0.5 rounded bg-purple-100 text-purple-700 font-medium">月別</span>
+                              )}
+                            </div>
                             <div className="flex items-center gap-2">
                               <span className={`text-xs font-medium ${isEditing ? "text-blue-600" : "text-gray-700"}`}>{toJPY(b.budget)}</span>
                               {isEditing
