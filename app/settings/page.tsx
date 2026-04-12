@@ -460,7 +460,40 @@ function SettingsContent() {
           <div className={isPC ? "grid grid-cols-2 gap-4 items-start" : "space-y-3"}>
             {/* 入力フォーム */}
             <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
-              <h2 className="text-sm font-semibold text-gray-700">収入を記録</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-gray-700">収入を記録</h2>
+                {/* PDF取込ボタン */}
+                <label className="flex items-center gap-1 cursor-pointer bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors">
+                  <span>📄 給与明細PDF</span>
+                  <input
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    className="hidden"
+                    onChange={async e => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      const fd = new FormData()
+                      fd.append("file", file)
+                      const res = await fetch("/api/import-payslip", { method: "POST", body: fd })
+                      const d = await res.json()
+                      if (d.error) { alert("PDF解析エラー: " + d.error); return }
+                      // 解析結果をフォームに反映
+                      if (d.paymentMonth) setIncomeMonth(d.paymentMonth)
+                      if (d.netPay) setIncomeAmount(String(d.netPay))
+                      setIncomeCategory("給与")
+                      setIncomeMsg(`PDF読み込み完了: 差引支給額 ¥${d.netPay?.toLocaleString() ?? "—"}`)
+                      // 追加情報をアラートで表示
+                      const info = [
+                        d.incomeTax    ? `所得税: ¥${d.incomeTax.toLocaleString()}` : null,
+                        d.residentTax  ? `住民税: ¥${d.residentTax.toLocaleString()}` : null,
+                        d.travelReimbursement ? `営業交通費(立替): ¥${d.travelReimbursement.toLocaleString()}` : null,
+                      ].filter(Boolean).join("\n")
+                      if (info) alert(`以下の項目も検出されました（手動での別途登録をご検討ください）:\n\n${info}`)
+                      e.target.value = ""
+                    }}
+                  />
+                </label>
+              </div>
               <div>
                 <label className="text-xs text-gray-700 mb-1 block">月</label>
                 <div className="flex items-center gap-1 border rounded-lg px-2 py-1">

@@ -9,6 +9,7 @@ const navItems = [
   { href: "/input", label: "入力", icon: "✏️" },
   { href: "/history", label: "履歴", icon: "📋" },
   { href: "/import", label: "CSV", icon: "📂" },
+  { href: "/budget-table", label: "予実", icon: "📅" },
   { href: "/assets", label: "資産", icon: "💹" },
   { href: "/settings", label: "設定", icon: "⚙️" },
 ]
