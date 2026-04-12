@@ -14,7 +14,6 @@ function toJPY(n: number) {
 }
 function toJPYShort(n: number) {
   if (n === 0) return "—"
-  if (Math.abs(n) >= 10000) return `${(n / 10000).toFixed(1)}万`
   return n.toLocaleString()
 }
 
@@ -281,11 +280,11 @@ export default function BudgetTablePage() {
                   <div key={group} className={`rounded-lg p-2.5 ${GROUP_COLORS[group]?.row ?? "bg-gray-50"}`}>
                     <p className={`text-[10px] font-semibold ${GROUP_COLORS[group]?.text ?? "text-gray-600"}`}>{group}</p>
                     <p className={`text-sm font-bold mt-0.5 ${over ? "text-red-500" : "text-gray-800"}`}>
-                      {actual >= 10000 ? `${(actual / 10000).toFixed(1)}万` : actual.toLocaleString()}
+                      {actual.toLocaleString()}
                     </p>
                     {budget > 0 && (
                       <p className="text-[10px] text-gray-400">
-                        予算 {budget >= 10000 ? `${(budget / 10000).toFixed(1)}万` : budget.toLocaleString()}
+                        予算 {budget.toLocaleString()}
                       </p>
                     )}
                   </div>
@@ -304,17 +303,17 @@ export default function BudgetTablePage() {
                   <th className="text-left px-3 py-2 font-semibold sticky left-0 bg-gray-800 z-20 min-w-[140px]">
                     カテゴリ
                   </th>
-                  <th className="text-right px-2 py-2 font-semibold min-w-[72px]">月予算</th>
+                  <th className="text-right px-2 py-2 font-semibold min-w-[84px]">月予算</th>
                   {/* 月列 */}
                   {months.map(m => (
-                    <th key={m} className={`text-right px-2 py-2 font-medium min-w-[80px] ${
+                    <th key={m} className={`text-right px-2 py-2 font-medium min-w-[90px] ${
                       m === `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}` ? "bg-blue-700" : ""
                     }`}>
                       {m.replace(/^\d{4}-/, "")}月
                     </th>
                   ))}
                   {/* 年合計 */}
-                  <th className="text-right px-3 py-2 font-semibold min-w-[90px] bg-gray-700">年計</th>
+                  <th className="text-right px-3 py-2 font-semibold min-w-[100px] bg-gray-700">年計</th>
                 </tr>
 
                 {/* 収入行（個人のみ表示） */}
