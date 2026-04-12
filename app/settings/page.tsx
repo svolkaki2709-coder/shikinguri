@@ -27,7 +27,7 @@ function toJPY(n: number) {
   return new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 }).format(n)
 }
 
-type Tab = "recurring" | "income" | "budget" | "category"
+type Tab = "recurring" | "income" | "budget" | "plan" | "category"
 
 export default function SettingsPage() {
   return (
@@ -45,7 +45,7 @@ function SettingsContent() {
   const { mode } = useViewMode()
   const isPC = mode === "pc"
 
-  const validTabs: Tab[] = ["recurring", "income", "budget", "category"]
+  const validTabs: Tab[] = ["recurring", "income", "budget", "plan", "category"]
   const initialTab = (searchParams.get("tab") as Tab | null)
   const [tab, setTabState] = useState<Tab>(validTabs.includes(initialTab as Tab) ? initialTab as Tab : "recurring")
 
@@ -112,6 +112,17 @@ function SettingsContent() {
   const [uncategorizedMemos, setUncategorizedMemos] = useState<{ memo: string; count: number; card_type: string }[]>([])
   const [catMigrated, setCatMigrated] = useState(false)
 
+  // 貯蓄・投資計画
+  const [planMonth, setPlanMonth] = useState(defaultMonth)
+  const [planSavingsTarget, setPlanSavingsTarget] = useState("")
+  const [planNisaTarget, setPlanNisaTarget] = useState("")
+  const [planSaving, setPlanSaving] = useState(false)
+  const [planMsg, setPlanMsg] = useState("")
+  const [planIncomeTotal, setPlanIncomeTotal] = useState(0)
+  const [planSelfBudget, setPlanSelfBudget] = useState(0)
+  const [planJointBudget, setPlanJointBudget] = useState(0)
+  const [planActual, setPlanActual] = useState<{ savingsActual: number; nisaActual: number }>({ savingsActual: 0, nisaActual: 0 })
+
   useEffect(() => {
     Promise.all([
       fetch("/api/cards").then(r => r.json()),
@@ -159,6 +170,40 @@ function SettingsContent() {
     if (tab === "budget") refreshBudgets()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [budgetViewMonth, tab])
+
+  // 計画タブ or 月が変わったらデータ取得
+  useEffect(() => {
+    if (tab === "plan") fetchPlanData(planMonth)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [planMonth, tab])
+
+  async function fetchPlanData(m: string) {
+    const [planData, incomeData, budgetData] = await Promise.all([
+      fetch(`/api/plans?month=${m}`).then(r => r.json()),
+      fetch(`/api/income?month=${m}`).then(r => r.json()),
+      fetch(`/api/budget?month=${m}`).then(r => r.json()),
+    ])
+    const p = planData.plan ?? { savingsTarget: 0, nisaTarget: 0 }
+    setPlanSavingsTarget(p.savingsTarget > 0 ? String(p.savingsTarget) : "")
+    setPlanNisaTarget(p.nisaTarget > 0 ? String(p.nisaTarget) : "")
+    setPlanActual(planData.actual ?? { savingsActual: 0, nisaActual: 0 })
+    setPlanIncomeTotal(incomeData.total ?? 0)
+    const bRows: { cardType: string; budget: number }[] = budgetData.budgets ?? []
+    setPlanSelfBudget(bRows.filter(b => b.cardType === "self").reduce((s, b) => s + b.budget, 0))
+    setPlanJointBudget(bRows.filter(b => b.cardType === "joint").reduce((s, b) => s + b.budget, 0))
+  }
+
+  async function handleSavePlan() {
+    setPlanSaving(true)
+    setPlanMsg("")
+    await fetch("/api/plans", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ month: planMonth, savings_target: Number(planSavingsTarget) || 0, nisa_target: Number(planNisaTarget) || 0 }),
+    })
+    setPlanMsg("保存しました")
+    setPlanSaving(false)
+  }
 
   async function handleAddRecurring() {
     if (!rCardId || !rCategory || !rAmount) return
@@ -383,9 +428,10 @@ function SettingsContent() {
   }
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: "recurring", label: "定期支出" },
-    { key: "income", label: "収入入力" },
-    { key: "budget", label: "予算設定" },
+    { key: "recurring", label: "定期" },
+    { key: "income", label: "収入" },
+    { key: "budget", label: "予算" },
+    { key: "plan", label: "計画" },
     { key: "category", label: "カテゴリ" },
   ]
 
@@ -905,6 +951,115 @@ function SettingsContent() {
             )
           })()}
           </div>{/* /右列 */}
+          </div>
+        )}
+
+        {/* === 計画タブ === */}
+        {tab === "plan" && (
+          <div className={isPC ? "grid grid-cols-2 gap-4 items-start" : "space-y-3"}>
+            {/* 入力フォーム */}
+            <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
+              <h2 className="text-sm font-semibold text-gray-700">貯蓄・投資計画</h2>
+              <div>
+                <label className="text-xs text-gray-700 mb-1 block">月</label>
+                <div className="flex items-center gap-1 border rounded-lg px-2 py-1">
+                  <button onClick={() => setPlanMonth(m => { const [y,mo] = m.split("-").map(Number); const d = new Date(y, mo-2, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` })}
+                    className="text-gray-600 hover:text-blue-600 px-1 font-bold text-base">‹</button>
+                  <input type="month" value={planMonth} onChange={e => setPlanMonth(e.target.value)}
+                    className="flex-1 text-center text-sm font-semibold text-gray-800 border-0 outline-none bg-transparent min-w-0" />
+                  <button onClick={() => setPlanMonth(m => { const [y,mo] = m.split("-").map(Number); const d = new Date(y, mo, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` })}
+                    className="text-gray-600 hover:text-blue-600 px-1 font-bold text-base">›</button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-700 mb-1 block">🏦 貯金目標（円）</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs">¥</span>
+                    <input type="number" value={planSavingsTarget} onChange={e => setPlanSavingsTarget(e.target.value)}
+                      placeholder="0" className="w-full border rounded-lg pl-6 pr-3 py-2 text-sm text-gray-800" />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-700 mb-1 block">📈 NISA積立目標（円）</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs">¥</span>
+                    <input type="number" value={planNisaTarget} onChange={e => setPlanNisaTarget(e.target.value)}
+                      placeholder="0" className="w-full border rounded-lg pl-6 pr-3 py-2 text-sm text-gray-800" />
+                  </div>
+                </div>
+              </div>
+              {planMsg && <p className="text-xs text-green-600">✅ {planMsg}</p>}
+              <button onClick={handleSavePlan} disabled={planSaving}
+                className="w-full bg-blue-600 text-white rounded-lg py-2.5 text-sm font-semibold disabled:opacity-50">
+                {planSaving ? "保存中..." : "計画を保存"}
+              </button>
+            </div>
+
+            {/* 収支サマリー */}
+            <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
+              <h2 className="text-sm font-semibold text-gray-700">{planMonth} 収支サマリー</h2>
+              <div className="space-y-1.5 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">収入</span>
+                  <span className="font-medium text-green-600">+{toJPY(planIncomeTotal)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500 pl-3 text-xs">個人支出（予算）</span>
+                  <span className="text-xs text-red-400">-{toJPY(planSelfBudget)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500 pl-3 text-xs">共用支出（予算）</span>
+                  <span className="text-xs text-red-400">-{toJPY(planJointBudget)}</span>
+                </div>
+                {Number(planSavingsTarget) > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 pl-3 text-xs">貯金目標</span>
+                    <span className="text-xs text-blue-400">-{toJPY(Number(planSavingsTarget))}</span>
+                  </div>
+                )}
+                {Number(planNisaTarget) > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 pl-3 text-xs">NISA積立目標</span>
+                    <span className="text-xs text-purple-400">-{toJPY(Number(planNisaTarget))}</span>
+                  </div>
+                )}
+              </div>
+              {(() => {
+                const freeBalance = planIncomeTotal - planSelfBudget - planJointBudget - (Number(planSavingsTarget) || 0) - (Number(planNisaTarget) || 0)
+                return (
+                  <div className={`rounded-xl p-3 text-center ${freeBalance >= 0 ? "bg-blue-50" : "bg-red-50"}`}>
+                    <p className="text-xs text-gray-500 mb-0.5">余力資金（計画ベース）</p>
+                    <p className={`text-xl font-bold ${freeBalance >= 0 ? "text-blue-600" : "text-red-500"}`}>
+                      {freeBalance >= 0 ? "+" : ""}{toJPY(freeBalance)}
+                    </p>
+                  </div>
+                )
+              })()}
+              {/* 貯金・NISA実績 */}
+              {(planActual.savingsActual > 0 || planActual.nisaActual > 0) && (
+                <div className="border-t pt-2 space-y-2">
+                  <p className="text-xs text-gray-500 font-medium">実績（資産の前月比）</p>
+                  {[
+                    { label: "🏦 貯金", target: Number(planSavingsTarget) || 0, actual: planActual.savingsActual, color: "#10b981" },
+                    { label: "📈 NISA", target: Number(planNisaTarget) || 0, actual: planActual.nisaActual, color: "#8b5cf6" },
+                  ].map(row => (
+                    <div key={row.label}>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-gray-700">{row.label}</span>
+                        <span className="text-gray-700">{toJPY(row.actual)}{row.target > 0 ? ` / ${toJPY(row.target)}` : ""}</span>
+                      </div>
+                      {row.target > 0 && (
+                        <div className="w-full bg-gray-100 rounded-full h-1.5">
+                          <div className="h-1.5 rounded-full transition-all"
+                            style={{ width: `${Math.min((row.actual / row.target) * 100, 100)}%`, backgroundColor: row.color }} />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 

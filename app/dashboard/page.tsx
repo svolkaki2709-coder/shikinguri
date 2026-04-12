@@ -26,10 +26,9 @@ function fmt(n: number) {
 interface CardSummary { cardId: number; cardName: string; cardType: string; color: string; total: number }
 interface CategoryRow { category: string; amount: number }
 interface MonthlyRow { month: string; total: number; jointTotal: number; selfTotal: number }
-interface BudgetRow { category: string; cardType: string; budget: number; actual: number; groupType: string | null; sortOrder: number | null }
 interface AssetRow { month: string; savings: number; investment: number; total: number }
 
-type Tab = "monthly" | "budget" | "assets"
+type Tab = "monthly" | "assets"
 
 function prevMonth(m: string) {
   const [y, mo] = m.split("-").map(Number)
@@ -50,14 +49,12 @@ export default function DashboardPage() {
   const [apiError, setApiError] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>("monthly")
   const [viewType, setViewType] = useState<"self" | "joint">("self")
-  const [budgetViewType, setBudgetViewType] = useState<"self" | "joint">("self")
   const [loading, setLoading] = useState(true)
 
   const [cardSummary, setCardSummary] = useState<CardSummary[]>([])
   const [categoryBreakdown, setCategoryBreakdown] = useState<CategoryRow[]>([])
   const [monthly, setMonthly] = useState<MonthlyRow[]>([])
   const [incomeTotal, setIncomeTotal] = useState(0)
-  const [budgetVsActual, setBudgetVsActual] = useState<BudgetRow[]>([])
   const [assets, setAssets] = useState<AssetRow[]>([])
 
   useEffect(() => {
@@ -71,7 +68,6 @@ export default function DashboardPage() {
         setCategoryBreakdown(d.categoryBreakdown ?? [])
         setMonthly(d.monthly ?? [])
         setIncomeTotal(d.incomeTotal ?? 0)
-        setBudgetVsActual(d.budgetVsActual ?? [])
       })
       .catch(e => setApiError(e.message))
       .finally(() => setLoading(false))
@@ -111,7 +107,6 @@ export default function DashboardPage() {
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "monthly", label: "月次" },
-    { key: "budget", label: "予算" },
     { key: "assets", label: "資産" },
   ]
 
@@ -311,136 +306,6 @@ export default function DashboardPage() {
             </div>
           )
         )}
-
-        {/* === 予算タブ === */}
-        {!loading && tab === "budget" && (() => {
-          const GROUP_ORDER = ["収入", "支出", "振替", "投資", "貯蓄", "立替"]
-          const GROUP_COLORS: Record<string, string> = {
-            収入: "text-green-700 bg-green-50 border-green-200",
-            支出: "text-blue-700 bg-blue-50 border-blue-200",
-            振替: "text-gray-700 bg-gray-50 border-gray-200",
-            投資: "text-purple-700 bg-purple-50 border-purple-200",
-            貯蓄: "text-teal-700 bg-teal-50 border-teal-200",
-            立替: "text-orange-700 bg-orange-50 border-orange-200",
-          }
-          // 個人/共用フィルタ + sort_order順でソート
-          const filteredBudgets = budgetVsActual
-            .filter(b => b.cardType === budgetViewType)
-            .sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999))
-
-          const grouped: Record<string, BudgetRow[]> = {}
-          const ungrouped: BudgetRow[] = []
-          for (const b of filteredBudgets) {
-            if (b.groupType && GROUP_ORDER.includes(b.groupType)) {
-              if (!grouped[b.groupType]) grouped[b.groupType] = []
-              grouped[b.groupType].push(b)
-            } else {
-              ungrouped.push(b)
-            }
-          }
-          const allGroups = [
-            ...GROUP_ORDER.filter(g => grouped[g]?.length),
-            ...(ungrouped.length ? ["未分類"] : []),
-          ]
-          const totalBudget = filteredBudgets.reduce((s, b) => s + b.budget, 0)
-          const totalActual = filteredBudgets.reduce((s, b) => s + b.actual, 0)
-
-          if (budgetVsActual.length === 0) return (
-            <div className="bg-white rounded-xl shadow-sm p-6 text-center text-gray-500 text-sm">
-              予算が設定されていません。設定 → 予算設定 からカテゴリ毎の予算を入力してください。
-            </div>
-          )
-
-          const renderGroupCard = (group: string) => {
-            const rows = group === "未分類" ? ungrouped : (grouped[group] ?? [])
-            const gBudget = rows.reduce((s, b) => s + b.budget, 0)
-            const gActual = rows.reduce((s, b) => s + b.actual, 0)
-            const gDiff = gBudget - gActual
-            const colorClass = GROUP_COLORS[group] ?? "text-gray-700 bg-gray-50 border-gray-200"
-            return (
-              <div key={group} className="bg-white rounded-xl shadow-sm overflow-hidden">
-                <div className={`px-3 py-2 border-b flex items-center justify-between ${colorClass}`}>
-                  <span className="text-xs font-bold">{group}</span>
-                  <div className="flex gap-3 text-xs font-semibold">
-                    <span>予算 {toJPY(gBudget)}</span>
-                    <span>実績 {toJPY(gActual)}</span>
-                    <span className={gDiff < 0 ? "text-red-500" : ""}>{gDiff >= 0 ? "+" : ""}{toJPY(gDiff)}</span>
-                  </div>
-                </div>
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b bg-gray-50 text-gray-500">
-                      <th className="text-left px-3 py-1 font-medium">カテゴリ</th>
-                      <th className="text-right px-2 py-1 font-medium">予算</th>
-                      <th className="text-right px-2 py-1 font-medium">実績</th>
-                      <th className="text-right px-3 py-1 font-medium">差額</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {rows.map(b => {
-                      const diff = b.budget - b.actual
-                      const over = b.actual > b.budget && b.budget > 0
-                      return (
-                        <tr key={`${b.category}-${b.cardType}`} className="hover:bg-gray-50">
-                          <td className="px-3 py-1.5 text-gray-700 text-xs">{b.category}</td>
-                          <td className="text-right px-2 py-1.5 text-gray-500">{b.budget > 0 ? toJPY(b.budget) : "—"}</td>
-                          <td className={`text-right px-2 py-1.5 font-medium ${over ? "text-red-500" : "text-gray-700"}`}>{toJPY(b.actual)}</td>
-                          <td className={`text-right px-3 py-1.5 font-semibold ${diff < 0 ? "text-red-500" : diff > 0 ? "text-green-600" : "text-gray-400"}`}>
-                            {b.budget > 0 ? `${diff >= 0 ? "+" : ""}${toJPY(diff)}` : "—"}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )
-          }
-
-          const half = Math.ceil(allGroups.length / 2)
-
-          return (
-            <>
-              {/* 個人/共用トグル */}
-              <div className="flex rounded-lg bg-gray-100 p-0.5 mb-3 max-w-xs">
-                {[
-                  { key: "self" as const, label: "個人", active: "bg-white text-indigo-600", inactive: "text-gray-500" },
-                  { key: "joint" as const, label: "共用", active: "bg-white text-amber-600", inactive: "text-gray-500" },
-                ].map(v => (
-                  <button key={v.key} onClick={() => setBudgetViewType(v.key)}
-                    className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-colors shadow-sm ${budgetViewType === v.key ? v.active + " shadow-sm" : v.inactive}`}>
-                    {v.label}
-                  </button>
-                ))}
-              </div>
-
-              {filteredBudgets.length === 0 ? (
-                <div className="bg-white rounded-xl shadow-sm p-6 text-center text-gray-500 text-sm">
-                  {budgetViewType === "self" ? "個人" : "共用"}の予算が設定されていません。
-                </div>
-              ) : (
-                <div className={isPC ? "grid grid-cols-2 gap-4 items-start" : "space-y-3"}>
-                  <div className="space-y-3">
-                    {allGroups.slice(0, half).map(group => renderGroupCard(group))}
-                  </div>
-                  <div className="space-y-3">
-                    {allGroups.slice(half).map(group => renderGroupCard(group))}
-                    <div className="bg-gray-800 rounded-xl px-4 py-2.5 flex justify-between items-center text-white text-sm">
-                      <span className="font-bold text-xs">合計</span>
-                      <div className="flex gap-4 text-xs">
-                        <span>予算 {toJPY(totalBudget)}</span>
-                        <span>実績 {toJPY(totalActual)}</span>
-                        <span className={totalBudget - totalActual < 0 ? "text-red-300 font-bold" : "text-green-300 font-bold"}>
-                          {totalBudget - totalActual >= 0 ? "+" : ""}{toJPY(totalBudget - totalActual)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
-          )
-        })()}
 
         {/* === 資産タブ === */}
         {tab === "assets" && (

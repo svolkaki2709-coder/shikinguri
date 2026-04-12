@@ -36,12 +36,15 @@ export async function GET(req: NextRequest) {
     `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
 
   // 当月専用設定 → なければデフォルト(month IS NULL) でフォールバック
+  // categories テーブルから group_type, sort_order も取得
   const budgets = await sql`
-    SELECT DISTINCT ON (category, card_type)
-      category, card_type, amount, month
-    FROM budgets
-    WHERE month = ${month} OR month IS NULL
-    ORDER BY category, card_type, (month IS NOT NULL) DESC
+    SELECT DISTINCT ON (b.category, b.card_type)
+      b.category, b.card_type, b.amount, b.month,
+      c.group_type, c.sort_order
+    FROM budgets b
+    LEFT JOIN categories c ON c.name = b.category AND c.card_type = b.card_type
+    WHERE b.month = ${month} OR b.month IS NULL
+    ORDER BY b.category, b.card_type, (b.month IS NOT NULL) DESC
   `
 
   const actuals = await sql`
@@ -62,7 +65,9 @@ export async function GET(req: NextRequest) {
     cardType: b.card_type,
     budget: Number(b.amount),
     actual: actualMap[`${b.category}__${b.card_type}`] ?? 0,
-    isMonthly: b.month === month,  // この月専用かデフォルトか
+    isMonthly: b.month === month,
+    groupType: (b.group_type ?? null) as string | null,
+    sortOrder: (b.sort_order ?? null) as number | null,
   }))
 
   // 全デフォルト一覧も返す（設定UI用）
