@@ -945,7 +945,7 @@ function SettingsContent() {
                         return (
                           <div
                             key={key}
-                            className={`flex items-center justify-between px-3 py-2 border-b last:border-0 cursor-pointer transition-colors border-l-2 ${gc ? gc.border : "border-l-transparent"} ${isEditing ? "bg-blue-50" : "hover:bg-gray-50"}`}
+                            className={`flex items-center justify-between px-3 py-2 border-b last:border-b-0 cursor-pointer transition-colors border-l-2 ${gc ? gc.border : "border-l-transparent"} ${isEditing ? "bg-blue-50" : "hover:bg-gray-50"}`}
                             onClick={() => handleEditBudget(b)}
                           >
                             <div className="flex items-center gap-1.5">
@@ -1140,7 +1140,7 @@ function SettingsContent() {
                                 setDragIdx(null)
                                 setDragOverIdx(null)
                               }}
-                              className={`grid grid-cols-[18px_1fr_auto_auto] items-center border-b last:border-0 border-l-2 transition-all
+                              className={`grid grid-cols-[18px_1fr_auto_auto] items-center border-b last:border-b-0 border-l-2 transition-all
                                 ${gc ? gc.border : "border-l-transparent"}
                                 ${isDragging ? "opacity-40 bg-blue-50" : gc ? gc.light : "hover:bg-gray-50"}
                                 ${isDragOver ? "border-t-2 border-t-blue-400" : ""}
