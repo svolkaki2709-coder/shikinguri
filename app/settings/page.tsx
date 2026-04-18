@@ -867,11 +867,13 @@ function SettingsContent() {
               <label className="text-xs text-gray-700 mb-1 block">月間予算（円）</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm">¥</span>
-                <input
-                  type="text" inputMode="numeric"
-                  value={budgetAmount ? Number(budgetAmount).toLocaleString("ja-JP") : ""}
-                  onChange={e => setBudgetAmount(e.target.value.replace(/[^0-9]/g, ""))}
+                <input type="number" value={budgetAmount} onChange={e => setBudgetAmount(e.target.value)}
                   placeholder="0" className="w-full border rounded-lg pl-7 pr-3 py-2 text-sm text-gray-800" />
+                {budgetAmount && Number(budgetAmount) > 0 && (
+                  <p className="text-xs text-gray-400 mt-1 text-right">
+                    = {Number(budgetAmount).toLocaleString("ja-JP")} 円
+                  </p>
+                )}
               </div>
             </div>
             {budgetMsg && <p className="text-xs text-green-600">✅ {budgetMsg}</p>}
