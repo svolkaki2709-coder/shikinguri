@@ -869,12 +869,12 @@ function SettingsContent() {
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm">¥</span>
                 <input type="number" value={budgetAmount} onChange={e => setBudgetAmount(e.target.value)}
                   placeholder="0" className="w-full border rounded-lg pl-7 pr-3 py-2 text-sm text-gray-800" />
-                {budgetAmount && Number(budgetAmount) > 0 && (
-                  <p className="text-xs text-gray-400 mt-1 text-right">
-                    = {Number(budgetAmount).toLocaleString("ja-JP")} 円
-                  </p>
-                )}
               </div>
+              {budgetAmount && Number(budgetAmount) > 0 && (
+                <p className="text-xs text-gray-400 mt-1 text-right">
+                  = {Number(budgetAmount).toLocaleString("ja-JP")} 円
+                </p>
+              )}
             </div>
             {budgetMsg && <p className="text-xs text-green-600">✅ {budgetMsg}</p>}
             <button onClick={handleSaveBudget} disabled={budgetSaving || !budgetCategory || !budgetAmount}
