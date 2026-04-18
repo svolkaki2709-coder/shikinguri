@@ -856,7 +856,7 @@ function SettingsContent() {
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm">¥</span>
                 <input type="number" value={budgetAmount} onChange={e => setBudgetAmount(e.target.value)}
-                  placeholder="0" className="w-full border rounded-lg pl-7 pr-3 py-2 text-sm" />
+                  placeholder="0" className="w-full border rounded-lg pl-7 pr-3 py-2 text-sm text-gray-800" />
               </div>
             </div>
             {budgetMsg && <p className="text-xs text-green-600">✅ {budgetMsg}</p>}
