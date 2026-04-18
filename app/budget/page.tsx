@@ -146,14 +146,16 @@ export default function BudgetPage() {
     return result
   }, [filteredBudgets])
 
-  // サマリー計算
+  // サマリー計算（選択中の cardTypeFilter に連動）
   const selfRows = budgets.filter(b => b.cardType === "self")
   const jointRows = budgets.filter(b => b.cardType === "joint")
   const selfActual = selfRows.reduce((s, r) => s + r.actual, 0)
   const jointActual = jointRows.reduce((s, r) => s + r.actual, 0)
   const selfBudget = selfRows.reduce((s, r) => s + r.budget, 0)
   const jointBudget = jointRows.reduce((s, r) => s + r.budget, 0)
-  const balance = incomeTotal - selfActual - jointActual
+  // 個人: 収入 - 個人支出、共用: 共用予算 - 共用支出
+  const selfBalance = incomeTotal - selfActual
+  const jointBalance = jointBudget - jointActual
 
   // ─── 年次: フィルタ・グループ集計 ─────────────────────────────
   const yearFiltered = useMemo(() =>
@@ -381,31 +383,50 @@ export default function BudgetPage() {
                 className="text-gray-600 hover:text-blue-600 px-2 py-1 rounded hover:bg-gray-100 text-lg font-bold">›</button>
             </div>
 
-            {/* 収支サマリーカード */}
-            <div className={`grid ${isPC ? "grid-cols-4" : "grid-cols-2"} gap-2`}>
-              <div className="bg-white rounded-xl shadow-sm p-3 text-center">
-                <p className="text-[11px] text-gray-500 mb-1">収入</p>
-                <p className="text-sm font-bold text-green-600">{toJPY(incomeTotal)}</p>
+            {/* 収支サマリーカード（個人/共用で切替） */}
+            {cardTypeFilter === "self" ? (
+              <div className={`grid ${isPC ? "grid-cols-4" : "grid-cols-2"} gap-2`}>
+                <div className="bg-white rounded-xl shadow-sm p-3 text-center">
+                  <p className="text-[11px] text-gray-500 mb-1">収入</p>
+                  <p className="text-sm font-bold text-green-600">{toJPY(incomeTotal)}</p>
+                </div>
+                <div className="bg-white rounded-xl shadow-sm p-3 text-center">
+                  <p className="text-[11px] text-gray-500 mb-1">支出実績</p>
+                  <p className={`text-sm font-bold ${selfActual > selfBudget && selfBudget > 0 ? "text-red-500" : "text-gray-800"}`}>
+                    {toJPY(selfActual)}
+                  </p>
+                </div>
+                <div className="bg-white rounded-xl shadow-sm p-3 text-center">
+                  <p className="text-[11px] text-gray-500 mb-1">予算合計</p>
+                  <p className="text-sm font-bold text-gray-700">{toJPY(selfBudget)}</p>
+                </div>
+                <div className={`rounded-xl shadow-sm p-3 text-center ${selfBalance >= 0 ? "bg-blue-50" : "bg-red-50"}`}>
+                  <p className="text-[11px] text-gray-500 mb-1">収支差額</p>
+                  <p className={`text-sm font-bold ${selfBalance >= 0 ? "text-blue-600" : "text-red-500"}`}>
+                    {selfBalance >= 0 ? "+" : ""}{toJPY(selfBalance)}
+                  </p>
+                </div>
               </div>
-              <div className="bg-white rounded-xl shadow-sm p-3 text-center">
-                <p className="text-[11px] text-gray-500 mb-1">個人支出</p>
-                <p className={`text-sm font-bold ${selfActual > selfBudget && selfBudget > 0 ? "text-red-500" : "text-gray-800"}`}>
-                  {toJPY(selfActual)}
-                </p>
+            ) : (
+              <div className={`grid ${isPC ? "grid-cols-3" : "grid-cols-3"} gap-2`}>
+                <div className="bg-white rounded-xl shadow-sm p-3 text-center">
+                  <p className="text-[11px] text-gray-500 mb-1">支出実績</p>
+                  <p className={`text-sm font-bold ${jointActual > jointBudget && jointBudget > 0 ? "text-red-500" : "text-gray-800"}`}>
+                    {toJPY(jointActual)}
+                  </p>
+                </div>
+                <div className="bg-white rounded-xl shadow-sm p-3 text-center">
+                  <p className="text-[11px] text-gray-500 mb-1">予算合計</p>
+                  <p className="text-sm font-bold text-gray-700">{toJPY(jointBudget)}</p>
+                </div>
+                <div className={`rounded-xl shadow-sm p-3 text-center ${jointBalance >= 0 ? "bg-amber-50" : "bg-red-50"}`}>
+                  <p className="text-[11px] text-gray-500 mb-1">予算残り</p>
+                  <p className={`text-sm font-bold ${jointBalance >= 0 ? "text-amber-600" : "text-red-500"}`}>
+                    {jointBalance >= 0 ? "+" : ""}{toJPY(jointBalance)}
+                  </p>
+                </div>
               </div>
-              <div className="bg-white rounded-xl shadow-sm p-3 text-center">
-                <p className="text-[11px] text-gray-500 mb-1">共用支出</p>
-                <p className={`text-sm font-bold ${jointActual > jointBudget && jointBudget > 0 ? "text-red-500" : "text-gray-800"}`}>
-                  {toJPY(jointActual)}
-                </p>
-              </div>
-              <div className={`rounded-xl shadow-sm p-3 text-center ${balance >= 0 ? "bg-blue-50" : "bg-red-50"}`}>
-                <p className="text-[11px] text-gray-500 mb-1">収支差額</p>
-                <p className={`text-sm font-bold ${balance >= 0 ? "text-blue-600" : "text-red-500"}`}>
-                  {balance >= 0 ? "+" : ""}{toJPY(balance)}
-                </p>
-              </div>
-            </div>
+            )}
 
             {/* 個人/共用トグル */}
             <div className="flex rounded-lg bg-gray-100 p-0.5">

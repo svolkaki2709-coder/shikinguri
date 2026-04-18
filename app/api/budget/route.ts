@@ -3,8 +3,10 @@ import { auth } from "@/auth"
 import { sql } from "@/lib/db"
 
 async function migrateBudgets() {
-  // month カラム追加（NULL = 毎月共通デフォルト、'YYYY-MM' = その月専用）
+  // month カラム追加（NULL = 毎月共通デフォルト、'YYYY-MM' = その月専用 or この月以降の開始月）
   await sql`ALTER TABLE budgets ADD COLUMN IF NOT EXISTS month TEXT`
+  // is_from_month カラム追加（TRUE = 'この月以降'）
+  await sql`ALTER TABLE budgets ADD COLUMN IF NOT EXISTS is_from_month BOOLEAN DEFAULT FALSE`
   // (category, card_type, month) のユニーク制約に変更
   try {
     await sql`ALTER TABLE budgets DROP CONSTRAINT IF EXISTS budgets_category_card_type_key`
@@ -35,16 +37,23 @@ export async function GET(req: NextRequest) {
     searchParams.get("month") ??
     `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
 
-  // 当月専用設定 → なければデフォルト(month IS NULL) でフォールバック
-  // categories テーブルから group_type, sort_order も取得
+  // 優先順位: この月だけ > この月以降（最新） > 毎月共通
   const budgets = await sql`
     SELECT DISTINCT ON (b.category, b.card_type)
-      b.category, b.card_type, b.amount, b.month,
+      b.category, b.card_type, b.amount, b.month, b.is_from_month,
       c.group_type, c.sort_order
     FROM budgets b
     LEFT JOIN categories c ON c.name = b.category AND c.card_type = b.card_type
-    WHERE b.month = ${month} OR b.month IS NULL
-    ORDER BY b.category, b.card_type, (b.month IS NOT NULL) DESC
+    WHERE b.month = ${month}
+       OR (COALESCE(b.is_from_month, FALSE) = TRUE AND b.month <= ${month})
+       OR b.month IS NULL
+    ORDER BY b.category, b.card_type,
+      CASE
+        WHEN b.month = ${month} AND NOT COALESCE(b.is_from_month, FALSE) THEN 0
+        WHEN COALESCE(b.is_from_month, FALSE) = TRUE THEN 1
+        ELSE 2
+      END,
+      b.month DESC NULLS LAST
   `
 
   const actuals = await sql`
@@ -86,14 +95,14 @@ export async function PUT(req: NextRequest) {
 
   await migrateBudgets()
 
-  const { category, amount, card_type, month } = await req.json()
+  const { category, amount, card_type, month, is_from_month } = await req.json()
 
   if (month) {
-    // 月別専用予算
+    // この月だけ or この月以降
     await sql`
-      INSERT INTO budgets (category, amount, card_type, month)
-      VALUES (${category}, ${Number(amount)}, ${card_type ?? "self"}, ${month})
-      ON CONFLICT (category, card_type, month) DO UPDATE SET amount = EXCLUDED.amount
+      INSERT INTO budgets (category, amount, card_type, month, is_from_month)
+      VALUES (${category}, ${Number(amount)}, ${card_type ?? "self"}, ${month}, ${!!is_from_month})
+      ON CONFLICT (category, card_type, month) DO UPDATE SET amount = EXCLUDED.amount, is_from_month = EXCLUDED.is_from_month
     `
   } else {
     // デフォルト予算（month = NULL）

@@ -87,7 +87,8 @@ function SettingsContent() {
   const [budgetCategory, setBudgetCategory] = useState("")
   const [budgetAmount, setBudgetAmount] = useState("")
   const [budgetCardType, setBudgetCardType] = useState("self")
-  const [budgetMonth, setBudgetMonth] = useState<string | null>(null)  // null=毎月共通
+  const [budgetMonth, setBudgetMonth] = useState<string>(defaultMonth)  // この月だけ/この月以降の対象月
+  const [periodType, setPeriodType] = useState<"monthly" | "this_month" | "from_month">("monthly")
   const [budgetSaving, setBudgetSaving] = useState(false)
   const [budgetMsg, setBudgetMsg] = useState("")
   const [existingBudgets, setExistingBudgets] = useState<BudgetRow[]>([])
@@ -303,12 +304,15 @@ function SettingsContent() {
     if (!budgetCategory || !budgetAmount) return
     setBudgetSaving(true)
     setBudgetMsg("")
+    const monthValue = periodType === "monthly" ? null : budgetMonth
+    const isFromMonth = periodType === "from_month"
     await fetch("/api/budget", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ category: budgetCategory, amount: Number(budgetAmount), card_type: budgetCardType, month: budgetMonth }),
+      body: JSON.stringify({ category: budgetCategory, amount: Number(budgetAmount), card_type: budgetCardType, month: monthValue, is_from_month: isFromMonth }),
     })
-    setBudgetMsg(budgetMonth ? `${budgetMonth}の予算を設定しました` : "共通予算を設定しました")
+    const msgMap = { monthly: "共通予算を設定しました", this_month: `${monthValue}の予算を設定しました`, from_month: `${monthValue}以降の予算を設定しました` }
+    setBudgetMsg(msgMap[periodType])
     setBudgetAmount("")
     setBudgetSaving(false)
     setEditingBudgetKey(null)
@@ -326,6 +330,8 @@ function SettingsContent() {
     setBudgetCategory(b.category)
     setBudgetAmount(String(b.budget))
     setBudgetMsg("")
+    setPeriodType(b.is_monthly ? "this_month" : "monthly")
+    setBudgetMonth(budgetViewMonth)
     setEditingBudgetKey(`${b.category}:${b.card_type}`)
   }
 
@@ -804,22 +810,27 @@ function SettingsContent() {
                   .map(r => <option key={r.name} value={r.name}>{r.name}</option>)}
               </select>
             </div>
-            {/* 適用期間：毎月共通 / この月だけ */}
+            {/* 適用期間：毎月共通 / この月だけ / この月以降 */}
             <div>
               <label className="text-xs text-gray-700 mb-1 block">適用期間</label>
-              <div className="flex gap-2 mb-2">
+              <div className="flex gap-1 mb-2">
                 <button type="button"
-                  onClick={() => setBudgetMonth(null)}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${budgetMonth === null ? "bg-blue-600 text-white border-blue-600" : "border-gray-300 text-gray-600"}`}>
+                  onClick={() => setPeriodType("monthly")}
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${periodType === "monthly" ? "bg-blue-600 text-white border-blue-600" : "border-gray-300 text-gray-600"}`}>
                   🔁 毎月共通
                 </button>
                 <button type="button"
-                  onClick={() => setBudgetMonth(budgetViewMonth)}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${budgetMonth !== null ? "bg-purple-600 text-white border-purple-600" : "border-gray-300 text-gray-600"}`}>
+                  onClick={() => { setPeriodType("this_month"); setBudgetMonth(budgetViewMonth) }}
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${periodType === "this_month" ? "bg-purple-600 text-white border-purple-600" : "border-gray-300 text-gray-600"}`}>
                   📅 この月だけ
                 </button>
+                <button type="button"
+                  onClick={() => { setPeriodType("from_month"); setBudgetMonth(budgetViewMonth) }}
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${periodType === "from_month" ? "bg-green-600 text-white border-green-600" : "border-gray-300 text-gray-600"}`}>
+                  ⏩ この月以降
+                </button>
               </div>
-              {budgetMonth !== null && (
+              {periodType !== "monthly" && (
                 <input type="month" value={budgetMonth} onChange={e => setBudgetMonth(e.target.value)}
                   className="w-full border rounded-lg px-3 py-1.5 text-sm bg-white text-gray-800" />
               )}
