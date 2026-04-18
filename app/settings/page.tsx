@@ -909,12 +909,14 @@ function SettingsContent() {
               ...GROUP_ORDER.filter(g => grouped[g]?.length),
               ...(ungrouped.length ? ["未設定"] : []),
             ]
-            // 収入・振替は支出合計から除外
-            const EXCLUDE_FROM_TOTAL = ["収入", "振替"]
-            const totalBudget = filteredBudgets.filter(b => {
-              const gt = groupTypeMap[`${b.category}:${b.card_type}`]
-              return !gt || !EXCLUDE_FROM_TOTAL.includes(gt)
-            }).reduce((s, b) => s + b.budget, 0)
+            // 収支差額: 収入/立替精算は+、支出/投資/貯蓄/立替費用は-、振替は0
+            const netBalance = filteredBudgets.reduce((s, b) => {
+              const gt = groupTypeMap[`${b.category}:${b.card_type}`] ?? null
+              if (gt === "収入") return s + b.budget
+              if (gt === "振替") return s
+              if (gt === "立替") return b.category.includes("精算") ? s + b.budget : s - b.budget
+              return s - b.budget  // 支出・投資・貯蓄・未設定
+            }, 0)
 
             if (filteredBudgets.length === 0) return (
               <div className="bg-white rounded-xl shadow-sm p-6 text-center text-gray-400 text-xs">
@@ -977,10 +979,10 @@ function SettingsContent() {
                     </div>
                   )
                 })}
-                {/* 合計 */}
-                <div className={`flex justify-between items-center px-3 py-2 ${isJoint ? "bg-amber-600" : "bg-indigo-700"} text-white`}>
-                  <span className="text-xs font-bold">{isJoint ? "共用" : "個人"} 合計</span>
-                  <span className="text-xs font-bold">{toJPY(totalBudget)}</span>
+                {/* 収支差額 */}
+                <div className={`flex justify-between items-center px-3 py-2 ${netBalance >= 0 ? (isJoint ? "bg-amber-600" : "bg-indigo-700") : "bg-red-600"} text-white`}>
+                  <span className="text-xs font-bold">月次収支（予算ベース）</span>
+                  <span className="text-xs font-bold">{netBalance >= 0 ? "+" : ""}{toJPY(netBalance)}</span>
                 </div>
               </div>
             )
