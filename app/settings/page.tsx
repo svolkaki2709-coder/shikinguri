@@ -315,14 +315,26 @@ function SettingsContent() {
     })
     const msgMap = { monthly: "共通予算を設定しました", this_month: `${monthValue}の予算を設定しました`, from_month: `${monthValue}以降の予算を設定しました` }
     setBudgetMsg(msgMap[periodType])
+    // 楽観的更新: APIレスポンスを待たずに即時反映
+    const newBudget = Number(budgetAmount)
+    setExistingBudgets(prev => {
+      const exists = prev.some(b => b.category === budgetCategory && b.card_type === budgetCardType)
+      if (exists) {
+        return prev.map(b => b.category === budgetCategory && b.card_type === budgetCardType
+          ? { ...b, budget: newBudget, is_monthly: periodType !== "monthly" }
+          : b)
+      }
+      return [...prev, { category: budgetCategory, card_type: budgetCardType, budget: newBudget, is_monthly: periodType !== "monthly" }]
+    })
     setBudgetAmount("")
     setBudgetSaving(false)
     setEditingBudgetKey(null)
-    await refreshBudgets()
+    // バックグラウンドで最新データを取得（キャッシュ無効化）
+    refreshBudgets()
   }
 
   async function refreshBudgets() {
-    const d = await fetch(`/api/budget?month=${budgetViewMonth}`).then(r => r.json())
+    const d = await fetch(`/api/budget?month=${budgetViewMonth}`, { cache: "no-store" }).then(r => r.json())
     const bRaw: Array<{ category: string; cardType: string; budget: number; isMonthly?: boolean }> = d.budgets ?? []
     setExistingBudgets(bRaw.map(b => ({ category: b.category, card_type: b.cardType, budget: b.budget, is_monthly: b.isMonthly ?? false })))
   }
