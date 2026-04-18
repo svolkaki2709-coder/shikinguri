@@ -909,7 +909,12 @@ function SettingsContent() {
               ...GROUP_ORDER.filter(g => grouped[g]?.length),
               ...(ungrouped.length ? ["未設定"] : []),
             ]
-            const totalBudget = filteredBudgets.reduce((s, b) => s + b.budget, 0)
+            // 収入・振替は支出合計から除外
+            const EXCLUDE_FROM_TOTAL = ["収入", "振替"]
+            const totalBudget = filteredBudgets.filter(b => {
+              const gt = groupTypeMap[`${b.category}:${b.card_type}`]
+              return !gt || !EXCLUDE_FROM_TOTAL.includes(gt)
+            }).reduce((s, b) => s + b.budget, 0)
 
             if (filteredBudgets.length === 0) return (
               <div className="bg-white rounded-xl shadow-sm p-6 text-center text-gray-400 text-xs">
