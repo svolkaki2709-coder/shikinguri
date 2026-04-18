@@ -68,6 +68,7 @@ function SettingsContent() {
   const [rSaving, setRSaving] = useState(false)
 
   // 収入フォーム
+  const [incomeCardType, setIncomeCardType] = useState<"self" | "joint">("self")
   const [incomeMonth, setIncomeMonth] = useState(defaultMonth)
   const [incomeAmount, setIncomeAmount] = useState("")
   const [incomeCategory, setIncomeCategory] = useState("給与")
@@ -160,11 +161,11 @@ function SettingsContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab])
 
-  // 収入タブ or 月が変わったら記録一覧を再取得
+  // 収入タブ・月・カードタイプが変わったら記録一覧を再取得
   useEffect(() => {
-    if (tab === "income") fetchMonthIncomes(incomeMonth)
+    if (tab === "income") fetchMonthIncomes(incomeMonth, incomeCardType)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [incomeMonth, tab])
+  }, [incomeMonth, incomeCardType, tab])
 
   // 表示月が変わったら予算一覧を再取得
   useEffect(() => {
@@ -239,9 +240,10 @@ function SettingsContent() {
     alert(`${d.count}件の定期支出を ${m} に生成しました`)
   }
 
-  async function fetchMonthIncomes(m?: string) {
+  async function fetchMonthIncomes(m?: string, ct?: string) {
     const target = m ?? incomeMonth
-    const d = await fetch(`/api/income?month=${target}`).then(r => r.json())
+    const cardType = ct ?? incomeCardType
+    const d = await fetch(`/api/income?month=${target}&card_type=${cardType}`).then(r => r.json())
     setMonthIncomeRecords(d.incomes ?? [])
   }
 
@@ -258,7 +260,7 @@ function SettingsContent() {
     await fetch("/api/income", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date: `${incomeMonth}-01`, amount: Number(incomeAmount), category: incomeCategory, memo: incomeMemo }),
+      body: JSON.stringify({ date: `${incomeMonth}-01`, amount: Number(incomeAmount), category: incomeCategory, memo: incomeMemo, card_type: incomeCardType }),
     })
     setIncomeMsg("保存しました")
     setIncomeAmount("")
@@ -627,8 +629,22 @@ function SettingsContent() {
             ) : (
               /* 通常フォーム */
               <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
+                {/* 個人/共用切替 */}
+                <div className="flex rounded-lg bg-gray-100 p-0.5">
+                  {([["self", "個人収入"] as const, ["joint", "共用入金"] as const]).map(([k, label]) => (
+                    <button key={k} type="button"
+                      onClick={() => { setIncomeCardType(k); setIncomeCategory(k === "self" ? "給与" : "振込"); fetchMonthIncomes(incomeMonth, k) }}
+                      className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                        incomeCardType === k
+                          ? k === "self" ? "bg-white text-indigo-600 shadow-sm" : "bg-white text-amber-600 shadow-sm"
+                          : "text-gray-500"
+                      }`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
                 <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-semibold text-gray-700">収入を記録</h2>
+                  <h2 className="text-sm font-semibold text-gray-700">{incomeCardType === "self" ? "収入を記録" : "共用入金を記録"}</h2>
                   <label className="flex items-center gap-1 cursor-pointer bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors">
                     <span>📄 給与明細PDF</span>
                     <input
@@ -680,7 +696,7 @@ function SettingsContent() {
                 <div>
                   <label className="text-xs text-gray-700 mb-1 block">種別</label>
                   <div className="flex gap-2">
-                    {["給与", "副収入", "その他"].map(cat => (
+                    {(incomeCardType === "self" ? ["給与", "副収入", "その他"] : ["振込", "分担金", "その他"]).map(cat => (
                       <button key={cat} type="button" onClick={() => setIncomeCategory(cat)}
                         className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${incomeCategory === cat ? "bg-green-600 text-white border-green-600" : "border-gray-300 text-gray-600"}`}>
                         {cat}

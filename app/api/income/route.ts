@@ -12,12 +12,24 @@ export async function GET(req: NextRequest) {
     searchParams.get("month") ??
     `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
 
-  const rows = await sql`
-    SELECT id, date::text, amount, category, memo
-    FROM incomes
-    WHERE TO_CHAR(date, 'YYYY-MM') = ${month}
-    ORDER BY date DESC
-  `
+  await sql`ALTER TABLE incomes ADD COLUMN IF NOT EXISTS card_type TEXT DEFAULT 'self'`
+
+  const cardType = searchParams.get("card_type") ?? null
+
+  const rows = cardType
+    ? await sql`
+        SELECT id, date::text, amount, category, memo, card_type
+        FROM incomes
+        WHERE TO_CHAR(date, 'YYYY-MM') = ${month} AND card_type = ${cardType}
+        ORDER BY date DESC
+      `
+    : await sql`
+        SELECT id, date::text, amount, category, memo, card_type
+        FROM incomes
+        WHERE TO_CHAR(date, 'YYYY-MM') = ${month}
+        ORDER BY date DESC
+      `
+
   const total = rows.reduce((s, r) => s + Number(r.amount), 0)
   return NextResponse.json({ incomes: rows, total, month })
 }
@@ -26,12 +38,12 @@ export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { date, amount, category, memo } = await req.json()
+  const { date, amount, category, memo, card_type } = await req.json()
   if (!date || !amount) return NextResponse.json({ error: "date, amount は必須です" }, { status: 400 })
 
   const result = await sql`
-    INSERT INTO incomes (date, amount, category, memo)
-    VALUES (${date}, ${Number(amount)}, ${category ?? "給与"}, ${memo ?? ""})
+    INSERT INTO incomes (date, amount, category, memo, card_type)
+    VALUES (${date}, ${Number(amount)}, ${category ?? "給与"}, ${memo ?? ""}, ${card_type ?? "self"})
     RETURNING *
   `
   return NextResponse.json({ income: result[0] })

@@ -82,6 +82,7 @@ export default function BudgetPage() {
   const [monthlyLoading, setMonthlyLoading] = useState(true)
   const [budgets, setBudgets] = useState<BudgetRow[]>([])
   const [incomeTotal, setIncomeTotal] = useState(0)
+  const [jointIncomeTotal, setJointIncomeTotal] = useState(0)
 
   // ── 年次タブ用 state ──
   const currentYear = now.getFullYear()
@@ -99,10 +100,12 @@ export default function BudgetPage() {
     setMonthlyLoading(true)
     Promise.all([
       fetch(`/api/budget?month=${month}`).then(r => r.json()),
-      fetch(`/api/income?month=${month}`).then(r => r.json()),
-    ]).then(([budgetData, incomeData]) => {
+      fetch(`/api/income?month=${month}&card_type=self`).then(r => r.json()),
+      fetch(`/api/income?month=${month}&card_type=joint`).then(r => r.json()),
+    ]).then(([budgetData, incomeData, jointIncomeData]) => {
       setBudgets(budgetData.budgets ?? [])
       setIncomeTotal(incomeData.total ?? 0)
+      setJointIncomeTotal(jointIncomeData.total ?? 0)
     }).finally(() => setMonthlyLoading(false))
   }, [month])
 
@@ -153,9 +156,9 @@ export default function BudgetPage() {
   const jointActual = jointRows.reduce((s, r) => s + r.actual, 0)
   const selfBudget = selfRows.reduce((s, r) => s + r.budget, 0)
   const jointBudget = jointRows.reduce((s, r) => s + r.budget, 0)
-  // 個人: 収入 - 個人支出、共用: 共用予算 - 共用支出
+  // 個人: 収入 - 個人支出、共用: 入金 - 共用支出（入金があれば入金ベース、なければ予算ベース）
   const selfBalance = incomeTotal - selfActual
-  const jointBalance = jointBudget - jointActual
+  const jointBalance = jointIncomeTotal > 0 ? jointIncomeTotal - jointActual : jointBudget - jointActual
 
   // ─── 年次: フィルタ・グループ集計 ─────────────────────────────
   const yearFiltered = useMemo(() =>
@@ -408,7 +411,11 @@ export default function BudgetPage() {
                 </div>
               </div>
             ) : (
-              <div className={`grid ${isPC ? "grid-cols-3" : "grid-cols-3"} gap-2`}>
+              <div className={`grid ${isPC ? "grid-cols-4" : "grid-cols-2"} gap-2`}>
+                <div className="bg-white rounded-xl shadow-sm p-3 text-center">
+                  <p className="text-[11px] text-gray-500 mb-1">入金</p>
+                  <p className="text-sm font-bold text-green-600">{toJPY(jointIncomeTotal)}</p>
+                </div>
                 <div className="bg-white rounded-xl shadow-sm p-3 text-center">
                   <p className="text-[11px] text-gray-500 mb-1">支出実績</p>
                   <p className={`text-sm font-bold ${jointActual > jointBudget && jointBudget > 0 ? "text-red-500" : "text-gray-800"}`}>
@@ -420,7 +427,7 @@ export default function BudgetPage() {
                   <p className="text-sm font-bold text-gray-700">{toJPY(jointBudget)}</p>
                 </div>
                 <div className={`rounded-xl shadow-sm p-3 text-center ${jointBalance >= 0 ? "bg-amber-50" : "bg-red-50"}`}>
-                  <p className="text-[11px] text-gray-500 mb-1">予算残り</p>
+                  <p className="text-[11px] text-gray-500 mb-1">収支差額</p>
                   <p className={`text-sm font-bold ${jointBalance >= 0 ? "text-amber-600" : "text-red-500"}`}>
                     {jointBalance >= 0 ? "+" : ""}{toJPY(jointBalance)}
                   </p>
