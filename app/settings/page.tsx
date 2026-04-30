@@ -977,7 +977,8 @@ function SettingsContent() {
                 {allGroups.map(group => {
                   const rows = group === "未設定" ? ungrouped : (grouped[group] ?? [])
                   const gc = GROUP_COLORS[group]
-                  const groupTotal = rows.reduce((s, b) => s + b.budget, 0)
+                  // 符号を考慮したグループ小計（立替精算=+, 立替費用=- などが相殺される）
+                  const groupTotal = rows.reduce((s, b) => s + b.budget * getEffectiveSign(b), 0)
                   return (
                     <div key={group}>
                       {/* グループヘッダー */}
@@ -988,7 +989,9 @@ function SettingsContent() {
                             : <span className="text-xs font-medium">{group}</span>
                           }
                         </div>
-                        <span className="text-xs font-semibold">{toJPY(groupTotal)}</span>
+                        <span className={`text-xs font-semibold ${groupTotal < 0 ? "text-red-500" : ""}`}>
+                          {groupTotal > 0 ? "+" : ""}{toJPY(groupTotal)}
+                        </span>
                       </div>
                       {/* カテゴリ行 */}
                       {rows.map(b => {
