@@ -92,6 +92,7 @@ function SettingsContent() {
   const [periodType, setPeriodType] = useState<"monthly" | "this_month" | "from_month">("monthly")
   const [budgetSaving, setBudgetSaving] = useState(false)
   const [budgetMsg, setBudgetMsg] = useState("")
+  const [budgetError, setBudgetError] = useState("")
   const [existingBudgets, setExistingBudgets] = useState<BudgetRow[]>([])
   const [editingBudgetKey, setEditingBudgetKey] = useState<string | null>(null)
   const [budgetViewMonth, setBudgetViewMonth] = useState(defaultMonth)  // 一覧の表示月
@@ -306,15 +307,17 @@ function SettingsContent() {
     if (!budgetCategory || !budgetAmount) return
     setBudgetSaving(true)
     setBudgetMsg("")
+    setBudgetError("")
     const monthValue = periodType === "monthly" ? null : budgetMonth
     const isFromMonth = periodType === "from_month"
     const res = await fetch("/api/budget", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ category: budgetCategory, amount: Number(budgetAmount), card_type: budgetCardType, month: monthValue, is_from_month: isFromMonth }),
+      body: JSON.stringify({ category: budgetCategory, amount: Number(budgetAmount.replace(/,/g, "")), card_type: budgetCardType, month: monthValue, is_from_month: isFromMonth }),
     })
     if (!res.ok) {
-      setBudgetMsg("保存に失敗しました")
+      const errData = await res.json().catch(() => ({ error: "不明なエラー" }))
+      setBudgetError(errData.error ?? "保存に失敗しました")
       setBudgetSaving(false)
       return
     }
@@ -895,6 +898,7 @@ function SettingsContent() {
                   placeholder="0" className="w-full border rounded-lg pl-7 pr-3 py-2 text-sm text-gray-800" />
               </div>
             </div>
+            {budgetError && <p className="text-xs text-red-600 bg-red-50 rounded px-2 py-1">❌ {budgetError}</p>}
             {budgetMsg && <p className="text-xs text-green-600">✅ {budgetMsg}</p>}
             <button onClick={handleSaveBudget} disabled={budgetSaving || !budgetCategory || !budgetAmount}
               className="w-full bg-blue-600 text-white rounded-lg py-2.5 text-sm font-semibold disabled:opacity-50">
