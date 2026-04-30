@@ -24,13 +24,6 @@ function toJPY(n: number) {
   return new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 }).format(n)
 }
 
-// card_type から 個人/共用 ラベルとカラーを返す
-function usageLabel(cardType: string) {
-  if (cardType === "joint") return { label: "共用", color: "#f59e0b" }
-  if (cardType === "self") return { label: "個人", color: "#6366f1" }
-  return { label: cardType ?? "", color: "#9ca3af" }
-}
-
 export default function HistoryPage() {
   return (
     <Suspense fallback={<div className="pb-20"><PageHeader title="明細履歴" /><div className="text-center py-8 text-gray-500">読み込み中...</div><BottomNav /></div>}>
@@ -53,14 +46,14 @@ function HistoryContent() {
   const [loading, setLoading] = useState(false)
 
   const [month, setMonthState] = useState(searchParams.get("month") ?? defaultMonth)
-  const [usageFilter, setUsageFilter] = useState(searchParams.get("card_type") ?? "")  // "" | "self" | "joint"
+  const [cardId, setCardId] = useState(searchParams.get("card_id") ?? "")
   const [category, setCategory] = useState(searchParams.get("category") ?? "")
   const [keyword, setKeyword] = useState(searchParams.get("keyword") ?? "")
 
   // 編集モーダル
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
   const [editForm, setEditForm] = useState({
-    date: "", usageType: "self" as "self" | "joint", category: "", amount: "", memo: ""
+    date: "", card_id: 0, category: "", amount: "", memo: ""
   })
   const [editSaving, setEditSaving] = useState(false)
 
@@ -84,13 +77,13 @@ function HistoryContent() {
   useEffect(() => {
     fetchData()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [month, usageFilter, category, keyword])
+  }, [month, cardId, category, keyword])
 
   async function fetchData() {
     setLoading(true)
     const params = new URLSearchParams()
     if (month) params.set("month", month)
-    if (usageFilter) params.set("card_type", usageFilter)
+    if (cardId) params.set("card_id", cardId)
     if (category) params.set("category", category)
     if (keyword) params.set("keyword", keyword)
 
@@ -109,7 +102,7 @@ function HistoryContent() {
     setEditingTransaction(t)
     setEditForm({
       date: t.date,
-      usageType: (t.card_type === "joint" ? "joint" : "self") as "self" | "joint",
+      card_id: t.card_id,
       category: t.category,
       amount: t.amount.toLocaleString("ja-JP"),
       memo: t.memo ?? "",
@@ -120,15 +113,14 @@ function HistoryContent() {
     if (!editingTransaction) return
     setEditSaving(true)
     const amountNum = Number(editForm.amount.replace(/,/g, ""))
-    // usageType から対応カードを自動選択
-    const card = cards.find(c => c.card_type === editForm.usageType)
+    const card = cards.find(c => c.id === Number(editForm.card_id))
     await fetch("/api/transactions", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         id: editingTransaction.id,
         date: editForm.date,
-        card_id: card?.id ?? editingTransaction.card_id,
+        card_id: editForm.card_id,
         category: editForm.category,
         amount: amountNum,
         memo: editForm.memo,
@@ -139,7 +131,7 @@ function HistoryContent() {
         ? {
             ...t,
             date: editForm.date,
-            card_id: card?.id ?? t.card_id,
+            card_id: Number(editForm.card_id),
             category: editForm.category,
             amount: amountNum,
             memo: editForm.memo,
@@ -162,13 +154,6 @@ function HistoryContent() {
   }
   const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a))
 
-  // 個人/共用 フィルターボタン
-  const usageOptions = [
-    { value: "", label: "すべて" },
-    { value: "self", label: "個人" },
-    { value: "joint", label: "共用" },
-  ]
-
   return (
     <div className={mode === "mobile" ? "pb-20" : ""}>
       <PageHeader title="明細履歴" />
@@ -177,20 +162,21 @@ function HistoryContent() {
         <div className={`bg-white rounded-xl shadow-sm p-3 ${isPC ? "mb-4" : "mb-3 space-y-3"}`}>
           {isPC ? (
             <div className="flex items-center gap-3 flex-wrap">
-              {/* 個人/共用フィルター */}
-              <div className="flex gap-1.5">
-                {usageOptions.map(opt => (
-                  <button key={opt.value} onClick={() => setUsageFilter(opt.value)}
-                    className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-all ${
-                      usageFilter === opt.value
-                        ? opt.value === "joint"
-                          ? "bg-amber-500 text-white border-amber-500"
-                          : opt.value === "self"
-                          ? "bg-indigo-600 text-white border-indigo-600"
-                          : "bg-gray-700 text-white border-gray-700"
-                        : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"
-                    }`}>
-                    {opt.label}
+              {/* カードフィルター */}
+              <div className="flex gap-1.5 flex-wrap">
+                <button onClick={() => setCardId("")}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${cardId === "" ? "bg-gray-700 text-white border-gray-700" : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"}`}>
+                  すべて
+                </button>
+                {cards.map(c => (
+                  <button key={c.id} onClick={() => setCardId(String(c.id))}
+                    className="px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all"
+                    style={{
+                      backgroundColor: cardId === String(c.id) ? c.color : "white",
+                      borderColor: cardId === String(c.id) ? c.color : "#e5e7eb",
+                      color: cardId === String(c.id) ? "white" : "#6b7280",
+                    }}>
+                    {c.name}
                   </button>
                 ))}
               </div>
@@ -227,20 +213,21 @@ function HistoryContent() {
             </div>
           ) : (
             <>
-              {/* モバイル: 個人/共用フィルター */}
-              <div className="flex gap-1.5">
-                {usageOptions.map(opt => (
-                  <button key={opt.value} onClick={() => setUsageFilter(opt.value)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                      usageFilter === opt.value
-                        ? opt.value === "joint"
-                          ? "bg-amber-500 text-white border-amber-500"
-                          : opt.value === "self"
-                          ? "bg-indigo-600 text-white border-indigo-600"
-                          : "bg-gray-700 text-white border-gray-700"
-                        : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"
-                    }`}>
-                    {opt.label}
+              {/* モバイル: カードフィルター */}
+              <div className="flex gap-1.5 flex-wrap">
+                <button onClick={() => setCardId("")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${cardId === "" ? "bg-gray-700 text-white border-gray-700" : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"}`}>
+                  すべて
+                </button>
+                {cards.map(c => (
+                  <button key={c.id} onClick={() => setCardId(String(c.id))}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all"
+                    style={{
+                      backgroundColor: cardId === String(c.id) ? c.color : "white",
+                      borderColor: cardId === String(c.id) ? c.color : "#e5e7eb",
+                      color: cardId === String(c.id) ? "white" : "#6b7280",
+                    }}>
+                    {c.name}
                   </button>
                 ))}
               </div>
@@ -294,7 +281,7 @@ function HistoryContent() {
               <thead>
                 <tr className="bg-gray-50 border-b text-gray-500">
                   <th className="text-left px-4 py-2 font-medium">日付</th>
-                  <th className="text-left px-3 py-2 font-medium">用途</th>
+                  <th className="text-left px-3 py-2 font-medium">カード</th>
                   <th className="text-left px-3 py-2 font-medium">カテゴリ</th>
                   <th className="text-left px-3 py-2 font-medium">メモ</th>
                   <th className="text-right px-3 py-2 font-medium">金額</th>
@@ -305,37 +292,34 @@ function HistoryContent() {
                 {transactions.length === 0 ? (
                   <tr><td colSpan={6} className="text-center py-8 text-gray-400">明細がありません</td></tr>
                 ) : (
-                  transactions.map(t => {
-                    const u = usageLabel(t.card_type)
-                    return (
-                      <tr key={t.id} className={`hover:bg-gray-50 transition-colors ${t.category === "未分類" ? "bg-orange-50 hover:bg-orange-100" : ""}`}>
-                        <td className="px-4 py-1.5 text-gray-600 whitespace-nowrap">{t.date}</td>
-                        <td className="px-3 py-1.5">
-                          {t.card_type && (
-                            <span className="text-xs px-1.5 py-0.5 rounded text-white font-medium whitespace-nowrap"
-                              style={{ backgroundColor: u.color }}>
-                              {u.label}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-3 py-1.5">
-                          <span className={`text-xs ${t.category === "未分類" ? "text-orange-500 font-semibold" : "text-gray-700"}`}>
-                            {t.category === "未分類" ? "⚠ 未分類" : t.category}
+                  transactions.map(t => (
+                    <tr key={t.id} className={`hover:bg-gray-50 transition-colors ${t.category === "未分類" ? "bg-orange-50 hover:bg-orange-100" : ""}`}>
+                      <td className="px-4 py-1.5 text-gray-600 whitespace-nowrap">{t.date}</td>
+                      <td className="px-3 py-1.5">
+                        {t.card_name && (
+                          <span className="text-xs px-1.5 py-0.5 rounded text-white font-medium whitespace-nowrap"
+                            style={{ backgroundColor: t.color ?? "#6366f1" }}>
+                            {t.card_name}
                           </span>
-                        </td>
-                        <td className="px-3 py-1.5 text-gray-500 max-w-xs truncate">{t.memo}</td>
-                        <td className="px-3 py-1.5 text-right font-semibold text-gray-800 whitespace-nowrap">{toJPY(t.amount)}</td>
-                        <td className="px-3 py-1.5 text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <button onClick={() => openEditModal(t)}
-                              className="text-gray-300 hover:text-blue-500 text-sm leading-none" title="編集">✏</button>
-                            <button onClick={() => handleDelete(t.id)}
-                              className="text-gray-300 hover:text-red-400 text-lg leading-none">×</button>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })
+                        )}
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <span className={`text-xs ${t.category === "未分類" ? "text-orange-500 font-semibold" : "text-gray-700"}`}>
+                          {t.category === "未分類" ? "⚠ 未分類" : t.category}
+                        </span>
+                      </td>
+                      <td className="px-3 py-1.5 text-gray-500 max-w-xs truncate">{t.memo}</td>
+                      <td className="px-3 py-1.5 text-right font-semibold text-gray-800 whitespace-nowrap">{toJPY(t.amount)}</td>
+                      <td className="px-3 py-1.5 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <button onClick={() => openEditModal(t)}
+                            className="text-gray-300 hover:text-blue-500 text-sm leading-none" title="編集">✏</button>
+                          <button onClick={() => handleDelete(t.id)}
+                            className="text-gray-300 hover:text-red-400 text-lg leading-none">×</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>
@@ -351,40 +335,35 @@ function HistoryContent() {
                 <span className="text-xs font-medium text-gray-600">{date}</span>
                 <span className="text-xs font-semibold text-gray-600">{toJPY(dayTotal)}</span>
               </div>
-              {grouped[date].map(t => {
-                const u = usageLabel(t.card_type)
-                return (
-                  <div key={t.id} className={`flex items-center gap-3 px-4 py-2 border-b last:border-0 ${t.category === "未分類" ? "bg-orange-50" : ""}`}>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
-                        {t.card_type && (
-                          <span className="text-xs px-1.5 py-0.5 rounded text-white font-medium shrink-0"
-                            style={{ backgroundColor: u.color }}>
-                            {u.label}
-                          </span>
-                        )}
-                        <span className={`text-sm font-medium truncate ${
-                          t.category === "未分類"
-                            ? "text-orange-500 font-semibold"
-                            : "text-gray-800"
-                        }`}>
-                          {t.category === "未分類" ? "⚠ 未分類" : t.category}
+              {grouped[date].map(t => (
+                <div key={t.id} className={`flex items-center gap-3 px-4 py-2 border-b last:border-0 ${t.category === "未分類" ? "bg-orange-50" : ""}`}>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                      {t.card_name && (
+                        <span className="text-xs px-1.5 py-0.5 rounded text-white font-medium shrink-0"
+                          style={{ backgroundColor: t.color ?? "#6366f1" }}>
+                          {t.card_name}
                         </span>
-                        {t.source === "csv" && <span className="text-xs text-blue-400 shrink-0">CSV</span>}
-                        {t.source === "recurring" && <span className="text-xs text-green-400 shrink-0">定期</span>}
-                      </div>
-                      {t.memo && <p className="text-xs text-gray-500 truncate">{t.memo}</p>}
+                      )}
+                      <span className={`text-sm font-medium truncate ${
+                        t.category === "未分類" ? "text-orange-500 font-semibold" : "text-gray-800"
+                      }`}>
+                        {t.category === "未分類" ? "⚠ 未分類" : t.category}
+                      </span>
+                      {t.source === "csv" && <span className="text-xs text-blue-400 shrink-0">CSV</span>}
+                      {t.source === "recurring" && <span className="text-xs text-green-400 shrink-0">定期</span>}
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <span className="text-sm font-semibold text-gray-800">{toJPY(t.amount)}</span>
-                      <button onClick={() => openEditModal(t)}
-                        className="text-gray-300 hover:text-blue-500 transition-colors text-sm leading-none w-6 text-center" title="編集">✏</button>
-                      <button onClick={() => handleDelete(t.id)}
-                        className="text-gray-300 hover:text-red-400 transition-colors text-xl leading-none w-6 text-center">×</button>
-                    </div>
+                    {t.memo && <p className="text-xs text-gray-500 truncate">{t.memo}</p>}
                   </div>
-                )
-              })}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className="text-sm font-semibold text-gray-800">{toJPY(t.amount)}</span>
+                    <button onClick={() => openEditModal(t)}
+                      className="text-gray-300 hover:text-blue-500 transition-colors text-sm leading-none w-6 text-center" title="編集">✏</button>
+                    <button onClick={() => handleDelete(t.id)}
+                      className="text-gray-300 hover:text-red-400 transition-colors text-xl leading-none w-6 text-center">×</button>
+                  </div>
+                </div>
+              ))}
             </div>
           )
         })}
@@ -405,31 +384,22 @@ function HistoryContent() {
               <button onClick={() => setEditingTransaction(null)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
             </div>
 
-            {/* 個人 / 共用 */}
-            <div>
-              <label className="text-xs text-gray-500 mb-1.5 block">用途</label>
-              <div className="flex rounded-xl bg-gray-100 p-1 gap-1">
-                <button type="button" onClick={() => setEditForm(f => ({ ...f, usageType: "joint" }))}
-                  className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
-                    editForm.usageType === "joint" ? "bg-amber-500 text-white shadow-sm" : "text-gray-600"
-                  }`}>
-                  共用
-                </button>
-                <button type="button" onClick={() => setEditForm(f => ({ ...f, usageType: "self" }))}
-                  className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
-                    editForm.usageType === "self" ? "bg-indigo-600 text-white shadow-sm" : "text-gray-600"
-                  }`}>
-                  個人
-                </button>
-              </div>
-            </div>
-
             {/* 日付 */}
             <div>
               <label className="text-xs text-gray-500 mb-1 block">日付</label>
               <input type="date" value={editForm.date}
                 onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))}
                 className="w-full border rounded-lg px-3 py-2 text-sm text-gray-800 bg-white outline-none focus:ring-2 focus:ring-blue-400" />
+            </div>
+
+            {/* カード */}
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">カード</label>
+              <select value={editForm.card_id}
+                onChange={e => setEditForm(f => ({ ...f, card_id: Number(e.target.value) }))}
+                className="w-full border rounded-lg px-3 py-2 text-sm text-gray-800 bg-white outline-none focus:ring-2 focus:ring-blue-400">
+                {cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
             </div>
 
             {/* カテゴリ */}
