@@ -100,14 +100,16 @@ export async function PUT(req: NextRequest) {
   const { category, amount, card_type, month, is_from_month } = await req.json()
 
   if (month) {
-    // この月以降: 同カテゴリの既存 is_from_month レコードをすべて削除してから新規登録
     if (is_from_month) {
-      await sql`DELETE FROM budgets WHERE category = ${category} AND card_type = ${card_type ?? "self"} AND is_from_month = TRUE`
+      // この月以降: 同カテゴリの既存 is_from_month レコードを全削除してから新規挿入
+      await sql`DELETE FROM budgets WHERE category = ${category} AND card_type = ${card_type ?? "self"} AND COALESCE(is_from_month, FALSE) = TRUE`
+    } else {
+      // この月だけ: 同月の既存レコードを削除してから新規挿入
+      await sql`DELETE FROM budgets WHERE category = ${category} AND card_type = ${card_type ?? "self"} AND month = ${month} AND COALESCE(is_from_month, FALSE) = FALSE`
     }
     await sql`
       INSERT INTO budgets (category, amount, card_type, month, is_from_month)
       VALUES (${category}, ${Number(amount)}, ${card_type ?? "self"}, ${month}, ${!!is_from_month})
-      ON CONFLICT (category, card_type, month) DO UPDATE SET amount = EXCLUDED.amount, is_from_month = EXCLUDED.is_from_month
     `
   } else {
     // デフォルト予算（month = NULL）
