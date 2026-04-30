@@ -58,14 +58,6 @@ function SettingsContent() {
   const [categories, setCategories] = useState<string[]>([])
   const [recurring, setRecurring] = useState<Recurring[]>([])
 
-  // 定期支出フォーム
-  const [rDay, setRDay] = useState("1")
-  const [rCardId, setRCardId] = useState<number | null>(null)
-  const [rCategory, setRCategory] = useState("")
-  const [rAmount, setRAmount] = useState("")
-  const [rMemo, setRMemo] = useState("")
-  const [rSaving, setRSaving] = useState(false)
-
   // 予算フォーム
   const [budgetCategory, setBudgetCategory] = useState("")
   const [budgetAmount, setBudgetAmount] = useState("")
@@ -117,11 +109,10 @@ function SettingsContent() {
     ]).then(([cd, catd, recd, budgetData]) => {
       const c = cd.cards ?? []
       setCards(c)
-      if (c.length > 0) setRCardId(c[0].id)
       const cats = catd.categories ?? []
       setCategories(cats)
       setCategoryRows((catd.rows ?? []).map((r: { name: string; card_type: string; group_type?: string | null; sort_order?: number | null; sign?: string | null }) => ({ ...r, group_type: r.group_type ?? null, sort_order: r.sort_order ?? null, sign: r.sign ?? null })))
-      if (cats.length > 0) { setRCategory(cats[0]); setBudgetCategory(cats[0]) }
+      if (cats.length > 0) { setBudgetCategory(cats[0]) }
       setRecurring(recd.recurring ?? [])
       const bRaw: Array<{ category: string; cardType: string; budget: number; isMonthly?: boolean; isFromMonth?: boolean; recordMonth?: string | null }> = budgetData.budgets ?? []
       setExistingBudgets(bRaw.map(b => ({ category: b.category, card_type: b.cardType, budget: b.budget, is_monthly: b.isMonthly ?? false, is_from_month: b.isFromMonth ?? false, record_month: b.recordMonth ?? null })))
@@ -182,21 +173,6 @@ function SettingsContent() {
     })
     setPlanMsg("保存しました")
     setPlanSaving(false)
-  }
-
-  async function handleAddRecurring() {
-    if (!rCardId || !rCategory || !rAmount) return
-    setRSaving(true)
-    await fetch("/api/recurring", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ day_of_month: Number(rDay), card_id: rCardId, category: rCategory, amount: Number(rAmount), memo: rMemo }),
-    })
-    setRAmount("")
-    setRMemo("")
-    const d = await fetch("/api/recurring").then(r => r.json())
-    setRecurring(d.recurring ?? [])
-    setRSaving(false)
   }
 
   async function handleDeleteRecurring(id: number) {
@@ -423,76 +399,20 @@ function SettingsContent() {
 
         {/* === 定期支出タブ === */}
         {tab === "recurring" && (
-          <div className={isPC ? "grid grid-cols-2 gap-4 items-start" : "space-y-3"}>
-            <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
-              <h2 className="text-sm font-semibold text-gray-700">定期支出を追加</h2>
-              <div className="grid grid-cols-3 gap-2">
-                <div className="col-span-1">
-                  <label className="text-xs text-gray-700 mb-1 block">引き落とし日</label>
-                  <select value={rDay} onChange={e => setRDay(e.target.value)}
-                    className="w-full border rounded-lg px-2 py-2 text-sm bg-white text-gray-800">
-                    {Array.from({ length: 28 }, (_, i) => i + 1).map(d => (
-                      <option key={d} value={d}>{d}日</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="col-span-2">
-                  <label className="text-xs text-gray-700 mb-1 block">カード</label>
-                  <div className="flex gap-1">
-                    {cards.map(c => (
-                      <button key={c.id} type="button" onClick={() => setRCardId(c.id)}
-                        className="flex-1 py-2 rounded-lg text-xs font-medium border transition-all"
-                        style={{
-                          borderColor: rCardId === c.id ? c.color : "#e5e7eb",
-                          backgroundColor: rCardId === c.id ? c.color + "18" : "white",
-                          color: rCardId === c.id ? c.color : "#6b7280",
-                        }}>
-                        {c.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-xs text-gray-700 mb-1 block">カテゴリ</label>
-                  <select value={rCategory} onChange={e => setRCategory(e.target.value)}
-                    className="w-full border rounded-lg px-2 py-2 text-sm bg-white text-gray-800">
-                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-700 mb-1 block">金額（円）</label>
-                  <input type="text" inputMode="numeric"
-                    value={rAmount ? Number(rAmount.replace(/,/g, "")).toLocaleString("ja-JP") : ""}
-                    onChange={e => { const raw = e.target.value.replace(/,/g, ""); if (raw === "" || /^\d+$/.test(raw)) setRAmount(raw) }}
-                    placeholder="0" className="w-full border rounded-lg px-2 py-2 text-sm text-gray-800" />
-                </div>
-              </div>
-              <div>
-                <label className="text-xs text-gray-700 mb-1 block">メモ（任意）</label>
-                <input type="text" value={rMemo} onChange={e => setRMemo(e.target.value)}
-                  placeholder="例：Netflix サブスク"
-                  className="w-full border rounded-lg px-3 py-2 text-sm text-gray-800" />
-              </div>
-              <button onClick={handleAddRecurring} disabled={rSaving || !rCardId || !rAmount}
-                className="w-full bg-blue-600 text-white rounded-lg py-2.5 text-sm font-semibold disabled:opacity-50">
-                {rSaving ? "追加中..." : "定期支出を追加"}
-              </button>
-            </div>
-
-            {/* 定期支出一覧 */}
-            {recurring.length > 0 && (
+          <div className="space-y-3">
+            {recurring.length === 0 ? (
+              <p className="text-center text-sm text-gray-400 py-6">定期支出が登録されていません</p>
+            ) : (
               <div className="bg-white rounded-xl shadow-sm overflow-hidden">
                 <div className="px-4 py-3 bg-gray-50 border-b flex justify-between items-center">
                   <h2 className="text-sm font-semibold text-gray-700">登録済み定期支出</h2>
                   <button onClick={handleGenerateRecurring}
-                    className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium">
+                    className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium hover:bg-green-200">
                     今月分を生成
                   </button>
                 </div>
                 {recurring.map(r => (
-                  <div key={r.id} className="flex items-center px-4 py-2 border-b last:border-0">
+                  <div key={r.id} className="flex items-center px-4 py-2.5 border-b last:border-0">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
                         <span className="text-xs px-1.5 py-0.5 rounded text-white"
@@ -501,12 +421,12 @@ function SettingsContent() {
                         </span>
                         <span className="text-sm font-medium text-gray-800">{r.category}</span>
                       </div>
-                      <p className="text-xs text-gray-700">{r.day_of_month}日 {r.memo && `/ ${r.memo}`}</p>
+                      <p className="text-xs text-gray-500">{r.day_of_month}日{r.memo && ` / ${r.memo}`}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold text-gray-700">{toJPY(r.amount)}</span>
                       <button onClick={() => handleGenerateSingle(r)}
-                        className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded font-medium hover:bg-green-200">
+                        className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-medium hover:bg-green-200">
                         生成
                       </button>
                       <button onClick={() => handleDeleteRecurring(r.id)}
