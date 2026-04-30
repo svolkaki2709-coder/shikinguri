@@ -296,12 +296,17 @@ function HistoryContent() {
                     <tr key={t.id} className={`hover:bg-gray-50 transition-colors ${t.category === "未分類" ? "bg-orange-50 hover:bg-orange-100" : ""}`}>
                       <td className="px-4 py-1.5 text-gray-600 whitespace-nowrap">{t.date}</td>
                       <td className="px-3 py-1.5">
-                        {t.card_name && (
-                          <span className="text-xs px-1.5 py-0.5 rounded text-white font-medium whitespace-nowrap"
-                            style={{ backgroundColor: t.color ?? "#6366f1" }}>
-                            {t.card_name}
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <span className={`text-xs px-1.5 py-0.5 rounded font-medium whitespace-nowrap ${t.card_type === "joint" ? "bg-amber-100 text-amber-700" : "bg-indigo-100 text-indigo-700"}`}>
+                            {t.card_type === "joint" ? "共用" : "個人"}
                           </span>
-                        )}
+                          {t.card_name && (
+                            <span className="text-xs px-1.5 py-0.5 rounded text-white font-medium whitespace-nowrap"
+                              style={{ backgroundColor: t.color ?? "#6366f1" }}>
+                              {t.card_name}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-3 py-1.5">
                         <span className={`text-xs ${t.category === "未分類" ? "text-orange-500 font-semibold" : "text-gray-700"}`}>
@@ -339,6 +344,9 @@ function HistoryContent() {
                 <div key={t.id} className={`flex items-center gap-3 px-4 py-2 border-b last:border-0 ${t.category === "未分類" ? "bg-orange-50" : ""}`}>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                      <span className={`text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${t.card_type === "joint" ? "bg-amber-100 text-amber-700" : "bg-indigo-100 text-indigo-700"}`}>
+                        {t.card_type === "joint" ? "共用" : "個人"}
+                      </span>
                       {t.card_name && (
                         <span className="text-xs px-1.5 py-0.5 rounded text-white font-medium shrink-0"
                           style={{ backgroundColor: t.color ?? "#6366f1" }}>
