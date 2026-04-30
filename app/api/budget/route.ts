@@ -100,7 +100,11 @@ export async function PUT(req: NextRequest) {
   const { category, amount, card_type, month, is_from_month } = await req.json()
 
   if (month) {
-    // この月だけ or この月以降
+    // この月以降: 同カテゴリの既存 is_from_month レコードをすべて削除してから新規登録
+    // （複数レコードが競合して意図しない優先順位になる問題を防ぐ）
+    if (is_from_month) {
+      await sql`DELETE FROM budgets WHERE category = ${category} AND card_type = ${card_type ?? "self"} AND is_from_month = TRUE`
+    }
     await sql`
       INSERT INTO budgets (category, amount, card_type, month, is_from_month)
       VALUES (${category}, ${Number(amount)}, ${card_type ?? "self"}, ${month}, ${!!is_from_month})
