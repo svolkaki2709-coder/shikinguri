@@ -101,7 +101,7 @@ function SettingsContent() {
   const [catSaving, setCatSaving] = useState(false)
   const [catViewType, setCatViewType] = useState<"self" | "joint">("self")
   const [newCatCardType, setNewCatCardType] = useState<"self" | "joint">("self")
-  const [categoryRows, setCategoryRows] = useState<{ name: string; card_type: string; group_type: string | null; sort_order: number | null }[]>([])
+  const [categoryRows, setCategoryRows] = useState<{ name: string; card_type: string; group_type: string | null; sort_order: number | null; sign: string | null }[]>([])
   // ドラッグ&ドロップ
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
@@ -137,7 +137,7 @@ function SettingsContent() {
       if (c.length > 0) setRCardId(c[0].id)
       const cats = catd.categories ?? []
       setCategories(cats)
-      setCategoryRows((catd.rows ?? []).map((r: { name: string; card_type: string; group_type?: string | null; sort_order?: number | null }) => ({ ...r, group_type: r.group_type ?? null, sort_order: r.sort_order ?? null })))
+      setCategoryRows((catd.rows ?? []).map((r: { name: string; card_type: string; group_type?: string | null; sort_order?: number | null; sign?: string | null }) => ({ ...r, group_type: r.group_type ?? null, sort_order: r.sort_order ?? null, sign: r.sign ?? null })))
       if (cats.length > 0) { setRCategory(cats[0]); setBudgetCategory(cats[0]) }
       setRecurring(recd.recurring ?? [])
       const bRaw: Array<{ category: string; cardType: string; budget: number; isMonthly?: boolean; isFromMonth?: boolean; recordMonth?: string | null }> = budgetData.budgets ?? []
@@ -400,6 +400,15 @@ function SettingsContent() {
       body: JSON.stringify({ name, card_type, group_type }),
     })
     setCategoryRows(prev => prev.map(r => r.name === name && r.card_type === card_type ? { ...r, group_type } : r))
+  }
+
+  async function handleSetSign(name: string, card_type: string, sign: string | null) {
+    await fetch("/api/categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, card_type, sign }),
+    })
+    setCategoryRows(prev => prev.map(r => r.name === name && r.card_type === card_type ? { ...r, sign } : r))
   }
 
   // ドラッグ&ドロップによる並び替え
@@ -928,14 +937,19 @@ function SettingsContent() {
               ...GROUP_ORDER.filter(g => grouped[g]?.length),
               ...(ungrouped.length ? ["未設定"] : []),
             ]
-            // 収支差額: 収入/立替精算は+、支出/投資/貯蓄/立替費用は-、振替は0
-            const netBalance = filteredBudgets.reduce((s, b) => {
+            // 収支差額: signフィールド優先、未設定はgroup_typeで推測
+            const getEffectiveSign = (b: BudgetRow): number => {
+              const cat = categoryRows.find(r => r.name === b.category && r.card_type === b.card_type)
+              if (cat?.sign === "plus") return 1
+              if (cat?.sign === "minus") return -1
+              if (cat?.sign === "neutral") return 0
+              // sign未設定 → group_typeで推測
               const gt = groupTypeMap[`${b.category}:${b.card_type}`] ?? null
-              if (gt === "収入") return s + b.budget
-              if (gt === "振替") return s
-              if (gt === "立替") return b.category.includes("精算") ? s + b.budget : s - b.budget
-              return s - b.budget  // 支出・投資・貯蓄・未設定
-            }, 0)
+              if (gt === "収入") return 1
+              if (gt === "振替") return 0
+              return -1  // 支出・投資・貯蓄・立替・未設定
+            }
+            const netBalance = filteredBudgets.reduce((s, b) => s + b.budget * getEffectiveSign(b), 0)
 
             if (filteredBudgets.length === 0) return (
               <div className="bg-white rounded-xl shadow-sm p-6 text-center text-gray-400 text-xs">
@@ -1149,10 +1163,11 @@ function SettingsContent() {
                   if (visibleRows.length === 0) return <p className="text-xs text-gray-400 px-3 py-3">なし</p>
                   return (
                     <>
-                      <div className="grid grid-cols-[18px_1fr_auto_auto] bg-gray-50 border-b text-xs text-gray-500 font-medium">
+                      <div className="grid grid-cols-[18px_1fr_auto_auto_auto] bg-gray-50 border-b text-xs text-gray-500 font-medium">
                         <div></div>
                         <div className="px-2 py-1">カテゴリ名</div>
                         <div className="px-2 py-1">グループ</div>
+                        <div className="px-2 py-1 text-center">符号</div>
                         <div className="w-7"></div>
                       </div>
                       <div className="max-h-80 overflow-y-auto">
@@ -1172,7 +1187,7 @@ function SettingsContent() {
                                 setDragIdx(null)
                                 setDragOverIdx(null)
                               }}
-                              className={`grid grid-cols-[18px_1fr_auto_auto] items-center border-b last:border-b-0 border-l-2 transition-all
+                              className={`grid grid-cols-[18px_1fr_auto_auto_auto] items-center border-b last:border-b-0 border-l-2 transition-all
                                 ${gc ? gc.border : "border-l-transparent"}
                                 ${isDragging ? "opacity-40 bg-blue-50" : gc ? gc.light : "hover:bg-gray-50"}
                                 ${isDragOver ? "border-t-2 border-t-blue-400" : ""}
@@ -1198,6 +1213,29 @@ function SettingsContent() {
                                 <option value="">—</option>
                                 {GROUP_ORDER.map(g => <option key={g} value={g}>{g}</option>)}
                               </select>
+                              {(() => {
+                                // sign未設定時はgroup_typeから推測（表示のみ）
+                                const inferredSign = r.group_type === "収入" ? "plus" : r.group_type === "振替" ? "neutral" : "minus"
+                                const effSign = r.sign ?? inferredSign
+                                const isAuto = !r.sign
+                                // クリックで循環: plus→minus→neutral→null(auto)→plus
+                                const nextSign = r.sign === "plus" ? "minus" : r.sign === "minus" ? "neutral" : r.sign === "neutral" ? null : "plus"
+                                return (
+                                  <button
+                                    onClick={() => handleSetSign(r.name, r.card_type, nextSign)}
+                                    title={isAuto ? `自動判定: ${effSign === "plus" ? "＋収入" : effSign === "minus" ? "－支出" : "〜中立"}（クリックで手動設定）` : "クリックで変更"}
+                                    className={`w-8 py-1 text-xs font-bold leading-none border-l text-center transition-colors ${
+                                      effSign === "plus"
+                                        ? isAuto ? "text-green-400 bg-transparent" : "text-green-600 bg-green-50"
+                                        : effSign === "minus"
+                                        ? isAuto ? "text-red-300 bg-transparent" : "text-red-500 bg-red-50"
+                                        : isAuto ? "text-gray-300 bg-transparent" : "text-gray-500 bg-gray-50"
+                                    }`}
+                                  >
+                                    {effSign === "plus" ? "＋" : effSign === "minus" ? "－" : "〜"}
+                                  </button>
+                                )
+                              })()}
                               <button onClick={() => handleDeleteCategory(r.name)}
                                 className="w-7 py-1 text-gray-300 hover:text-red-500 text-base leading-none border-l text-center">×</button>
                             </div>

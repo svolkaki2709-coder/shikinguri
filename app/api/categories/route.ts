@@ -6,6 +6,7 @@ async function migrateCategories() {
   await sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS card_type TEXT NOT NULL DEFAULT 'self'`
   await sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS group_type TEXT`
   await sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS sort_order INTEGER`
+  await sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS sign TEXT`
   try {
     await sql`ALTER TABLE categories DROP CONSTRAINT IF EXISTS categories_name_key`
   } catch (_) { /* 無視 */ }
@@ -42,9 +43,9 @@ export async function GET(req: NextRequest) {
 
   let rows
   if (cardType) {
-    rows = await sql`SELECT name, card_type, group_type, sort_order FROM categories WHERE card_type = ${cardType} ORDER BY COALESCE(sort_order, 9999), name`
+    rows = await sql`SELECT name, card_type, group_type, sort_order, sign FROM categories WHERE card_type = ${cardType} ORDER BY COALESCE(sort_order, 9999), name`
   } else {
-    rows = await sql`SELECT name, card_type, group_type, sort_order FROM categories ORDER BY card_type, COALESCE(sort_order, 9999), name`
+    rows = await sql`SELECT name, card_type, group_type, sort_order, sign FROM categories ORDER BY card_type, COALESCE(sort_order, 9999), name`
   }
 
   return NextResponse.json({
@@ -54,6 +55,7 @@ export async function GET(req: NextRequest) {
       card_type: r.card_type as string,
       group_type: (r.group_type ?? null) as string | null,
       sort_order: (r.sort_order ?? null) as number | null,
+      sign: (r.sign ?? null) as string | null,
     })),
   })
 }
@@ -64,7 +66,7 @@ export async function POST(req: Request) {
 
   await migrateCategories()
 
-  const { name, card_type, group_type } = await req.json()
+  const { name, card_type, group_type, sign } = await req.json()
   if (!name) return NextResponse.json({ error: "名前が必要です" }, { status: 400 })
 
   const ct = card_type ?? "self"
@@ -77,6 +79,9 @@ export async function POST(req: Request) {
   } else {
     if (group_type !== undefined) {
       await sql`UPDATE categories SET group_type = ${group_type ?? null} WHERE name = ${name} AND card_type = ${ct}`
+    }
+    if (sign !== undefined) {
+      await sql`UPDATE categories SET sign = ${sign ?? null} WHERE name = ${name} AND card_type = ${ct}`
     }
   }
   return NextResponse.json({ success: true })
@@ -114,7 +119,7 @@ export async function PATCH(req: NextRequest) {
     )
   `
 
-  const rows = await sql`SELECT name, card_type, group_type, sort_order FROM categories ORDER BY card_type, COALESCE(sort_order, 9999), name`
+  const rows = await sql`SELECT name, card_type, group_type, sort_order, sign FROM categories ORDER BY card_type, COALESCE(sort_order, 9999), name`
   return NextResponse.json({
     categories: rows.map(r => r.name as string),
     rows: rows.map(r => ({
@@ -122,6 +127,7 @@ export async function PATCH(req: NextRequest) {
       card_type: r.card_type as string,
       group_type: (r.group_type ?? null) as string | null,
       sort_order: (r.sort_order ?? null) as number | null,
+      sign: (r.sign ?? null) as string | null,
     })),
   })
 }
