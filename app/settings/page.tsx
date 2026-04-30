@@ -308,33 +308,34 @@ function SettingsContent() {
     setBudgetMsg("")
     const monthValue = periodType === "monthly" ? null : budgetMonth
     const isFromMonth = periodType === "from_month"
-    await fetch("/api/budget", {
+    const res = await fetch("/api/budget", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ category: budgetCategory, amount: Number(budgetAmount), card_type: budgetCardType, month: monthValue, is_from_month: isFromMonth }),
     })
+    if (!res.ok) {
+      setBudgetMsg("保存に失敗しました")
+      setBudgetSaving(false)
+      return
+    }
     const msgMap = { monthly: "共通予算を設定しました", this_month: `${monthValue}の予算を設定しました`, from_month: `${monthValue}以降の予算を設定しました` }
     setBudgetMsg(msgMap[periodType])
-    // 楽観的更新: APIレスポンスを待たずに即時反映
-    const newBudget = Number(budgetAmount)
-    setExistingBudgets(prev => {
-      const exists = prev.some(b => b.category === budgetCategory && b.card_type === budgetCardType)
-      if (exists) {
-        return prev.map(b => b.category === budgetCategory && b.card_type === budgetCardType
-          ? { ...b, budget: newBudget, is_monthly: periodType !== "monthly" }
-          : b)
-      }
-      return [...prev, { category: budgetCategory, card_type: budgetCardType, budget: newBudget, is_monthly: periodType !== "monthly" }]
-    })
     setBudgetAmount("")
-    setBudgetSaving(false)
     setEditingBudgetKey(null)
-    // バックグラウンドで最新データを取得（キャッシュ無効化）
-    refreshBudgets()
+    // この月以降の場合、右側表示を保存した月に移動して変更を確認できるようにする
+    const targetMonth = isFromMonth && monthValue ? monthValue : budgetViewMonth
+    if (isFromMonth && monthValue && monthValue !== budgetViewMonth) {
+      setBudgetViewMonth(monthValue)
+    }
+    // 最新データを取得（保存した月で再取得）
+    const d = await fetch(`/api/budget?month=${targetMonth}&t=${Date.now()}`, { cache: "no-store" }).then(r => r.json())
+    const bRaw: Array<{ category: string; cardType: string; budget: number; isMonthly?: boolean; isFromMonth?: boolean; recordMonth?: string | null }> = d.budgets ?? []
+    setExistingBudgets(bRaw.map(b => ({ category: b.category, card_type: b.cardType, budget: b.budget, is_monthly: b.isMonthly ?? false, is_from_month: b.isFromMonth ?? false, record_month: b.recordMonth ?? null })))
+    setBudgetSaving(false)
   }
 
   async function refreshBudgets() {
-    const d = await fetch(`/api/budget?month=${budgetViewMonth}`, { cache: "no-store" }).then(r => r.json())
+    const d = await fetch(`/api/budget?month=${budgetViewMonth}&t=${Date.now()}`, { cache: "no-store" }).then(r => r.json())
     const bRaw: Array<{ category: string; cardType: string; budget: number; isMonthly?: boolean; isFromMonth?: boolean; recordMonth?: string | null }> = d.budgets ?? []
     setExistingBudgets(bRaw.map(b => ({ category: b.category, card_type: b.cardType, budget: b.budget, is_monthly: b.isMonthly ?? false, is_from_month: b.isFromMonth ?? false, record_month: b.recordMonth ?? null })))
   }
