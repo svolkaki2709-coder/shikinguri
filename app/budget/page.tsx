@@ -225,6 +225,23 @@ export default function BudgetPage() {
     })
   }, [months, yearGroups, yearFiltered, incomeByMonth, yearCardTypeFilter])
 
+  // ─── インライン予算編集 ────────────────────────────────────────
+  const [editingBudget, setEditingBudget] = useState<{ category: string; cardType: string; value: string } | null>(null)
+
+  async function handleBudgetSave(category: string, cardType: string, value: string) {
+    const amount = Number(value.replace(/,/g, ""))
+    if (isNaN(amount) || value.trim() === "") { setEditingBudget(null); return }
+    await fetch("/api/budget", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ category, amount, card_type: cardType }),
+    })
+    setBudgets(prev => prev.map(b =>
+      b.category === category && b.cardType === cardType ? { ...b, budget: amount } : b
+    ))
+    setEditingBudget(null)
+  }
+
   // ─── ドラッグ状態 ─────────────────────────────────────────────
   const [dragItem, setDragItem] = useState<{ group: string; idx: number } | null>(null)
   const [dragOverIdx, setDragOverIdx] = useState<{ group: string; idx: number } | null>(null)
@@ -356,7 +373,30 @@ export default function BudgetPage() {
                 </div>
                 <div className="flex justify-between text-[11px] text-gray-500">
                   <span>実績 {toJPY(b.actual)}</span>
-                  <span>予算 {b.budget > 0 ? toJPY(b.budget) : "—"}</span>
+                  {editingBudget?.category === b.category && editingBudget?.cardType === b.cardType ? (
+                    <input
+                      type="text"
+                      autoFocus
+                      value={editingBudget.value}
+                      onChange={e => setEditingBudget({ ...editingBudget, value: e.target.value })}
+                      onBlur={() => handleBudgetSave(b.category, b.cardType, editingBudget.value)}
+                      onKeyDown={e => {
+                        if (e.key === "Enter") handleBudgetSave(b.category, b.cardType, editingBudget.value)
+                        if (e.key === "Escape") setEditingBudget(null)
+                      }}
+                      onClick={e => e.stopPropagation()}
+                      onDragStart={e => e.stopPropagation()}
+                      className="w-24 text-right text-xs border border-blue-400 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-blue-400 bg-white"
+                    />
+                  ) : (
+                    <span
+                      onClick={e => { e.stopPropagation(); setEditingBudget({ category: b.category, cardType: b.cardType, value: b.budget > 0 ? String(b.budget) : "" }) }}
+                      className="cursor-pointer hover:text-blue-600 hover:underline"
+                      title="クリックして予算を編集"
+                    >
+                      予算 {b.budget > 0 ? toJPY(b.budget) : "—"}
+                    </span>
+                  )}
                 </div>
               </div>
             )

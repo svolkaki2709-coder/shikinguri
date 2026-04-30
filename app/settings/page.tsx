@@ -26,7 +26,7 @@ function toJPY(n: number) {
   return new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 }).format(n)
 }
 
-type Tab = "recurring" | "budget" | "plan" | "category"
+type Tab = "recurring" | "plan" | "category"
 
 export default function SettingsPage() {
   return (
@@ -44,7 +44,7 @@ function SettingsContent() {
   const { mode } = useViewMode()
   const isPC = mode === "pc"
 
-  const validTabs: Tab[] = ["recurring", "budget", "plan", "category"]
+  const validTabs: Tab[] = ["recurring", "plan", "category"]
   const initialTab = (searchParams.get("tab") as Tab | null)
   const [tab, setTabState] = useState<Tab>(validTabs.includes(initialTab as Tab) ? initialTab as Tab : "recurring")
 
@@ -154,11 +154,8 @@ function SettingsContent() {
     }
   }, [rEntryType, rUsageType, categories])
 
-  // 表示月が変わったら予算一覧を再取得
-  useEffect(() => {
-    if (tab === "budget") refreshBudgets()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [budgetViewMonth, tab])
+  // 予算タブ削除済み（予算管理ページからインライン編集）
+  // useEffect(() => { if (tab === "budget") refreshBudgets() }, [budgetViewMonth, tab])
 
   // 計画タブ or 月が変わったらデータ取得
   useEffect(() => {
@@ -407,7 +404,6 @@ function SettingsContent() {
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "recurring", label: "定期支出" },
-    { key: "budget", label: "予算" },
     { key: "plan", label: "計画" },
     { key: "category", label: "カテゴリ" },
   ]
@@ -558,244 +554,6 @@ function SettingsContent() {
                 })
               )}
             </div>
-          </div>
-        )}
-
-        {/* === 予算設定タブ === */}
-        {tab === "budget" && (
-          <div className={isPC ? "grid grid-cols-2 gap-4 items-start" : "space-y-3"}>
-          <div className={`bg-white rounded-xl shadow-sm p-3 space-y-3 ${editingBudgetKey ? "ring-2 ring-blue-400" : ""}`}>
-            <div className="flex justify-between items-center">
-              <h2 className="text-sm font-semibold text-gray-700">
-                {editingBudgetKey ? "予算を編集" : "予算を追加"}
-              </h2>
-              {editingBudgetKey && (
-                <button onClick={handleCancelEditBudget} className="text-xs text-gray-500 hover:text-gray-700">
-                  キャンセル
-                </button>
-              )}
-            </div>
-            <div>
-              <label className="text-xs text-gray-700 mb-1 block">対象</label>
-              <div className="flex gap-2">
-                <button type="button"
-                  onClick={() => {
-                    setBudgetCardType("self")
-                    if (editingBudgetKey) setEditingBudgetKey(null)
-                    // カテゴリを個人の先頭に切り替え
-                    const firstSelf = categoryRows.filter(r => r.card_type === "self")[0]
-                    if (firstSelf) setBudgetCategory(firstSelf.name)
-                    setBudgetAmount("")
-                    setBudgetMsg("")
-                  }}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${budgetCardType === "self" ? "bg-indigo-600 text-white border-indigo-600" : "border-gray-300 text-gray-600"}`}>
-                  個人
-                </button>
-                <button type="button"
-                  onClick={() => {
-                    setBudgetCardType("joint")
-                    if (editingBudgetKey) setEditingBudgetKey(null)
-                    // カテゴリを共用の先頭に切り替え
-                    const firstJoint = categoryRows.filter(r => r.card_type === "joint")[0]
-                    if (firstJoint) setBudgetCategory(firstJoint.name)
-                    setBudgetAmount("")
-                    setBudgetMsg("")
-                  }}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${budgetCardType === "joint" ? "bg-amber-500 text-white border-amber-500" : "border-gray-300 text-gray-600"}`}>
-                  共用
-                </button>
-              </div>
-            </div>
-            <div>
-              <label className="text-xs text-gray-700 mb-1 block">カテゴリ</label>
-              <select value={budgetCategory} onChange={e => setBudgetCategory(e.target.value)}
-                disabled={!!editingBudgetKey}
-                className="w-full border rounded-lg px-3 py-2 text-sm bg-white disabled:bg-gray-50 disabled:text-gray-600 text-gray-800">
-                {categoryRows
-                  .filter(r => r.card_type === budgetCardType)
-                  .sort((a, b) => {
-                    const ai = GROUP_ORDER.indexOf(a.group_type ?? "")
-                    const bi = GROUP_ORDER.indexOf(b.group_type ?? "")
-                    const aIdx = ai === -1 ? GROUP_ORDER.length : ai
-                    const bIdx = bi === -1 ? GROUP_ORDER.length : bi
-                    return aIdx !== bIdx ? aIdx - bIdx : a.name.localeCompare(b.name, "ja")
-                  })
-                  .map(r => <option key={r.name} value={r.name}>{r.name}</option>)}
-              </select>
-            </div>
-            {/* 適用期間：毎月共通 / この月だけ / この月以降 */}
-            <div>
-              <label className="text-xs text-gray-700 mb-1 block">適用期間</label>
-              <div className="flex gap-1 mb-2">
-                <button type="button"
-                  onClick={() => setPeriodType("monthly")}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${periodType === "monthly" ? "bg-blue-600 text-white border-blue-600" : "border-gray-300 text-gray-600"}`}>
-                  🔁 毎月共通
-                </button>
-                <button type="button"
-                  onClick={() => { setPeriodType("this_month"); setBudgetMonth(budgetViewMonth) }}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${periodType === "this_month" ? "bg-purple-600 text-white border-purple-600" : "border-gray-300 text-gray-600"}`}>
-                  📅 この月だけ
-                </button>
-                <button type="button"
-                  onClick={() => { setPeriodType("from_month"); setBudgetMonth(budgetViewMonth) }}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${periodType === "from_month" ? "bg-green-600 text-white border-green-600" : "border-gray-300 text-gray-600"}`}>
-                  ⏩ この月以降
-                </button>
-              </div>
-              {periodType !== "monthly" && (
-                <input type="month" value={budgetMonth} onChange={e => setBudgetMonth(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-1.5 text-sm bg-white text-gray-800" />
-              )}
-            </div>
-            <div>
-              <label className="text-xs text-gray-700 mb-1 block">月間予算（円）</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm">¥</span>
-                <input type="text" inputMode="numeric" value={budgetAmount ? Number(budgetAmount.replace(/,/g, "")).toLocaleString("ja-JP") : ""}
-                  onChange={e => { const raw = e.target.value.replace(/,/g, ""); if (raw === "" || /^\d+$/.test(raw)) setBudgetAmount(raw) }}
-                  placeholder="0" className="w-full border rounded-lg pl-7 pr-3 py-2 text-sm text-gray-800" />
-              </div>
-            </div>
-            {budgetError && <p className="text-xs text-red-600 bg-red-50 rounded px-2 py-1">❌ {budgetError}</p>}
-            {budgetMsg && <p className="text-xs text-green-600">✅ {budgetMsg}</p>}
-            <button onClick={handleSaveBudget} disabled={budgetSaving || !budgetCategory || !budgetAmount}
-              className="w-full bg-blue-600 text-white rounded-lg py-2.5 text-sm font-semibold disabled:opacity-50">
-              {budgetSaving ? "保存中..." : editingBudgetKey ? "金額を更新" : "予算を設定"}
-            </button>
-          </div>
-
-          {/* 右列: 月ナビ + 予算一覧 */}
-          <div className="space-y-2">
-          {/* 表示月ナビ */}
-          <div className="flex items-center gap-1 bg-white rounded-lg border px-2 py-1.5">
-            <button onClick={() => { const [y,mo] = budgetViewMonth.split("-").map(Number); const d = new Date(y, mo-2, 1); setBudgetViewMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`) }}
-              className="text-gray-600 hover:text-blue-600 px-1 font-bold">‹</button>
-            <input type="month" value={budgetViewMonth} onChange={e => setBudgetViewMonth(e.target.value)}
-              className="flex-1 text-center text-xs font-semibold text-gray-800 border-0 outline-none bg-transparent" />
-            <button onClick={() => { const [y,mo] = budgetViewMonth.split("-").map(Number); const d = new Date(y, mo, 1); setBudgetViewMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`) }}
-              className="text-gray-600 hover:text-blue-600 px-1 font-bold">›</button>
-          </div>
-
-          {/* 設定済み予算一覧（budgetCardTypeでフィルタ・グループ別カラーコーディング） */}
-          {(() => {
-            // 左トグルで選択中の種別のみ表示
-            const filteredBudgets = existingBudgets.filter(b => b.card_type === budgetCardType)
-            const isJoint = budgetCardType === "joint"
-
-            // カテゴリのgroup_typeをlookup
-            const groupTypeMap: Record<string, string | null> = {}
-            for (const r of categoryRows) {
-              groupTypeMap[`${r.name}:${r.card_type}`] = r.group_type
-            }
-
-            // グループ別に分類
-            const grouped: Record<string, BudgetRow[]> = {}
-            const ungrouped: BudgetRow[] = []
-            for (const b of filteredBudgets) {
-              const gt = groupTypeMap[`${b.category}:${b.card_type}`] ?? null
-              if (gt && GROUP_ORDER.includes(gt)) {
-                if (!grouped[gt]) grouped[gt] = []
-                grouped[gt].push(b)
-              } else {
-                ungrouped.push(b)
-              }
-            }
-            const allGroups = [
-              ...GROUP_ORDER.filter(g => grouped[g]?.length),
-              ...(ungrouped.length ? ["未設定"] : []),
-            ]
-            // 収支差額: signフィールド優先、未設定はgroup_typeで推測
-            const getEffectiveSign = (b: BudgetRow): number => {
-              const cat = categoryRows.find(r => r.name === b.category && r.card_type === b.card_type)
-              if (cat?.sign === "plus") return 1
-              if (cat?.sign === "minus") return -1
-              if (cat?.sign === "neutral") return 0
-              // sign未設定 → group_typeで推測
-              const gt = groupTypeMap[`${b.category}:${b.card_type}`] ?? null
-              if (gt === "収入") return 1
-              if (gt === "振替") return 0
-              if (gt === "立替") return b.category.includes("精算") ? 1 : -1
-              return -1  // 支出・投資・貯蓄・未設定
-            }
-            const netBalance = filteredBudgets.reduce((s, b) => s + b.budget * getEffectiveSign(b), 0)
-
-            if (filteredBudgets.length === 0) return (
-              <div className="bg-white rounded-xl shadow-sm p-6 text-center text-gray-400 text-xs">
-                {isJoint ? "共用" : "個人"}の予算がまだ設定されていません
-              </div>
-            )
-
-            return (
-              <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-                <div className={`px-3 py-2 border-b flex justify-between items-center ${isJoint ? "bg-amber-50" : "bg-indigo-50"}`}>
-                  <h2 className={`text-xs font-semibold ${isJoint ? "text-amber-700" : "text-indigo-700"}`}>
-                    {isJoint ? "共用" : "個人"}の設定済み予算
-                  </h2>
-                  <span className="text-xs text-gray-400">クリックして編集</span>
-                </div>
-                {allGroups.map(group => {
-                  const rows = group === "未設定" ? ungrouped : (grouped[group] ?? [])
-                  const gc = GROUP_COLORS[group]
-                  // 符号を考慮したグループ小計（立替精算=+, 立替費用=- などが相殺される）
-                  const groupTotal = rows.reduce((s, b) => s + b.budget * getEffectiveSign(b), 0)
-                  return (
-                    <div key={group}>
-                      {/* グループヘッダー */}
-                      <div className={`flex items-center justify-between px-3 py-1.5 border-b border-l-2 ${gc ? `${gc.light} ${gc.border} ${gc.text}` : "bg-gray-50 border-l-gray-300 text-gray-500"}`}>
-                        <div className="flex items-center gap-1.5">
-                          {gc
-                            ? <span className={`text-[10px] px-1 py-0.5 rounded text-white font-bold ${gc.bg}`}>{group}</span>
-                            : <span className="text-xs font-medium">{group}</span>
-                          }
-                        </div>
-                        <span className={`text-xs font-semibold ${groupTotal < 0 ? "text-red-500" : ""}`}>
-                          {groupTotal > 0 ? "+" : ""}{toJPY(groupTotal)}
-                        </span>
-                      </div>
-                      {/* カテゴリ行 */}
-                      {rows.map(b => {
-                        const key = `${b.category}:${b.card_type}`
-                        const isEditing = editingBudgetKey === key
-                        return (
-                          <div
-                            key={key}
-                            className={`flex items-center justify-between px-3 py-2 border-b last:border-b-0 cursor-pointer transition-colors border-l-2 ${gc ? gc.border : "border-l-transparent"} ${isEditing ? "bg-blue-50" : "hover:bg-gray-50"}`}
-                            onClick={() => handleEditBudget(b)}
-                          >
-                            <div className="flex items-center gap-1.5">
-                              <span className={`text-xs ${isEditing ? "text-blue-700 font-medium" : "text-gray-700"}`}>{b.category}</span>
-                              {b.is_from_month && (
-                                <span className="text-[10px] px-1 py-0.5 rounded bg-green-100 text-green-700 font-medium">以降</span>
-                              )}
-                              {b.is_monthly && !b.is_from_month && (
-                                <span className="text-[10px] px-1 py-0.5 rounded bg-purple-100 text-purple-700 font-medium">月別</span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className={`text-xs font-medium ${isEditing ? "text-blue-600" : "text-gray-700"}`}>{toJPY(b.budget)}</span>
-                              {isEditing
-                                ? <span className="text-blue-400 text-[10px] font-medium">編集中</span>
-                                : <button
-                                    onClick={e => { e.stopPropagation(); handleDeleteBudget(b.category, b.card_type, b.record_month) }}
-                                    className="text-gray-300 hover:text-red-400 text-lg leading-none w-5">×</button>
-                              }
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )
-                })}
-                {/* 収支差額 */}
-                <div className={`flex justify-between items-center px-3 py-2 ${netBalance >= 0 ? (isJoint ? "bg-amber-600" : "bg-indigo-700") : "bg-red-600"} text-white`}>
-                  <span className="text-xs font-bold">月次収支（予算ベース）</span>
-                  <span className="text-xs font-bold">{netBalance >= 0 ? "+" : ""}{toJPY(netBalance)}</span>
-                </div>
-              </div>
-            )
-          })()}
-          </div>{/* /右列 */}
           </div>
         )}
 
