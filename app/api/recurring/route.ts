@@ -45,15 +45,18 @@ export async function DELETE(req: NextRequest) {
   return NextResponse.json({ success: true })
 }
 
-// 定期支出を当月に一括生成
+// 定期支出を当月に生成（id指定で個別、省略で一括）
 export async function PUT(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { month } = await req.json()
+  const { month, id } = await req.json()
   if (!month) return NextResponse.json({ error: "month は必須です" }, { status: 400 })
 
-  const recurring = await sql`SELECT * FROM recurring_expenses WHERE active = TRUE`
+  const recurring = id
+    ? await sql`SELECT * FROM recurring_expenses WHERE active = TRUE AND id = ${Number(id)}`
+    : await sql`SELECT * FROM recurring_expenses WHERE active = TRUE`
+
   let count = 0
   for (const r of recurring) {
     const day = String(r.day_of_month).padStart(2, "0")

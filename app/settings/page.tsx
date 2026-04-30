@@ -241,6 +241,22 @@ function SettingsContent() {
     alert(`${d.count}件の定期支出を ${m} に生成しました`)
   }
 
+  async function handleGenerateSingle(r: Recurring) {
+    const m = prompt(`「${r.category}」を生成する月を入力してください（例: 2025-01）`, defaultMonth)
+    if (!m) return
+    const res = await fetch("/api/recurring", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ month: m, id: r.id }),
+    })
+    const d = await res.json()
+    if (d.count > 0) {
+      alert(`「${r.category}」を ${m} に生成しました`)
+    } else {
+      alert("生成できませんでした")
+    }
+  }
+
   async function fetchMonthIncomes(m?: string, ct?: string) {
     const target = m ?? incomeMonth
     const cardType = ct ?? incomeCardType
@@ -576,6 +592,10 @@ function SettingsContent() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold text-gray-700">{toJPY(r.amount)}</span>
+                      <button onClick={() => handleGenerateSingle(r)}
+                        className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded font-medium hover:bg-green-200">
+                        生成
+                      </button>
                       <button onClick={() => handleDeleteRecurring(r.id)}
                         className="text-gray-300 hover:text-red-400 text-xl leading-none w-6">×</button>
                     </div>
