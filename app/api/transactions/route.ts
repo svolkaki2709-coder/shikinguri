@@ -6,14 +6,14 @@ export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { date, card_id, category, amount, memo } = await req.json()
+  const { date, card_id, category, amount, memo, source } = await req.json()
   if (!date || !card_id || !category || !amount) {
     return NextResponse.json({ error: "必須項目が不足しています" }, { status: 400 })
   }
 
   const result = await sql`
     INSERT INTO transactions (date, card_id, category, amount, memo, source)
-    VALUES (${date}, ${Number(card_id)}, ${category}, ${Number(amount)}, ${memo ?? ""}, 'manual')
+    VALUES (${date}, ${Number(card_id)}, ${category}, ${Number(amount)}, ${memo ?? ""}, ${source ?? "manual"})
     RETURNING *
   `
   return NextResponse.json({ transaction: result[0] })
