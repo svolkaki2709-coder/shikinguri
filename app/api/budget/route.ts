@@ -101,7 +101,6 @@ export async function PUT(req: NextRequest) {
 
   if (month) {
     // この月以降: 同カテゴリの既存 is_from_month レコードをすべて削除してから新規登録
-    // （複数レコードが競合して意図しない優先順位になる問題を防ぐ）
     if (is_from_month) {
       await sql`DELETE FROM budgets WHERE category = ${category} AND card_type = ${card_type ?? "self"} AND is_from_month = TRUE`
     }
@@ -112,7 +111,6 @@ export async function PUT(req: NextRequest) {
     `
   } else {
     // デフォルト予算（month = NULL）
-    // NULLはON CONFLICTで扱えないのでUPSERT的に処理
     const existing = await sql`SELECT id FROM budgets WHERE category = ${category} AND card_type = ${card_type ?? "self"} AND month IS NULL`
     if (existing.length > 0) {
       await sql`UPDATE budgets SET amount = ${Number(amount)} WHERE category = ${category} AND card_type = ${card_type ?? "self"} AND month IS NULL`
@@ -120,7 +118,9 @@ export async function PUT(req: NextRequest) {
       await sql`INSERT INTO budgets (category, amount, card_type, month) VALUES (${category}, ${Number(amount)}, ${card_type ?? "self"}, NULL)`
     }
   }
-  return NextResponse.json({ success: true })
+  // 保存後のレコードを返す（デバッグ用）
+  const saved = await sql`SELECT category, card_type, amount, month, is_from_month FROM budgets WHERE category = ${category} AND card_type = ${card_type ?? "self"} ORDER BY month DESC NULLS LAST`
+  return NextResponse.json({ success: true, saved: saved.map(r => ({ category: r.category, cardType: r.card_type, amount: Number(r.amount), month: r.month, isFromMonth: r.is_from_month })) })
 }
 
 export async function DELETE(req: NextRequest) {
