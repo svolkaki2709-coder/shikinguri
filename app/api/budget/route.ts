@@ -74,7 +74,9 @@ export async function GET(req: NextRequest) {
     cardType: b.card_type,
     budget: Number(b.amount),
     actual: actualMap[`${b.category}__${b.card_type}`] ?? 0,
-    isMonthly: b.month === month,
+    isMonthly: b.month === month && !b.is_from_month,
+    isFromMonth: b.is_from_month === true,
+    recordMonth: b.month ?? null,
     groupType: (b.group_type ?? null) as string | null,
     sortOrder: (b.sort_order ?? null) as number | null,
   }))

@@ -9,7 +9,7 @@ import { useViewMode } from "@/components/ViewModeContext"
 interface Card { id: number; name: string; card_type: string; color: string }
 interface Recurring { id: number; day_of_month: number; card_id: number; card_name: string; color: string; category: string; amount: number; memo: string }
 interface Category { name: string }
-interface BudgetRow { category: string; card_type: string; budget: number; is_monthly?: boolean }
+interface BudgetRow { category: string; card_type: string; budget: number; is_monthly?: boolean; is_from_month?: boolean; record_month?: string | null }
 interface IncomeRecord { id: number; date: string; amount: number; category: string; memo: string }
 interface StoreRule { id: number; keyword: string; category: string }
 
@@ -140,8 +140,8 @@ function SettingsContent() {
       setCategoryRows((catd.rows ?? []).map((r: { name: string; card_type: string; group_type?: string | null; sort_order?: number | null }) => ({ ...r, group_type: r.group_type ?? null, sort_order: r.sort_order ?? null })))
       if (cats.length > 0) { setRCategory(cats[0]); setBudgetCategory(cats[0]) }
       setRecurring(recd.recurring ?? [])
-      const bRaw: Array<{ category: string; cardType: string; budget: number; isMonthly?: boolean }> = budgetData.budgets ?? []
-      setExistingBudgets(bRaw.map(b => ({ category: b.category, card_type: b.cardType, budget: b.budget, is_monthly: b.isMonthly ?? false })))
+      const bRaw: Array<{ category: string; cardType: string; budget: number; isMonthly?: boolean; isFromMonth?: boolean; recordMonth?: string | null }> = budgetData.budgets ?? []
+      setExistingBudgets(bRaw.map(b => ({ category: b.category, card_type: b.cardType, budget: b.budget, is_monthly: b.isMonthly ?? false, is_from_month: b.isFromMonth ?? false, record_month: b.recordMonth ?? null })))
     })
   }, [])
 
@@ -335,8 +335,8 @@ function SettingsContent() {
 
   async function refreshBudgets() {
     const d = await fetch(`/api/budget?month=${budgetViewMonth}`, { cache: "no-store" }).then(r => r.json())
-    const bRaw: Array<{ category: string; cardType: string; budget: number; isMonthly?: boolean }> = d.budgets ?? []
-    setExistingBudgets(bRaw.map(b => ({ category: b.category, card_type: b.cardType, budget: b.budget, is_monthly: b.isMonthly ?? false })))
+    const bRaw: Array<{ category: string; cardType: string; budget: number; isMonthly?: boolean; isFromMonth?: boolean; recordMonth?: string | null }> = d.budgets ?? []
+    setExistingBudgets(bRaw.map(b => ({ category: b.category, card_type: b.cardType, budget: b.budget, is_monthly: b.isMonthly ?? false, is_from_month: b.isFromMonth ?? false, record_month: b.recordMonth ?? null })))
   }
 
   function handleEditBudget(b: BudgetRow) {
@@ -344,8 +344,16 @@ function SettingsContent() {
     setBudgetCategory(b.category)
     setBudgetAmount(String(b.budget))
     setBudgetMsg("")
-    setPeriodType(b.is_monthly ? "this_month" : "monthly")
-    setBudgetMonth(budgetViewMonth)
+    if (b.is_from_month) {
+      setPeriodType("from_month")
+      setBudgetMonth(b.record_month ?? budgetViewMonth)
+    } else if (b.is_monthly) {
+      setPeriodType("this_month")
+      setBudgetMonth(b.record_month ?? budgetViewMonth)
+    } else {
+      setPeriodType("monthly")
+      setBudgetMonth(budgetViewMonth)
+    }
     setEditingBudgetKey(`${b.category}:${b.card_type}`)
   }
 
@@ -355,9 +363,10 @@ function SettingsContent() {
     setBudgetMsg("")
   }
 
-  async function handleDeleteBudget(category: string, cardType: string) {
+  async function handleDeleteBudget(category: string, cardType: string, recordMonth?: string | null) {
     if (!confirm(`「${category}」の予算を削除しますか？`)) return
-    await fetch(`/api/budget?category=${encodeURIComponent(category)}&card_type=${cardType}`, { method: "DELETE" })
+    const monthParam = recordMonth ? `&month=${encodeURIComponent(recordMonth)}` : ""
+    await fetch(`/api/budget?category=${encodeURIComponent(category)}&card_type=${cardType}${monthParam}`, { method: "DELETE" })
     setExistingBudgets(prev => prev.filter(b => !(b.category === category && b.card_type === cardType)))
   }
 
@@ -970,7 +979,10 @@ function SettingsContent() {
                           >
                             <div className="flex items-center gap-1.5">
                               <span className={`text-xs ${isEditing ? "text-blue-700 font-medium" : "text-gray-700"}`}>{b.category}</span>
-                              {b.is_monthly && (
+                              {b.is_from_month && (
+                                <span className="text-[10px] px-1 py-0.5 rounded bg-green-100 text-green-700 font-medium">以降</span>
+                              )}
+                              {b.is_monthly && !b.is_from_month && (
                                 <span className="text-[10px] px-1 py-0.5 rounded bg-purple-100 text-purple-700 font-medium">月別</span>
                               )}
                             </div>
@@ -979,7 +991,7 @@ function SettingsContent() {
                               {isEditing
                                 ? <span className="text-blue-400 text-[10px] font-medium">編集中</span>
                                 : <button
-                                    onClick={e => { e.stopPropagation(); handleDeleteBudget(b.category, b.card_type) }}
+                                    onClick={e => { e.stopPropagation(); handleDeleteBudget(b.category, b.card_type, b.record_month) }}
                                     className="text-gray-300 hover:text-red-400 text-lg leading-none w-5">×</button>
                               }
                             </div>
