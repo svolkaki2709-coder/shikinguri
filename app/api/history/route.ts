@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   const keyword = searchParams.get("keyword") || null
   const category = searchParams.get("category") || null
   const month = searchParams.get("month") || null
-  const cardId = searchParams.get("card_id") || null
+  const cardType = searchParams.get("card_type") || null  // "self" | "joint" | null
   const keywordLike = keyword ? `%${keyword}%` : null
 
   const rows = await sql`
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
     LEFT JOIN cards c ON t.card_id = c.id
     WHERE (${month}::text IS NULL OR TO_CHAR(t.date, 'YYYY-MM') = ${month})
       AND (${category}::text IS NULL OR t.category = ${category})
-      AND (${cardId}::text IS NULL OR t.card_id = ${cardId}::int)
+      AND (${cardType}::text IS NULL OR c.card_type = ${cardType})
       AND (${keywordLike}::text IS NULL
            OR t.memo ILIKE ${keywordLike}
            OR t.category ILIKE ${keywordLike})
