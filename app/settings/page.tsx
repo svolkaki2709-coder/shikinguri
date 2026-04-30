@@ -501,7 +501,7 @@ function SettingsContent() {
                 <div className="col-span-1">
                   <label className="text-xs text-gray-700 mb-1 block">引き落とし日</label>
                   <select value={rDay} onChange={e => setRDay(e.target.value)}
-                    className="w-full border rounded-lg px-2 py-2 text-sm bg-white">
+                    className="w-full border rounded-lg px-2 py-2 text-sm bg-white text-gray-800">
                     {Array.from({ length: 28 }, (_, i) => i + 1).map(d => (
                       <option key={d} value={d}>{d}日</option>
                     ))}
