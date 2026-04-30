@@ -57,17 +57,30 @@ export async function GET(req: NextRequest) {
       b.month DESC NULLS LAST
   `
 
-  const actuals = await sql`
-    SELECT t.category, c.card_type, SUM(t.amount) AS actual
-    FROM transactions t
-    LEFT JOIN cards c ON t.card_id = c.id
-    WHERE TO_CHAR(t.date, 'YYYY-MM') = ${month}
-    GROUP BY t.category, c.card_type
-  `
+  const [actuals, incomeActuals] = await Promise.all([
+    sql`
+      SELECT t.category, c.card_type, SUM(t.amount) AS actual
+      FROM transactions t
+      LEFT JOIN cards c ON t.card_id = c.id
+      WHERE TO_CHAR(t.date, 'YYYY-MM') = ${month}
+      GROUP BY t.category, c.card_type
+    `,
+    sql`
+      SELECT category, card_type, SUM(amount) AS actual
+      FROM incomes
+      WHERE TO_CHAR(date, 'YYYY-MM') = ${month}
+      GROUP BY category, card_type
+    `,
+  ])
 
   const actualMap: Record<string, number> = {}
   for (const r of actuals) {
     actualMap[`${r.category}__${r.card_type}`] = Number(r.actual)
+  }
+  // 収入テーブルの実績を合算
+  for (const r of incomeActuals) {
+    const key = `${r.category}__${r.card_type}`
+    actualMap[key] = (actualMap[key] ?? 0) + Number(r.actual)
   }
 
   const rows = budgets.map((b) => ({
