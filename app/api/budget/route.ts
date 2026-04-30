@@ -7,10 +7,22 @@ async function migrateBudgets() {
   await sql`ALTER TABLE budgets ADD COLUMN IF NOT EXISTS month TEXT`
   // is_from_month カラム追加（TRUE = 'この月以降'）
   await sql`ALTER TABLE budgets ADD COLUMN IF NOT EXISTS is_from_month BOOLEAN DEFAULT FALSE`
-  // (category, card_type, month) のユニーク制約に変更
+  // 古い (category, card_type) 2カラムのユニーク制約を削除（PL/pgSQLで確実に実行）
   try {
-    await sql`ALTER TABLE budgets DROP CONSTRAINT IF EXISTS budgets_category_card_type_key`
+    await sql`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conrelid = 'budgets'::regclass
+            AND conname = 'budgets_category_card_type_key'
+        ) THEN
+          ALTER TABLE budgets DROP CONSTRAINT budgets_category_card_type_key;
+        END IF;
+      END $$
+    `
   } catch (_) { /* 無視 */ }
+  // 新しい (category, card_type, month) 3カラムのユニーク制約を追加
   try {
     await sql`
       DO $$ BEGIN
@@ -95,34 +107,37 @@ export async function PUT(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  await migrateBudgets()
+  try {
+    await migrateBudgets()
 
-  const { category, amount, card_type, month, is_from_month } = await req.json()
+    const { category, amount, card_type, month, is_from_month } = await req.json()
 
-  if (month) {
-    if (is_from_month) {
-      // この月以降: 同カテゴリの既存 is_from_month レコードを全削除してから新規挿入
-      await sql`DELETE FROM budgets WHERE category = ${category} AND card_type = ${card_type ?? "self"} AND COALESCE(is_from_month, FALSE) = TRUE`
+    if (month) {
+      if (is_from_month) {
+        // この月以降: 同カテゴリの既存 is_from_month レコードを全削除してから新規挿入
+        await sql`DELETE FROM budgets WHERE category = ${category} AND card_type = ${card_type ?? "self"} AND COALESCE(is_from_month, FALSE) = TRUE`
+      }
+      // 同じ month のレコードを削除（制約違反を防ぐ）
+      await sql`DELETE FROM budgets WHERE category = ${category} AND card_type = ${card_type ?? "self"} AND month = ${month}`
+      await sql`
+        INSERT INTO budgets (category, amount, card_type, month, is_from_month)
+        VALUES (${category}, ${Number(amount)}, ${card_type ?? "self"}, ${month}, ${!!is_from_month})
+      `
     } else {
-      // この月だけ: 同月の既存レコードを削除してから新規挿入
-      await sql`DELETE FROM budgets WHERE category = ${category} AND card_type = ${card_type ?? "self"} AND month = ${month} AND COALESCE(is_from_month, FALSE) = FALSE`
+      // デフォルト予算（month = NULL）
+      const existing = await sql`SELECT id FROM budgets WHERE category = ${category} AND card_type = ${card_type ?? "self"} AND month IS NULL`
+      if (existing.length > 0) {
+        await sql`UPDATE budgets SET amount = ${Number(amount)} WHERE category = ${category} AND card_type = ${card_type ?? "self"} AND month IS NULL`
+      } else {
+        await sql`INSERT INTO budgets (category, amount, card_type, month) VALUES (${category}, ${Number(amount)}, ${card_type ?? "self"}, NULL)`
+      }
     }
-    await sql`
-      INSERT INTO budgets (category, amount, card_type, month, is_from_month)
-      VALUES (${category}, ${Number(amount)}, ${card_type ?? "self"}, ${month}, ${!!is_from_month})
-    `
-  } else {
-    // デフォルト予算（month = NULL）
-    const existing = await sql`SELECT id FROM budgets WHERE category = ${category} AND card_type = ${card_type ?? "self"} AND month IS NULL`
-    if (existing.length > 0) {
-      await sql`UPDATE budgets SET amount = ${Number(amount)} WHERE category = ${category} AND card_type = ${card_type ?? "self"} AND month IS NULL`
-    } else {
-      await sql`INSERT INTO budgets (category, amount, card_type, month) VALUES (${category}, ${Number(amount)}, ${card_type ?? "self"}, NULL)`
-    }
+    return NextResponse.json({ success: true })
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error("[PUT /api/budget] error:", msg)
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
-  // 保存後のレコードを返す（デバッグ用）
-  const saved = await sql`SELECT category, card_type, amount, month, is_from_month FROM budgets WHERE category = ${category} AND card_type = ${card_type ?? "self"} ORDER BY month DESC NULLS LAST`
-  return NextResponse.json({ success: true, saved: saved.map(r => ({ category: r.category, cardType: r.card_type, amount: Number(r.amount), month: r.month, isFromMonth: r.is_from_month })) })
 }
 
 export async function DELETE(req: NextRequest) {
