@@ -30,3 +30,22 @@ export async function POST(req: NextRequest) {
   `
   return NextResponse.json({ card: result[0] })
 }
+
+export async function DELETE(req: NextRequest) {
+  const session = await auth()
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const { searchParams } = new URL(req.url)
+  const id = searchParams.get("id")
+  const reassignId = searchParams.get("reassign_to")  // 移行先カードID
+  if (!id) return NextResponse.json({ error: "id は必須です" }, { status: 400 })
+
+  // 移行先が指定されていれば、このカードのトランザクションを付け替え
+  if (reassignId) {
+    await sql`UPDATE transactions SET card_id = ${Number(reassignId)} WHERE card_id = ${Number(id)}`
+    await sql`UPDATE recurring_expenses SET card_id = ${Number(reassignId)} WHERE card_id = ${Number(id)}`
+  }
+
+  await sql`DELETE FROM cards WHERE id = ${Number(id)}`
+  return NextResponse.json({ success: true })
+}

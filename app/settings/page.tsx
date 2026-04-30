@@ -325,6 +325,19 @@ function SettingsContent() {
     setExistingBudgets(prev => prev.filter(b => !(b.category === category && b.card_type === cardType)))
   }
 
+  async function handleDeleteCard(card: Card) {
+    const sameType = cards.filter(c => c.card_type === card.card_type && c.id !== card.id)
+    if (sameType.length === 0) {
+      alert("同じ種別のカードが他にないため削除できません。")
+      return
+    }
+    const reassign = sameType[0]
+    if (!confirm(`「${card.name}」を削除します。\nこのカードの明細は「${reassign.name}」に移行されます。\nよろしいですか？`)) return
+    await fetch(`/api/cards?id=${card.id}&reassign_to=${reassign.id}`, { method: "DELETE" })
+    const d = await fetch("/api/cards").then(r => r.json())
+    setCards(d.cards ?? [])
+  }
+
   async function fetchStoreRules(q = "") {
     const data = await fetch(`/api/store-rules?q=${encodeURIComponent(q)}`).then(r => r.json())
     setStoreRules(data.rules ?? [])
@@ -1165,14 +1178,37 @@ function SettingsContent() {
             </div>
           )
 
+          const CardBlock = () => (
+            <div className="bg-white rounded-xl shadow-sm p-3 space-y-2">
+              <h2 className="text-xs font-semibold text-gray-700">カード管理</h2>
+              <div className="border rounded-lg overflow-hidden">
+                {cards.map(c => (
+                  <div key={c.id} className="flex items-center gap-2 px-3 py-2 border-b last:border-0">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
+                    <span className="text-xs font-medium text-gray-800 flex-1">{c.name}</span>
+                    <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${c.card_type === "joint" ? "bg-amber-100 text-amber-700" : "bg-indigo-100 text-indigo-700"}`}>
+                      {c.card_type === "joint" ? "共用" : "個人"}
+                    </span>
+                    <button onClick={() => handleDeleteCard(c)}
+                      className="text-gray-300 hover:text-red-400 text-lg leading-none w-5 shrink-0">×</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+
           return isPC ? (
             <div className="grid grid-cols-3 gap-4 items-start">
-              {CategoryBlock()}
+              <div className="space-y-4">
+                {CardBlock()}
+                {CategoryBlock()}
+              </div>
               {RulesBlock()}
               {UncategorizedBlock()}
             </div>
           ) : (
             <div className="space-y-3">
+              {CardBlock()}
               {CategoryBlock()}
               {UncategorizedBlock()}
               {RulesBlock()}
