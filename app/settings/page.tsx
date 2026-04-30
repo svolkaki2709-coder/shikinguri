@@ -523,21 +523,23 @@ function SettingsContent() {
                 <div>
                   <label className="text-xs text-gray-700 mb-1 block">カテゴリ</label>
                   <select value={rCategory} onChange={e => setRCategory(e.target.value)}
-                    className="w-full border rounded-lg px-2 py-2 text-sm bg-white">
+                    className="w-full border rounded-lg px-2 py-2 text-sm bg-white text-gray-800">
                     {categories.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="text-xs text-gray-700 mb-1 block">金額（円）</label>
-                  <input type="number" value={rAmount} onChange={e => setRAmount(e.target.value)}
-                    placeholder="0" className="w-full border rounded-lg px-2 py-2 text-sm" />
+                  <input type="text" inputMode="numeric"
+                    value={rAmount ? Number(rAmount.replace(/,/g, "")).toLocaleString("ja-JP") : ""}
+                    onChange={e => { const raw = e.target.value.replace(/,/g, ""); if (raw === "" || /^\d+$/.test(raw)) setRAmount(raw) }}
+                    placeholder="0" className="w-full border rounded-lg px-2 py-2 text-sm text-gray-800" />
                 </div>
               </div>
               <div>
                 <label className="text-xs text-gray-700 mb-1 block">メモ（任意）</label>
                 <input type="text" value={rMemo} onChange={e => setRMemo(e.target.value)}
                   placeholder="例：Netflix サブスク"
-                  className="w-full border rounded-lg px-3 py-2 text-sm" />
+                  className="w-full border rounded-lg px-3 py-2 text-sm text-gray-800" />
               </div>
               <button onClick={handleAddRecurring} disabled={rSaving || !rCardId || !rAmount}
                 className="w-full bg-blue-600 text-white rounded-lg py-2.5 text-sm font-semibold disabled:opacity-50">
@@ -947,7 +949,8 @@ function SettingsContent() {
               const gt = groupTypeMap[`${b.category}:${b.card_type}`] ?? null
               if (gt === "収入") return 1
               if (gt === "振替") return 0
-              return -1  // 支出・投資・貯蓄・立替・未設定
+              if (gt === "立替") return b.category.includes("精算") ? 1 : -1
+              return -1  // 支出・投資・貯蓄・未設定
             }
             const netBalance = filteredBudgets.reduce((s, b) => s + b.budget * getEffectiveSign(b), 0)
 
