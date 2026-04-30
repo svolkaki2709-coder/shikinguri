@@ -10,7 +10,6 @@ interface Card { id: number; name: string; card_type: string; color: string }
 interface Recurring { id: number; day_of_month: number; card_id: number; card_name: string; color: string; category: string; amount: number; memo: string }
 interface Category { name: string }
 interface BudgetRow { category: string; card_type: string; budget: number; is_monthly?: boolean; is_from_month?: boolean; record_month?: string | null }
-interface IncomeRecord { id: number; date: string; amount: number; category: string; memo: string }
 interface StoreRule { id: number; keyword: string; category: string }
 
 const GROUP_ORDER = ["収入", "支出", "振替", "投資", "貯蓄", "立替"]
@@ -27,7 +26,7 @@ function toJPY(n: number) {
   return new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 }).format(n)
 }
 
-type Tab = "recurring" | "income" | "budget" | "plan" | "category"
+type Tab = "recurring" | "budget" | "plan" | "category"
 
 export default function SettingsPage() {
   return (
@@ -45,7 +44,7 @@ function SettingsContent() {
   const { mode } = useViewMode()
   const isPC = mode === "pc"
 
-  const validTabs: Tab[] = ["recurring", "income", "budget", "plan", "category"]
+  const validTabs: Tab[] = ["recurring", "budget", "plan", "category"]
   const initialTab = (searchParams.get("tab") as Tab | null)
   const [tab, setTabState] = useState<Tab>(validTabs.includes(initialTab as Tab) ? initialTab as Tab : "recurring")
 
@@ -66,23 +65,6 @@ function SettingsContent() {
   const [rAmount, setRAmount] = useState("")
   const [rMemo, setRMemo] = useState("")
   const [rSaving, setRSaving] = useState(false)
-
-  // 収入フォーム
-  const [incomeCardType, setIncomeCardType] = useState<"self" | "joint">("self")
-  const [incomeMonth, setIncomeMonth] = useState(defaultMonth)
-  const [incomeAmount, setIncomeAmount] = useState("")
-  const [incomeCategory, setIncomeCategory] = useState("給与")
-  const [incomeMemo, setIncomeMemo] = useState("")
-  const [incomeSaving, setIncomeSaving] = useState(false)
-  const [incomeMsg, setIncomeMsg] = useState("")
-  const [monthIncomeRecords, setMonthIncomeRecords] = useState<IncomeRecord[]>([])
-
-  // PDF確認パネル
-  interface PayslipItem { key: string; label: string; amount: number; checked: boolean; type: "income" | "transaction"; category: string }
-  const [parsedPayslipItems, setParsedPayslipItems] = useState<PayslipItem[] | null>(null)
-  const [payslipMonth, setPayslipMonth] = useState<string | null>(null)
-  const [payslipExpenseCardType, setPayslipExpenseCardType] = useState<"self" | "joint">("self")
-  const [payslipSaving, setPayslipSaving] = useState(false)
 
   // 予算フォーム
   const [budgetCategory, setBudgetCategory] = useState("")
@@ -161,12 +143,6 @@ function SettingsContent() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab])
-
-  // 収入タブ・月・カードタイプが変わったら記録一覧を再取得
-  useEffect(() => {
-    if (tab === "income") fetchMonthIncomes(incomeMonth, incomeCardType)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [incomeMonth, incomeCardType, tab])
 
   // 表示月が変わったら予算一覧を再取得
   useEffect(() => {
@@ -255,68 +231,6 @@ function SettingsContent() {
     } else {
       alert("生成できませんでした")
     }
-  }
-
-  async function fetchMonthIncomes(m?: string, ct?: string) {
-    const target = m ?? incomeMonth
-    const cardType = ct ?? incomeCardType
-    const d = await fetch(`/api/income?month=${target}&card_type=${cardType}`).then(r => r.json())
-    setMonthIncomeRecords(d.incomes ?? [])
-  }
-
-  async function handleDeleteIncome(id: number) {
-    if (!confirm("この収入記録を削除しますか？")) return
-    await fetch(`/api/income?id=${id}`, { method: "DELETE" })
-    setMonthIncomeRecords(prev => prev.filter(r => r.id !== id))
-  }
-
-  async function handleSaveIncome() {
-    if (!incomeAmount) return
-    setIncomeSaving(true)
-    setIncomeMsg("")
-    await fetch("/api/income", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date: `${incomeMonth}-01`, amount: Number(incomeAmount), category: incomeCategory, memo: incomeMemo, card_type: incomeCardType }),
-    })
-    setIncomeMsg("保存しました")
-    setIncomeAmount("")
-    setIncomeMemo("")
-    setIncomeSaving(false)
-    await fetchMonthIncomes()
-  }
-
-  async function handlePayslipBulkRegister() {
-    if (!parsedPayslipItems) return
-    setPayslipSaving(true)
-    const month = payslipMonth ?? incomeMonth
-    const date = `${month}-01`
-    const checkedItems = parsedPayslipItems.filter(i => i.checked)
-
-    const expenseCard = cards.find(c => c.card_type === payslipExpenseCardType) ?? cards[0]
-
-    await Promise.all(checkedItems.map(async item => {
-      if (item.type === "income") {
-        await fetch("/api/income", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ date, amount: item.amount, category: item.category, memo: "給与明細より" }),
-        })
-      } else {
-        if (!expenseCard) return
-        await fetch("/api/transactions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ date, card_id: expenseCard.id, category: item.category, amount: item.amount, memo: "給与明細より" }),
-        })
-      }
-    }))
-
-    if (payslipMonth) setIncomeMonth(payslipMonth)
-    setParsedPayslipItems(null)
-    setPayslipMonth(null)
-    setPayslipSaving(false)
-    await fetchMonthIncomes(month)
   }
 
   async function handleSaveBudget() {
@@ -487,8 +401,7 @@ function SettingsContent() {
   }
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: "recurring", label: "定期" },
-    { key: "income", label: "収入" },
+    { key: "recurring", label: "定期支出" },
     { key: "budget", label: "予算" },
     { key: "plan", label: "計画" },
     { key: "category", label: "カテゴリ" },
@@ -606,8 +519,8 @@ function SettingsContent() {
           </div>
         )}
 
-        {/* === 収入入力タブ === */}
-        {tab === "income" && (
+        {/* === 収入入力タブ（手動入力ページへ移動済み） === */}
+        {false && (
           <div className={isPC ? "grid grid-cols-2 gap-4 items-start" : "space-y-3"}>
             {/* Col1: PDF確認パネル or 通常フォーム */}
             {parsedPayslipItems ? (

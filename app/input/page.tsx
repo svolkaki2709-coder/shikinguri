@@ -16,12 +16,22 @@ interface PendingRecurring {
   amount: number
   memo: string
 }
+interface IncomeRecord { id: number; date: string; amount: number; category: string; memo: string }
 
 export default function InputPage() {
+  const now = new Date()
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+
+  // メインタブ: 支出 / 収入
+  const [mainTab, setMainTab] = useState<"expense" | "income">("expense")
+
+  // カード・カテゴリ共通
   const [cards, setCards] = useState<Card[]>([])
   const [allCategoryRows, setAllCategoryRows] = useState<CategoryRow[]>([])
-  const [cardId, setCardId] = useState<number | null>(null)
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0])
+
+  // ── 支出フォーム ──
+  const [usageType, setUsageType] = useState<"joint" | "self">("self")
+  const [date, setDate] = useState(now.toISOString().split("T")[0])
   const [category, setCategory] = useState("")
   const [amount, setAmount] = useState("")
   const [memo, setMemo] = useState("")
@@ -32,8 +42,15 @@ export default function InputPage() {
   const [pendingRecurring, setPendingRecurring] = useState<PendingRecurring[]>([])
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
 
-  const now = new Date()
-  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+  // ── 収入フォーム ──
+  const [incomeCardType, setIncomeCardType] = useState<"self" | "joint">("self")
+  const [incomeMonth, setIncomeMonth] = useState(currentMonth)
+  const [incomeAmount, setIncomeAmount] = useState("")
+  const [incomeCategory, setIncomeCategory] = useState("給与")
+  const [incomeMemo, setIncomeMemo] = useState("")
+  const [incomeSaving, setIncomeSaving] = useState(false)
+  const [incomeMsg, setIncomeMsg] = useState("")
+  const [monthIncomeRecords, setMonthIncomeRecords] = useState<IncomeRecord[]>([])
 
   useEffect(() => {
     Promise.all([
@@ -41,47 +58,53 @@ export default function InputPage() {
       fetch("/api/categories").then(r => r.json()),
       fetch(`/api/recurring?pending=true&month=${currentMonth}`).then(r => r.json()),
     ]).then(([cardData, catData, recurringData]) => {
-      const allCards: Card[] = (cardData.cards ?? []).filter((c: Card) => c.name !== "現金")
-      setCards(allCards)
-      if (allCards.length > 0) setCardId(allCards[0].id)
-      const rows: CategoryRow[] = catData.rows ?? []
-      setAllCategoryRows(rows)
+      setCards(cardData.cards ?? [])
+      setAllCategoryRows(catData.rows ?? [])
       setPendingRecurring(recurringData.recurring ?? [])
     })
   }, [currentMonth])
 
-  // 選択中カードの card_type
-  const selectedCardType = useMemo(() => {
-    if (!cardId) return null
-    return cards.find(c => c.id === cardId)?.card_type ?? null
-  }, [cardId, cards])
-
-  // 選択中カードに対応するカテゴリ一覧
-  const filteredCategories = useMemo(() => {
-    if (!selectedCardType) return allCategoryRows.map(r => r.name)
-    return allCategoryRows
-      .filter(r => r.card_type === selectedCardType)
-      .map(r => r.name)
-  }, [selectedCardType, allCategoryRows])
-
-  // カードが変わったら先頭カテゴリにリセット
+  // 収入タブの履歴取得
   useEffect(() => {
-    if (filteredCategories.length > 0) {
-      setCategory(filteredCategories[0])
-    }
+    if (mainTab !== "income") return
+    fetch(`/api/income?month=${incomeMonth}&card_type=${incomeCardType}`)
+      .then(r => r.json())
+      .then(d => setMonthIncomeRecords(d.incomes ?? []))
+  }, [mainTab, incomeMonth, incomeCardType])
+
+  // 収入カテゴリ変更時のデフォルト
+  useEffect(() => {
+    setIncomeCategory(incomeCardType === "self" ? "給与" : "振込")
+  }, [incomeCardType])
+
+  // 支出用カード: 選択中のusageTypeに対応するカード
+  const selectedCard = useMemo(() => {
+    return cards.find(c => c.card_type === usageType) ?? null
+  }, [cards, usageType])
+
+  // 支出カテゴリ一覧
+  const filteredCategories = useMemo(() => {
+    return allCategoryRows
+      .filter(r => r.card_type === usageType)
+      .map(r => r.name)
+  }, [usageType, allCategoryRows])
+
+  // usageType が変わったらカテゴリをリセット
+  useEffect(() => {
+    if (filteredCategories.length > 0) setCategory(filteredCategories[0])
   }, [filteredCategories])
 
+  // ── 支出登録 ──
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!date || !cardId || !category || !amount) return
-
+    if (!date || !selectedCard || !category || !amount) return
     setLoading(true)
     setMessage(null)
     try {
       const res = await fetch("/api/transactions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date, card_id: cardId, category, amount: Number(amount), memo }),
+        body: JSON.stringify({ date, card_id: selectedCard.id, category, amount: Number(amount), memo }),
       })
       if (res.ok) {
         setMessage({ type: "success", text: "記録しました" })
@@ -99,23 +122,16 @@ export default function InputPage() {
     }
   }
 
-  // 定期支出候補を確定登録
+  // ── 定期支出候補の確定 ──
   async function handleConfirmRecurring(r: PendingRecurring) {
     setConfirmingId(r.id)
     try {
       const day = String(r.day_of_month).padStart(2, "0")
-      const date = `${currentMonth}-${day}`
+      const txDate = `${currentMonth}-${day}`
       const res = await fetch("/api/transactions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          date,
-          card_id: r.card_id,
-          category: r.category,
-          amount: r.amount,
-          memo: r.memo,
-          source: "recurring",
-        }),
+        body: JSON.stringify({ date: txDate, card_id: r.card_id, category: r.category, amount: r.amount, memo: r.memo, source: "recurring" }),
       })
       if (res.ok) {
         setPendingRecurring(prev => prev.filter(p => p.id !== r.id))
@@ -130,152 +146,293 @@ export default function InputPage() {
     }
   }
 
-  const selectedCard = cards.find(c => c.id === cardId)
+  // ── 収入登録 ──
+  async function handleSaveIncome() {
+    if (!incomeAmount) return
+    setIncomeSaving(true)
+    setIncomeMsg("")
+    await fetch("/api/income", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date: `${incomeMonth}-01`, amount: Number(incomeAmount.replace(/,/g, "")), category: incomeCategory, memo: incomeMemo, card_type: incomeCardType }),
+    })
+    setIncomeMsg("保存しました")
+    setIncomeAmount("")
+    setIncomeMemo("")
+    setIncomeSaving(false)
+    const d = await fetch(`/api/income?month=${incomeMonth}&card_type=${incomeCardType}`).then(r => r.json())
+    setMonthIncomeRecords(d.incomes ?? [])
+  }
+
+  async function handleDeleteIncome(id: number) {
+    if (!confirm("この収入記録を削除しますか？")) return
+    await fetch(`/api/income?id=${id}`, { method: "DELETE" })
+    setMonthIncomeRecords(prev => prev.filter(r => r.id !== id))
+  }
+
+  function prevMonth(m: string) {
+    const [y, mo] = m.split("-").map(Number)
+    const d = new Date(y, mo - 2, 1)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+  }
+  function nextMonth(m: string) {
+    const [y, mo] = m.split("-").map(Number)
+    const d = new Date(y, mo, 1)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+  }
+
+  const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
+  const selfColor = cards.find(c => c.card_type === "self")?.color ?? "#6366f1"
 
   return (
     <div className="pb-20">
-      <PageHeader title="手動入力" />
+      <PageHeader title="入力" />
       <main className="max-w-md mx-auto px-4 py-2 space-y-3">
 
-        {/* 定期支出の候補 */}
-        {pendingRecurring.length > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
-            <p className="text-xs font-semibold text-amber-700">📋 今月の定期支出（未登録）</p>
-            {pendingRecurring.map(r => (
-              <div key={r.id} className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-amber-100">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-[10px] px-1.5 py-0.5 rounded text-white font-bold shrink-0"
-                    style={{ backgroundColor: r.color ?? "#6366f1" }}>
-                    {r.card_name}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium text-gray-800 truncate">{r.category}</p>
-                    <p className="text-[10px] text-gray-400">{r.day_of_month}日{r.memo ? ` / ${r.memo}` : ""}</p>
+        {/* メインタブ: 支出 / 収入 */}
+        <div className="flex rounded-xl bg-gray-100 p-1">
+          <button onClick={() => setMainTab("expense")}
+            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${mainTab === "expense" ? "bg-white shadow-sm text-blue-600" : "text-gray-600"}`}>
+            💸 支出
+          </button>
+          <button onClick={() => setMainTab("income")}
+            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${mainTab === "income" ? "bg-white shadow-sm text-green-600" : "text-gray-600"}`}>
+            💰 収入
+          </button>
+        </div>
+
+        {/* ═══ 支出タブ ═══ */}
+        {mainTab === "expense" && (
+          <>
+            {/* 定期支出候補 */}
+            {pendingRecurring.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
+                <p className="text-xs font-semibold text-amber-700">📋 今月の定期支出（未登録）</p>
+                {pendingRecurring.map(r => (
+                  <div key={r.id} className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-amber-100">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded text-white font-bold shrink-0"
+                        style={{ backgroundColor: r.color ?? "#6366f1" }}>
+                        {r.card_name}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-gray-800 truncate">{r.category}</p>
+                        <p className="text-[10px] text-gray-400">{r.day_of_month}日{r.memo ? ` / ${r.memo}` : ""}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 ml-2">
+                      <span className="text-xs font-semibold text-gray-700">¥{r.amount.toLocaleString("ja-JP")}</span>
+                      <button onClick={() => handleConfirmRecurring(r)} disabled={confirmingId === r.id}
+                        className="text-xs bg-amber-500 hover:bg-amber-600 text-white px-2.5 py-1 rounded-lg font-semibold disabled:opacity-50 transition-colors">
+                        {confirmingId === r.id ? "..." : "確定"}
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0 ml-2">
-                  <span className="text-xs font-semibold text-gray-700">
-                    ¥{r.amount.toLocaleString("ja-JP")}
-                  </span>
-                  <button
-                    onClick={() => handleConfirmRecurring(r)}
-                    disabled={confirmingId === r.id}
-                    className="text-xs bg-amber-500 hover:bg-amber-600 text-white px-2.5 py-1 rounded-lg font-semibold disabled:opacity-50 transition-colors"
-                  >
-                    {confirmingId === r.id ? "..." : "確定"}
+                ))}
+              </div>
+            )}
+
+            {/* 支出フォーム */}
+            <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm p-4 space-y-4">
+              <p className="text-xs text-gray-500">現金・電子マネー等の支出を手動で記録します</p>
+
+              {/* 共用 / 個人 トグル */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-2">用途</label>
+                <div className="flex rounded-xl bg-gray-100 p-1 gap-1">
+                  <button type="button" onClick={() => setUsageType("joint")}
+                    className="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all"
+                    style={{
+                      backgroundColor: usageType === "joint" ? jointColor + "22" : "transparent",
+                      color: usageType === "joint" ? jointColor : "#6b7280",
+                      boxShadow: usageType === "joint" ? `0 0 0 2px ${jointColor}` : "none",
+                    }}>
+                    共用
+                  </button>
+                  <button type="button" onClick={() => setUsageType("self")}
+                    className="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all"
+                    style={{
+                      backgroundColor: usageType === "self" ? selfColor + "22" : "transparent",
+                      color: usageType === "self" ? selfColor : "#6b7280",
+                      boxShadow: usageType === "self" ? `0 0 0 2px ${selfColor}` : "none",
+                    }}>
+                    個人
                   </button>
                 </div>
               </div>
-            ))}
+
+              {/* 日付 */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">日付</label>
+                <input type="date" value={date} onChange={e => setDate(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required />
+              </div>
+
+              {/* カテゴリ */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">カテゴリ</label>
+                {filteredCategories.length === 0 ? (
+                  <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+                    カテゴリが未設定です。設定 → カテゴリ から追加してください。
+                  </p>
+                ) : (
+                  <select value={category} onChange={e => setCategory(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required>
+                    {filteredCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                )}
+              </div>
+
+              {/* 金額 */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">金額（円）</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm">¥</span>
+                  <input type="text" inputMode="numeric"
+                    value={amount ? Number(amount.replace(/,/g, "")).toLocaleString("ja-JP") : ""}
+                    onChange={e => { const raw = e.target.value.replace(/,/g, ""); if (raw === "" || /^\d+$/.test(raw)) setAmount(raw) }}
+                    placeholder="0"
+                    className="w-full border border-gray-300 rounded-lg pl-7 pr-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required />
+                </div>
+              </div>
+
+              {/* メモ */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">メモ（任意）</label>
+                <input type="text" value={memo} onChange={e => setMemo(e.target.value)}
+                  placeholder="例：スーパーで食材"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+
+              {message && (
+                <div className={`text-sm rounded-lg px-3 py-2 ${message.type === "success" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+                  {message.type === "success" ? "✅ " : "❌ "}{message.text}
+                </div>
+              )}
+
+              <button type="submit" disabled={loading || !selectedCard || filteredCategories.length === 0}
+                className="w-full bg-blue-600 text-white rounded-lg py-2.5 font-semibold text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                {loading ? "保存中..." : "記録する"}
+              </button>
+            </form>
+          </>
+        )}
+
+        {/* ═══ 収入タブ ═══ */}
+        {mainTab === "income" && (
+          <div className="space-y-3">
+            {/* 収入フォーム */}
+            <div className="bg-white rounded-xl shadow-sm p-4 space-y-4">
+
+              {/* 個人 / 共用 トグル */}
+              <div className="flex rounded-xl bg-gray-100 p-1 gap-1">
+                <button type="button" onClick={() => setIncomeCardType("self")}
+                  className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${incomeCardType === "self" ? "bg-white shadow-sm text-indigo-600" : "text-gray-600"}`}>
+                  個人収入
+                </button>
+                <button type="button" onClick={() => setIncomeCardType("joint")}
+                  className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${incomeCardType === "joint" ? "bg-white shadow-sm text-amber-600" : "text-gray-600"}`}>
+                  共用入金
+                </button>
+              </div>
+
+              {/* 月 */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">月</label>
+                <div className="flex items-center gap-1">
+                  <button type="button" onClick={() => setIncomeMonth(prevMonth(incomeMonth))}
+                    className="text-gray-500 hover:text-blue-600 px-2 py-1.5 rounded-lg hover:bg-gray-100 font-bold">‹</button>
+                  <input type="month" value={incomeMonth} onChange={e => setIncomeMonth(e.target.value)}
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 text-center focus:outline-none focus:ring-2 focus:ring-green-500" />
+                  <button type="button" onClick={() => setIncomeMonth(nextMonth(incomeMonth))}
+                    className="text-gray-500 hover:text-blue-600 px-2 py-1.5 rounded-lg hover:bg-gray-100 font-bold">›</button>
+                </div>
+              </div>
+
+              {/* 種別 */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-2">種別</label>
+                <div className="flex gap-2">
+                  {(incomeCardType === "self"
+                    ? ["給与", "副収入", "その他"]
+                    : ["振込", "その他"]
+                  ).map(cat => (
+                    <button key={cat} type="button" onClick={() => setIncomeCategory(cat)}
+                      className={`flex-1 py-2 rounded-lg text-sm font-medium border-2 transition-colors ${
+                        incomeCategory === cat
+                          ? incomeCardType === "self"
+                            ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                            : "border-amber-500 bg-amber-50 text-amber-700"
+                          : "border-gray-200 text-gray-600"
+                      }`}>
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 金額 */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">金額（円）</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm">¥</span>
+                  <input type="text" inputMode="numeric"
+                    value={incomeAmount ? Number(incomeAmount.replace(/,/g, "")).toLocaleString("ja-JP") : ""}
+                    onChange={e => { const raw = e.target.value.replace(/,/g, ""); if (raw === "" || /^\d+$/.test(raw)) setIncomeAmount(raw) }}
+                    placeholder="0"
+                    className="w-full border border-gray-300 rounded-lg pl-7 pr-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500" />
+                </div>
+              </div>
+
+              {/* メモ */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">メモ（任意）</label>
+                <input type="text" value={incomeMemo} onChange={e => setIncomeMemo(e.target.value)}
+                  placeholder="例：3月分給与"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </div>
+
+              {incomeMsg && <p className="text-xs text-green-600">✅ {incomeMsg}</p>}
+
+              <button onClick={handleSaveIncome} disabled={incomeSaving || !incomeAmount}
+                className="w-full bg-green-600 text-white rounded-lg py-2.5 text-sm font-semibold hover:bg-green-700 disabled:opacity-50 transition-colors">
+                {incomeSaving ? "保存中..." : "収入を記録"}
+              </button>
+            </div>
+
+            {/* 収入履歴 */}
+            {monthIncomeRecords.length > 0 && (
+              <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                <p className="text-xs font-semibold text-gray-600 px-4 py-2.5 border-b bg-gray-50">
+                  {incomeMonth} の収入記録
+                </p>
+                {monthIncomeRecords.map(r => (
+                  <div key={r.id} className="flex items-center justify-between px-4 py-2.5 border-b last:border-0">
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">{r.category}</p>
+                      {r.memo && <p className="text-xs text-gray-400">{r.memo}</p>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-green-600">
+                        +¥{Number(r.amount).toLocaleString("ja-JP")}
+                      </span>
+                      <button onClick={() => handleDeleteIncome(r.id)}
+                        className="text-gray-300 hover:text-red-400 text-xl leading-none w-6">×</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {monthIncomeRecords.length === 0 && (
+              <p className="text-center text-xs text-gray-400 py-4">この月の収入記録はありません</p>
+            )}
           </div>
         )}
 
-        {/* 手動入力フォーム */}
-        <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm p-3 space-y-3">
-
-          <p className="text-xs text-gray-500">現金・電子マネー等の支出を手動で記録します</p>
-
-          {/* 用途（個人 or 共用） */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-2">用途</label>
-            <div className="flex gap-2">
-              {cards.map(c => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => setCardId(c.id)}
-                  className="flex-1 py-2 rounded-xl text-sm font-medium border-2 transition-all"
-                  style={{
-                    borderColor: cardId === c.id ? c.color : "#e5e7eb",
-                    backgroundColor: cardId === c.id ? c.color + "18" : "white",
-                    color: cardId === c.id ? c.color : "#6b7280",
-                  }}
-                >
-                  {c.name}
-                </button>
-              ))}
-            </div>
-            {selectedCard && (
-              <p className="text-xs text-gray-400 mt-1 pl-1">
-                {selectedCard.card_type === "joint" ? "共用カテゴリ" : "個人カテゴリ"}を表示中
-              </p>
-            )}
-          </div>
-
-          {/* 日付 */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">日付</label>
-            <input
-              type="date"
-              value={date}
-              onChange={e => setDate(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
-              required
-            />
-          </div>
-
-          {/* カテゴリ */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">カテゴリ</label>
-            {filteredCategories.length === 0 ? (
-              <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
-                カテゴリが未設定です。設定 → カテゴリ から追加してください。
-              </p>
-            ) : (
-              <select
-                value={category}
-                onChange={e => setCategory(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-800"
-                required
-              >
-                {filteredCategories.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            )}
-          </div>
-
-          {/* 金額 */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">金額（円）</label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm">¥</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={amount ? Number(amount.replace(/,/g, "")).toLocaleString("ja-JP") : ""}
-                onChange={e => { const raw = e.target.value.replace(/,/g, ""); if (raw === "" || /^\d+$/.test(raw)) setAmount(raw) }}
-                placeholder="0"
-                className="w-full border border-gray-300 rounded-lg pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
-                required
-              />
-            </div>
-          </div>
-
-          {/* メモ */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">メモ（任意）</label>
-            <input
-              type="text"
-              value={memo}
-              onChange={e => setMemo(e.target.value)}
-              placeholder="例：スーパーで食材"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
-            />
-          </div>
-
-          {message && (
-            <div className={`text-sm rounded-lg px-3 py-2 ${message.type === "success" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
-              {message.type === "success" ? "✅ " : "❌ "}{message.text}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading || !cardId || filteredCategories.length === 0}
-            className="w-full bg-blue-600 text-white rounded-lg py-2.5 font-semibold text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors"
-          >
-            {loading ? "保存中..." : "記録する"}
-          </button>
-        </form>
       </main>
       <BottomNav />
     </div>
