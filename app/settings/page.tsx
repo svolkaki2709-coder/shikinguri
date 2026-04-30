@@ -300,11 +300,11 @@ function SettingsContent() {
   async function handleDeleteCard(card: Card) {
     const sameType = cards.filter(c => c.card_type === card.card_type && c.id !== card.id)
     if (sameType.length === 0) {
-      alert("同じ種別のカードが他にないため削除できません。")
+      alert("同じ種別の支払方法が他にないため削除できません。")
       return
     }
     const reassign = sameType[0]
-    if (!confirm(`「${card.name}」を削除します。\nこのカードの明細は「${reassign.name}」に移行されます。\nよろしいですか？`)) return
+    if (!confirm(`「${card.name}」を削除します。\nこの支払方法の明細は「${reassign.name}」に移行されます。\nよろしいですか？`)) return
     await fetch(`/api/cards?id=${card.id}&reassign_to=${reassign.id}`, { method: "DELETE" })
     const d = await fetch("/api/cards").then(r => r.json())
     setCards(d.cards ?? [])
@@ -1144,7 +1144,7 @@ function SettingsContent() {
 
           const CardBlock = () => (
             <div className="bg-white rounded-xl shadow-sm p-3 space-y-2">
-              <h2 className="text-xs font-semibold text-gray-700">カード管理</h2>
+              <h2 className="text-xs font-semibold text-gray-700">支払方法管理</h2>
               <div className="border rounded-lg overflow-hidden">
                 {cards.map(c => (
                   <div key={c.id} className="flex items-center gap-2 px-3 py-2 border-b last:border-0">

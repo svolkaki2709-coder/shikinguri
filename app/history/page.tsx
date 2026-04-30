@@ -281,7 +281,7 @@ function HistoryContent() {
               <thead>
                 <tr className="bg-gray-50 border-b text-gray-500">
                   <th className="text-left px-4 py-2 font-medium">日付</th>
-                  <th className="text-left px-3 py-2 font-medium">カード</th>
+                  <th className="text-left px-3 py-2 font-medium">支払方法</th>
                   <th className="text-left px-3 py-2 font-medium">カテゴリ</th>
                   <th className="text-left px-3 py-2 font-medium">メモ</th>
                   <th className="text-right px-3 py-2 font-medium">金額</th>
@@ -400,9 +400,9 @@ function HistoryContent() {
                 className="w-full border rounded-lg px-3 py-2 text-sm text-gray-800 bg-white outline-none focus:ring-2 focus:ring-blue-400" />
             </div>
 
-            {/* カード */}
+            {/* 支払方法 */}
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">カード</label>
+              <label className="text-xs text-gray-500 mb-1 block">支払方法</label>
               <select value={editForm.card_id}
                 onChange={e => setEditForm(f => ({ ...f, card_id: Number(e.target.value) }))}
                 className="w-full border rounded-lg px-3 py-2 text-sm text-gray-800 bg-white outline-none focus:ring-2 focus:ring-blue-400">
