@@ -7,15 +7,20 @@ async function migrateBudgets() {
   await sql`ALTER TABLE budgets ADD COLUMN IF NOT EXISTS month TEXT`
   // is_from_month カラム追加（TRUE = 'この月以降'）
   await sql`ALTER TABLE budgets ADD COLUMN IF NOT EXISTS is_from_month BOOLEAN DEFAULT FALSE`
-  // 古い (category, card_type) 2カラムのユニーク制約を削除（PL/pgSQLで確実に実行）
+  // 古い (category, card_type) 2カラムのユニーク制約を削除（実際の制約名で確実に実行）
   try {
     await sql`
       DO $$
       BEGIN
         IF EXISTS (
           SELECT 1 FROM pg_constraint
-          WHERE conrelid = 'budgets'::regclass
-            AND conname = 'budgets_category_card_type_key'
+          WHERE conrelid = 'budgets'::regclass AND conname = 'budgets_category_type_key'
+        ) THEN
+          ALTER TABLE budgets DROP CONSTRAINT budgets_category_type_key;
+        END IF;
+        IF EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conrelid = 'budgets'::regclass AND conname = 'budgets_category_card_type_key'
         ) THEN
           ALTER TABLE budgets DROP CONSTRAINT budgets_category_card_type_key;
         END IF;
