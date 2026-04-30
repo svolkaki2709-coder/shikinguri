@@ -321,8 +321,7 @@ function SettingsContent() {
       setBudgetSaving(false)
       return
     }
-    const putResult = await res.json()
-    console.log("[budget PUT result]", putResult)
+    await res.json()
     const msgMap = { monthly: "共通予算を設定しました", this_month: `${monthValue}の予算を設定しました`, from_month: `${monthValue}以降の予算を設定しました` }
     setBudgetMsg(msgMap[periodType])
     setBudgetAmount("")
