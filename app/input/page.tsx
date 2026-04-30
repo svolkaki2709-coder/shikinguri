@@ -6,6 +6,16 @@ import { BottomNav } from "@/components/BottomNav"
 
 interface Card { id: number; name: string; card_type: string; color: string }
 interface CategoryRow { name: string; card_type: string }
+interface PendingRecurring {
+  id: number
+  day_of_month: number
+  card_id: number
+  card_name: string
+  color: string
+  category: string
+  amount: number
+  memo: string
+}
 
 export default function InputPage() {
   const [cards, setCards] = useState<Card[]>([])
@@ -18,18 +28,27 @@ export default function InputPage() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
+  // 定期支出候補
+  const [pendingRecurring, setPendingRecurring] = useState<PendingRecurring[]>([])
+  const [confirmingId, setConfirmingId] = useState<number | null>(null)
+
+  const now = new Date()
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+
   useEffect(() => {
     Promise.all([
       fetch("/api/cards").then(r => r.json()),
       fetch("/api/categories").then(r => r.json()),
-    ]).then(([cardData, catData]) => {
+      fetch(`/api/recurring?pending=true&month=${currentMonth}`).then(r => r.json()),
+    ]).then(([cardData, catData, recurringData]) => {
       const allCards: Card[] = (cardData.cards ?? []).filter((c: Card) => c.name !== "現金")
       setCards(allCards)
       if (allCards.length > 0) setCardId(allCards[0].id)
       const rows: CategoryRow[] = catData.rows ?? []
       setAllCategoryRows(rows)
+      setPendingRecurring(recurringData.recurring ?? [])
     })
-  }, [])
+  }, [currentMonth])
 
   // 選択中カードの card_type
   const selectedCardType = useMemo(() => {
@@ -80,12 +99,78 @@ export default function InputPage() {
     }
   }
 
+  // 定期支出候補を確定登録
+  async function handleConfirmRecurring(r: PendingRecurring) {
+    setConfirmingId(r.id)
+    try {
+      const day = String(r.day_of_month).padStart(2, "0")
+      const date = `${currentMonth}-${day}`
+      const res = await fetch("/api/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date,
+          card_id: r.card_id,
+          category: r.category,
+          amount: r.amount,
+          memo: r.memo,
+          source: "recurring",
+        }),
+      })
+      if (res.ok) {
+        setPendingRecurring(prev => prev.filter(p => p.id !== r.id))
+        setMessage({ type: "success", text: `「${r.category}」を登録しました` })
+      } else {
+        setMessage({ type: "error", text: "登録に失敗しました" })
+      }
+    } catch {
+      setMessage({ type: "error", text: "通信エラーが発生しました" })
+    } finally {
+      setConfirmingId(null)
+    }
+  }
+
   const selectedCard = cards.find(c => c.id === cardId)
 
   return (
     <div className="pb-20">
       <PageHeader title="手動入力" />
-      <main className="max-w-md mx-auto px-4 py-2">
+      <main className="max-w-md mx-auto px-4 py-2 space-y-3">
+
+        {/* 定期支出の候補 */}
+        {pendingRecurring.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
+            <p className="text-xs font-semibold text-amber-700">📋 今月の定期支出（未登録）</p>
+            {pendingRecurring.map(r => (
+              <div key={r.id} className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-amber-100">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded text-white font-bold shrink-0"
+                    style={{ backgroundColor: r.color ?? "#6366f1" }}>
+                    {r.card_name}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-gray-800 truncate">{r.category}</p>
+                    <p className="text-[10px] text-gray-400">{r.day_of_month}日{r.memo ? ` / ${r.memo}` : ""}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                  <span className="text-xs font-semibold text-gray-700">
+                    ¥{r.amount.toLocaleString("ja-JP")}
+                  </span>
+                  <button
+                    onClick={() => handleConfirmRecurring(r)}
+                    disabled={confirmingId === r.id}
+                    className="text-xs bg-amber-500 hover:bg-amber-600 text-white px-2.5 py-1 rounded-lg font-semibold disabled:opacity-50 transition-colors"
+                  >
+                    {confirmingId === r.id ? "..." : "確定"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 手動入力フォーム */}
         <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm p-3 space-y-3">
 
           <p className="text-xs text-gray-500">現金・電子マネー等の支出を手動で記録します</p>

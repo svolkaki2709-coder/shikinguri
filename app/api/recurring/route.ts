@@ -2,9 +2,36 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { sql } from "@/lib/db"
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const { searchParams } = new URL(req.url)
+  const pending = searchParams.get("pending")
+  const month = searchParams.get("month")
+
+  // ?pending=true&month=YYYY-MM → 当月未生成で引き落とし日を過ぎたものを返す
+  if (pending === "true" && month) {
+    const today = new Date()
+    const todayDay = today.getDate()
+    const rows = await sql`
+      SELECT r.*, c.name AS card_name, c.card_type, c.color
+      FROM recurring_expenses r
+      LEFT JOIN cards c ON r.card_id = c.id
+      WHERE r.active = TRUE
+        AND r.day_of_month <= ${todayDay}
+        AND NOT EXISTS (
+          SELECT 1 FROM transactions t
+          WHERE t.card_id = r.card_id
+            AND t.category = r.category
+            AND t.amount = r.amount
+            AND t.source = 'recurring'
+            AND TO_CHAR(t.date, 'YYYY-MM') = ${month}
+        )
+      ORDER BY r.day_of_month, r.id
+    `
+    return NextResponse.json({ recurring: rows })
+  }
 
   const rows = await sql`
     SELECT r.*, c.name AS card_name, c.card_type, c.color
