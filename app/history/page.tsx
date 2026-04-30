@@ -46,6 +46,11 @@ function HistoryContent() {
   const [loading, setLoading] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
 
+  // 編集モーダル
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
+  const [editForm, setEditForm] = useState({ date: "", card_id: 0, category: "", amount: "", memo: "" })
+  const [editSaving, setEditSaving] = useState(false)
+
   const [month, setMonthState] = useState(searchParams.get("month") ?? defaultMonth)
   const [cardId, setCardId] = useState(searchParams.get("card_id") ?? "")
   const [category, setCategory] = useState(searchParams.get("category") ?? "")
@@ -100,6 +105,54 @@ function HistoryContent() {
       body: JSON.stringify({ id, category: newCategory }),
     })
     setTransactions(prev => prev.map(t => t.id === id ? { ...t, category: newCategory } : t))
+  }
+
+  function openEditModal(t: Transaction) {
+    setEditingTransaction(t)
+    setEditForm({
+      date: t.date,
+      card_id: t.card_id,
+      category: t.category,
+      amount: t.amount.toLocaleString("ja-JP"),
+      memo: t.memo ?? "",
+    })
+  }
+
+  async function handleEditSave() {
+    if (!editingTransaction) return
+    setEditSaving(true)
+    const amountNum = Number(editForm.amount.replace(/,/g, ""))
+    await fetch("/api/transactions", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: editingTransaction.id,
+        date: editForm.date,
+        card_id: editForm.card_id,
+        category: editForm.category,
+        amount: amountNum,
+        memo: editForm.memo,
+      }),
+    })
+    // カード情報をローカルで反映
+    const card = cards.find(c => c.id === Number(editForm.card_id))
+    setTransactions(prev => prev.map(t =>
+      t.id === editingTransaction.id
+        ? {
+            ...t,
+            date: editForm.date,
+            card_id: Number(editForm.card_id),
+            category: editForm.category,
+            amount: amountNum,
+            memo: editForm.memo,
+            card_name: card?.name ?? t.card_name,
+            card_type: card?.card_type ?? t.card_type,
+            color: card?.color ?? t.color,
+          }
+        : t
+    ))
+    setEditSaving(false)
+    setEditingTransaction(null)
   }
 
   const total = transactions.reduce((s, t) => s + t.amount, 0)
@@ -279,8 +332,12 @@ function HistoryContent() {
                       <td className="px-3 py-1.5 text-gray-500 max-w-xs truncate">{t.memo}</td>
                       <td className="px-3 py-1.5 text-right font-semibold text-gray-800 whitespace-nowrap">{toJPY(t.amount)}</td>
                       <td className="px-3 py-1.5 text-center">
-                        <button onClick={() => handleDelete(t.id)}
-                          className="text-gray-300 hover:text-red-400 text-lg leading-none">×</button>
+                        <div className="flex items-center justify-center gap-2">
+                          <button onClick={() => openEditModal(t)}
+                            className="text-gray-300 hover:text-blue-500 text-sm leading-none" title="編集">✏</button>
+                          <button onClick={() => handleDelete(t.id)}
+                            className="text-gray-300 hover:text-red-400 text-lg leading-none">×</button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -332,8 +389,10 @@ function HistoryContent() {
                     </div>
                     {t.memo && <p className="text-xs text-gray-500 truncate">{t.memo}</p>}
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-1 shrink-0">
                     <span className="text-sm font-semibold text-gray-800">{toJPY(t.amount)}</span>
+                    <button onClick={() => openEditModal(t)}
+                      className="text-gray-300 hover:text-blue-500 transition-colors text-sm leading-none w-6 text-center" title="編集">✏</button>
                     <button onClick={() => handleDelete(t.id)}
                       className="text-gray-300 hover:text-red-400 transition-colors text-xl leading-none w-6 text-center">×</button>
                   </div>
@@ -348,6 +407,81 @@ function HistoryContent() {
         )}
       </div>
       <BottomNav />
+
+      {/* 編集モーダル */}
+      {editingTransaction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+          onClick={e => { if (e.target === e.currentTarget) setEditingTransaction(null) }}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-base font-bold text-gray-800">明細を編集</h2>
+              <button onClick={() => setEditingTransaction(null)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+            </div>
+
+            {/* 日付 */}
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">日付</label>
+              <input type="date" value={editForm.date}
+                onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))}
+                className="w-full border rounded-lg px-3 py-2 text-sm text-gray-800 bg-white outline-none focus:ring-2 focus:ring-blue-400" />
+            </div>
+
+            {/* カード */}
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">カード</label>
+              <select value={editForm.card_id}
+                onChange={e => setEditForm(f => ({ ...f, card_id: Number(e.target.value) }))}
+                className="w-full border rounded-lg px-3 py-2 text-sm text-gray-800 bg-white outline-none focus:ring-2 focus:ring-blue-400">
+                {cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+
+            {/* カテゴリ */}
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">カテゴリ</label>
+              <select value={editForm.category}
+                onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}
+                className="w-full border rounded-lg px-3 py-2 text-sm text-gray-800 bg-white outline-none focus:ring-2 focus:ring-blue-400">
+                {categories.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+
+            {/* 金額 */}
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">金額</label>
+              <input
+                type="text" inputMode="numeric" value={editForm.amount}
+                onChange={e => {
+                  const raw = e.target.value.replace(/,/g, "")
+                  if (raw === "" || /^\d+$/.test(raw)) {
+                    setEditForm(f => ({ ...f, amount: raw === "" ? "" : Number(raw).toLocaleString("ja-JP") }))
+                  }
+                }}
+                className="w-full border rounded-lg px-3 py-2 text-sm text-gray-800 bg-white outline-none focus:ring-2 focus:ring-blue-400" />
+            </div>
+
+            {/* メモ */}
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">メモ</label>
+              <input type="text" value={editForm.memo}
+                onChange={e => setEditForm(f => ({ ...f, memo: e.target.value }))}
+                className="w-full border rounded-lg px-3 py-2 text-sm text-gray-800 bg-white outline-none focus:ring-2 focus:ring-blue-400" />
+            </div>
+
+            {/* ボタン */}
+            <div className="flex gap-3 pt-1">
+              <button onClick={() => setEditingTransaction(null)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">
+                キャンセル
+              </button>
+              <button onClick={handleEditSave} disabled={editSaving}
+                className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
+                {editSaving ? "保存中..." : "保存"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

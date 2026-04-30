@@ -23,10 +23,24 @@ export async function PATCH(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { id, category } = await req.json()
-  if (!id || !category) return NextResponse.json({ error: "id, category は必須です" }, { status: 400 })
+  const { id, date, card_id, category, amount, memo } = await req.json()
+  if (!id) return NextResponse.json({ error: "id は必須です" }, { status: 400 })
 
-  await sql`UPDATE transactions SET category = ${category} WHERE id = ${Number(id)}`
+  // 全フィールド更新（フル編集）
+  if (date !== undefined && card_id !== undefined && category !== undefined && amount !== undefined) {
+    await sql`
+      UPDATE transactions
+      SET date = ${date}, card_id = ${Number(card_id)}, category = ${category},
+          amount = ${Number(amount)}, memo = ${memo ?? ""}
+      WHERE id = ${Number(id)}
+    `
+  } else if (category !== undefined) {
+    // カテゴリのみ更新（後方互換）
+    await sql`UPDATE transactions SET category = ${category} WHERE id = ${Number(id)}`
+  } else {
+    return NextResponse.json({ error: "更新するフィールドがありません" }, { status: 400 })
+  }
+
   return NextResponse.json({ success: true })
 }
 
