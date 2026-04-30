@@ -7,23 +7,27 @@ async function migrateBudgets() {
   await sql`ALTER TABLE budgets ADD COLUMN IF NOT EXISTS month TEXT`
   // is_from_month カラム追加（TRUE = 'この月以降'）
   await sql`ALTER TABLE budgets ADD COLUMN IF NOT EXISTS is_from_month BOOLEAN DEFAULT FALSE`
-  // 古い (category, card_type) 2カラムのユニーク制約を削除（実際の制約名で確実に実行）
+  // 古い (category, card_type) 2カラムのユニーク制約を名前に関係なく全削除
   try {
     await sql`
       DO $$
+      DECLARE
+        r RECORD;
       BEGIN
-        IF EXISTS (
-          SELECT 1 FROM pg_constraint
-          WHERE conrelid = 'budgets'::regclass AND conname = 'budgets_category_type_key'
-        ) THEN
-          ALTER TABLE budgets DROP CONSTRAINT budgets_category_type_key;
-        END IF;
-        IF EXISTS (
-          SELECT 1 FROM pg_constraint
-          WHERE conrelid = 'budgets'::regclass AND conname = 'budgets_category_card_type_key'
-        ) THEN
-          ALTER TABLE budgets DROP CONSTRAINT budgets_category_card_type_key;
-        END IF;
+        FOR r IN
+          SELECT con.conname
+          FROM pg_constraint con
+          JOIN pg_class rel ON rel.oid = con.conrelid
+          WHERE rel.relname = 'budgets'
+            AND con.contype = 'u'
+            AND (
+              SELECT array_agg(a.attname ORDER BY a.attname)
+              FROM pg_attribute a
+              WHERE a.attrelid = con.conrelid AND a.attnum = ANY(con.conkey)
+            ) = ARRAY['card_type','category']
+        LOOP
+          EXECUTE 'ALTER TABLE budgets DROP CONSTRAINT ' || quote_ident(r.conname);
+        END LOOP;
       END $$
     `
   } catch (_) { /* 無視 */ }
