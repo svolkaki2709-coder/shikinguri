@@ -50,6 +50,18 @@ interface BudgetRow {
   isMonthly?: boolean
   groupType: string | null
   sortOrder: number | null
+  sign: string | null
+}
+
+function getEffectiveSign(b: BudgetRow): number {
+  if (b.sign === "plus") return 1
+  if (b.sign === "minus") return -1
+  if (b.sign === "neutral") return 0
+  // sign未設定 → group_typeで推測
+  if (b.groupType === "収入") return 1
+  if (b.groupType === "振替") return 0
+  if (b.groupType === "立替") return b.category.includes("精算") ? 1 : -1
+  return -1  // 支出・投資・貯蓄・未設定
 }
 
 interface CategoryData {
@@ -152,10 +164,11 @@ export default function BudgetPage() {
   // サマリー計算（選択中の cardTypeFilter に連動）
   const selfRows = budgets.filter(b => b.cardType === "self")
   const jointRows = budgets.filter(b => b.cardType === "joint")
-  const selfActual = selfRows.reduce((s, r) => s + r.actual, 0)
-  const jointActual = jointRows.reduce((s, r) => s + r.actual, 0)
-  const selfBudget = selfRows.reduce((s, r) => s + r.budget, 0)
-  const jointBudget = jointRows.reduce((s, r) => s + r.budget, 0)
+  // 支出のみ（sign=-1）の実績・予算合計（収入カテゴリを除外）
+  const selfActual = selfRows.filter(r => getEffectiveSign(r) === -1).reduce((s, r) => s + r.actual, 0)
+  const jointActual = jointRows.filter(r => getEffectiveSign(r) === -1).reduce((s, r) => s + r.actual, 0)
+  const selfBudget = selfRows.filter(r => getEffectiveSign(r) === -1).reduce((s, r) => s + r.budget, 0)
+  const jointBudget = jointRows.filter(r => getEffectiveSign(r) === -1).reduce((s, r) => s + r.budget, 0)
   // 個人: 収入 - 個人支出、共用: 入金 - 共用支出（入金があれば入金ベース、なければ予算ベース）
   const selfBalance = incomeTotal - selfActual
   const jointBalance = jointIncomeTotal > 0 ? jointIncomeTotal - jointActual : jointBudget - jointActual

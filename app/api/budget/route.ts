@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
   const budgets = await sql`
     SELECT DISTINCT ON (b.category, b.card_type)
       b.category, b.card_type, b.amount, b.month, b.is_from_month,
-      c.group_type, c.sort_order
+      c.group_type, c.sort_order, c.sign
     FROM budgets b
     LEFT JOIN categories c ON c.name = b.category AND c.card_type = b.card_type
     WHERE b.month = ${month}
@@ -80,6 +80,7 @@ export async function GET(req: NextRequest) {
     recordMonth: b.month ?? null,
     groupType: (b.group_type ?? null) as string | null,
     sortOrder: (b.sort_order ?? null) as number | null,
+    sign: (b.sign ?? null) as string | null,
   }))
 
   // 全デフォルト一覧も返す（設定UI用）
