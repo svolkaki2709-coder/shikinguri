@@ -7,7 +7,7 @@ import { BottomNav } from "@/components/BottomNav"
 import { useViewMode } from "@/components/ViewModeContext"
 
 interface Card { id: number; name: string; card_type: string; color: string }
-interface Recurring { id: number; day_of_month: number; card_id: number; card_name: string; color: string; category: string; amount: number; memo: string }
+interface Recurring { id: number; day_of_month: number; card_id: number; card_name: string; card_type: string; color: string; category: string; amount: number; memo: string; entry_type: string }
 interface Category { name: string }
 interface BudgetRow { category: string; card_type: string; budget: number; is_monthly?: boolean; is_from_month?: boolean; record_month?: string | null }
 interface StoreRule { id: number; keyword: string; category: string }
@@ -57,6 +57,15 @@ function SettingsContent() {
   const [cards, setCards] = useState<Card[]>([])
   const [categories, setCategories] = useState<string[]>([])
   const [recurring, setRecurring] = useState<Recurring[]>([])
+
+  // 定期支出・入金フォーム
+  const [rEntryType, setREntryType] = useState<"expense" | "income">("expense")
+  const [rUsageType, setRUsageType] = useState<"self" | "joint">("self")
+  const [rDay, setRDay] = useState("1")
+  const [rCategory, setRCategory] = useState("")
+  const [rAmount, setRAmount] = useState("")
+  const [rMemo, setRMemo] = useState("")
+  const [rSaving, setRSaving] = useState(false)
 
   // 予算フォーム
   const [budgetCategory, setBudgetCategory] = useState("")
@@ -112,7 +121,7 @@ function SettingsContent() {
       const cats = catd.categories ?? []
       setCategories(cats)
       setCategoryRows((catd.rows ?? []).map((r: { name: string; card_type: string; group_type?: string | null; sort_order?: number | null; sign?: string | null }) => ({ ...r, group_type: r.group_type ?? null, sort_order: r.sort_order ?? null, sign: r.sign ?? null })))
-      if (cats.length > 0) { setBudgetCategory(cats[0]) }
+      if (cats.length > 0) { setRCategory(cats[0]); setBudgetCategory(cats[0]) }
       setRecurring(recd.recurring ?? [])
       const bRaw: Array<{ category: string; cardType: string; budget: number; isMonthly?: boolean; isFromMonth?: boolean; recordMonth?: string | null }> = budgetData.budgets ?? []
       setExistingBudgets(bRaw.map(b => ({ category: b.category, card_type: b.cardType, budget: b.budget, is_monthly: b.isMonthly ?? false, is_from_month: b.isFromMonth ?? false, record_month: b.recordMonth ?? null })))
@@ -134,6 +143,16 @@ function SettingsContent() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab])
+
+  // 定期フォームの種別・用途変更時にカテゴリをリセット
+  useEffect(() => {
+    if (rEntryType === "income") {
+      setRCategory(rUsageType === "self" ? "給与" : "振込")
+    } else {
+      const first = categories[0]
+      if (first) setRCategory(first)
+    }
+  }, [rEntryType, rUsageType, categories])
 
   // 表示月が変わったら予算一覧を再取得
   useEffect(() => {
@@ -173,6 +192,31 @@ function SettingsContent() {
     })
     setPlanMsg("保存しました")
     setPlanSaving(false)
+  }
+
+  async function handleAddRecurring() {
+    if (!rCategory || !rAmount) return
+    // 個人/共用から対応カードを自動選択
+    const card = cards.find(c => c.card_type === rUsageType)
+    if (!card) return
+    setRSaving(true)
+    await fetch("/api/recurring", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        day_of_month: Number(rDay),
+        card_id: card.id,
+        category: rCategory,
+        amount: Number(rAmount.replace(/,/g, "")),
+        memo: rMemo,
+        entry_type: rEntryType,
+      }),
+    })
+    setRAmount("")
+    setRMemo("")
+    const d = await fetch("/api/recurring").then(r => r.json())
+    setRecurring(d.recurring ?? [])
+    setRSaving(false)
   }
 
   async function handleDeleteRecurring(id: number) {
@@ -397,45 +441,146 @@ function SettingsContent() {
           ))}
         </div>
 
-        {/* === 定期支出タブ === */}
+        {/* === 定期支出・入金タブ === */}
         {tab === "recurring" && (
-          <div className="space-y-3">
-            {recurring.length === 0 ? (
-              <p className="text-center text-sm text-gray-400 py-6">定期支出が登録されていません</p>
-            ) : (
-              <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-                <div className="px-4 py-3 bg-gray-50 border-b flex justify-between items-center">
-                  <h2 className="text-sm font-semibold text-gray-700">登録済み定期支出</h2>
-                  <button onClick={handleGenerateRecurring}
-                    className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium hover:bg-green-200">
-                    今月分を生成
-                  </button>
-                </div>
-                {recurring.map(r => (
-                  <div key={r.id} className="flex items-center px-4 py-2.5 border-b last:border-0">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-xs px-1.5 py-0.5 rounded text-white"
-                          style={{ backgroundColor: r.color ?? "#6366f1" }}>
-                          {r.card_name}
-                        </span>
-                        <span className="text-sm font-medium text-gray-800">{r.category}</span>
-                      </div>
-                      <p className="text-xs text-gray-500">{r.day_of_month}日{r.memo && ` / ${r.memo}`}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-gray-700">{toJPY(r.amount)}</span>
-                      <button onClick={() => handleGenerateSingle(r)}
-                        className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-medium hover:bg-green-200">
-                        生成
-                      </button>
-                      <button onClick={() => handleDeleteRecurring(r.id)}
-                        className="text-gray-300 hover:text-red-400 text-xl leading-none w-6">×</button>
-                    </div>
-                  </div>
-                ))}
+          <div className={isPC ? "grid grid-cols-2 gap-4 items-start" : "space-y-3"}>
+
+            {/* 登録フォーム */}
+            <div className="bg-white rounded-xl shadow-sm p-4 space-y-3">
+              <h2 className="text-sm font-semibold text-gray-700">定期を追加</h2>
+
+              {/* 支出 / 入金 */}
+              <div className="flex rounded-xl bg-gray-100 p-1 gap-1">
+                <button type="button" onClick={() => setREntryType("expense")}
+                  className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${rEntryType === "expense" ? "bg-blue-600 text-white shadow-sm" : "text-gray-600"}`}>
+                  💸 支出
+                </button>
+                <button type="button" onClick={() => setREntryType("income")}
+                  className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${rEntryType === "income" ? "bg-green-600 text-white shadow-sm" : "text-gray-600"}`}>
+                  💰 入金
+                </button>
               </div>
-            )}
+
+              {/* 個人 / 共用 */}
+              <div className="flex rounded-xl bg-gray-100 p-1 gap-1">
+                <button type="button" onClick={() => setRUsageType("self")}
+                  className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${rUsageType === "self" ? "bg-indigo-600 text-white shadow-sm" : "text-gray-600"}`}>
+                  個人
+                </button>
+                <button type="button" onClick={() => setRUsageType("joint")}
+                  className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${rUsageType === "joint" ? "bg-amber-500 text-white shadow-sm" : "text-gray-600"}`}>
+                  共用
+                </button>
+              </div>
+
+              {/* 引き落とし日 */}
+              <div>
+                <label className="text-xs text-gray-600 mb-1 block">引き落とし日</label>
+                <select value={rDay} onChange={e => setRDay(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-sm bg-white text-gray-800">
+                  {Array.from({ length: 28 }, (_, i) => i + 1).map(d => (
+                    <option key={d} value={d}>{d}日</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* カテゴリ */}
+              <div>
+                <label className="text-xs text-gray-600 mb-1 block">カテゴリ</label>
+                {rEntryType === "income" ? (
+                  <div className="flex gap-2">
+                    {(rUsageType === "self" ? ["給与", "副収入", "その他"] : ["振込", "その他"]).map(c => (
+                      <button key={c} type="button" onClick={() => setRCategory(c)}
+                        className={`flex-1 py-2 rounded-lg text-sm border-2 transition-colors font-medium ${
+                          rCategory === c ? "border-green-500 bg-green-50 text-green-700" : "border-gray-200 text-gray-600"
+                        }`}>
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <select value={rCategory} onChange={e => setRCategory(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2 text-sm bg-white text-gray-800">
+                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                )}
+              </div>
+
+              {/* 金額 */}
+              <div>
+                <label className="text-xs text-gray-600 mb-1 block">金額（円）</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">¥</span>
+                  <input type="text" inputMode="numeric"
+                    value={rAmount}
+                    onChange={e => {
+                      const raw = e.target.value.replace(/,/g, "")
+                      if (raw === "" || /^\d+$/.test(raw)) setRAmount(raw === "" ? "" : Number(raw).toLocaleString("ja-JP"))
+                    }}
+                    placeholder="0"
+                    className="w-full border rounded-lg pl-7 pr-3 py-2 text-sm text-gray-800" />
+                </div>
+              </div>
+
+              {/* メモ */}
+              <div>
+                <label className="text-xs text-gray-600 mb-1 block">メモ（任意）</label>
+                <input type="text" value={rMemo} onChange={e => setRMemo(e.target.value)}
+                  placeholder="例：Netflix サブスク"
+                  className="w-full border rounded-lg px-3 py-2 text-sm text-gray-800" />
+              </div>
+
+              <button onClick={handleAddRecurring} disabled={rSaving || !rCategory || !rAmount}
+                className="w-full bg-blue-600 text-white rounded-lg py-2.5 text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                {rSaving ? "追加中..." : "定期を追加"}
+              </button>
+            </div>
+
+            {/* 登録済み一覧 */}
+            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+              <div className="px-4 py-3 bg-gray-50 border-b flex justify-between items-center">
+                <h2 className="text-sm font-semibold text-gray-700">登録済み定期</h2>
+                <button onClick={handleGenerateRecurring}
+                  className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium hover:bg-green-200">
+                  今月分を生成
+                </button>
+              </div>
+              {recurring.length === 0 ? (
+                <p className="text-center text-xs text-gray-400 py-6">登録されていません</p>
+              ) : (
+                recurring.map(r => {
+                  const isIncome = r.entry_type === "income"
+                  const usageLabel = r.card_type === "joint" ? "共用" : "個人"
+                  const usageColor = r.card_type === "joint" ? "#f59e0b" : "#6366f1"
+                  return (
+                    <div key={r.id} className="flex items-center px-4 py-2.5 border-b last:border-0">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                          <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${isIncome ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>
+                            {isIncome ? "入金" : "支出"}
+                          </span>
+                          <span className="text-xs px-1.5 py-0.5 rounded text-white font-medium"
+                            style={{ backgroundColor: usageColor }}>
+                            {usageLabel}
+                          </span>
+                          <span className="text-sm font-medium text-gray-800">{r.category}</span>
+                        </div>
+                        <p className="text-xs text-gray-500">{r.day_of_month}日{r.memo && ` / ${r.memo}`}</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-sm font-semibold text-gray-700">{toJPY(r.amount)}</span>
+                        <button onClick={() => handleGenerateSingle(r)}
+                          className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-medium hover:bg-green-200">
+                          生成
+                        </button>
+                        <button onClick={() => handleDeleteRecurring(r.id)}
+                          className="text-gray-300 hover:text-red-400 text-xl leading-none w-6">×</button>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
           </div>
         )}
 
