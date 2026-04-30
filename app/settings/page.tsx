@@ -225,34 +225,6 @@ function SettingsContent() {
     setRecurring(prev => prev.filter(r => r.id !== id))
   }
 
-  async function handleGenerateRecurring() {
-    const m = prompt("生成する月を入力してください（例: 2025-01）", defaultMonth)
-    if (!m) return
-    const res = await fetch("/api/recurring", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ month: m }),
-    })
-    const d = await res.json()
-    alert(`${d.count}件の定期支出を ${m} に生成しました`)
-  }
-
-  async function handleGenerateSingle(r: Recurring) {
-    const m = prompt(`「${r.category}」を生成する月を入力してください（例: 2025-01）`, defaultMonth)
-    if (!m) return
-    const res = await fetch("/api/recurring", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ month: m, id: r.id }),
-    })
-    const d = await res.json()
-    if (d.count > 0) {
-      alert(`「${r.category}」を ${m} に生成しました`)
-    } else {
-      alert("生成できませんでした")
-    }
-  }
-
   async function handleSaveBudget() {
     if (!budgetCategory || !budgetAmount) return
     setBudgetSaving(true)
@@ -551,12 +523,8 @@ function SettingsContent() {
 
             {/* 登録済み一覧 */}
             <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-              <div className="px-4 py-3 bg-gray-50 border-b flex justify-between items-center">
+              <div className="px-4 py-3 bg-gray-50 border-b">
                 <h2 className="text-sm font-semibold text-gray-700">登録済み定期</h2>
-                <button onClick={handleGenerateRecurring}
-                  className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium hover:bg-green-200">
-                  今月分を生成
-                </button>
               </div>
               {recurring.length === 0 ? (
                 <p className="text-center text-xs text-gray-400 py-6">登録されていません</p>
@@ -582,10 +550,6 @@ function SettingsContent() {
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <span className="text-sm font-semibold text-gray-700">{toJPY(r.amount)}</span>
-                        <button onClick={() => handleGenerateSingle(r)}
-                          className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-medium hover:bg-green-200">
-                          生成
-                        </button>
                         <button onClick={() => handleDeleteRecurring(r.id)}
                           className="text-gray-300 hover:text-red-400 text-xl leading-none w-6">×</button>
                       </div>
