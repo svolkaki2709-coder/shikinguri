@@ -154,11 +154,11 @@ export default function InputPage() {
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm">¥</span>
               <input
-                type="number"
-                value={amount}
-                onChange={e => setAmount(e.target.value)}
+                type="text"
+                inputMode="numeric"
+                value={amount ? Number(amount.replace(/,/g, "")).toLocaleString("ja-JP") : ""}
+                onChange={e => { const raw = e.target.value.replace(/,/g, ""); if (raw === "" || /^\d+$/.test(raw)) setAmount(raw) }}
                 placeholder="0"
-                min="1"
                 className="w-full border border-gray-300 rounded-lg pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
                 required
               />
