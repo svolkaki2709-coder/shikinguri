@@ -31,6 +31,7 @@ export default function InputPage() {
 
   // ── 支出フォーム ──
   const [usageType, setUsageType] = useState<"joint" | "self">("self")
+  const [selectedCardId, setSelectedCardId] = useState<number | null>(null)
   const [date, setDate] = useState(now.toISOString().split("T")[0])
   const [category, setCategory] = useState("")
   const [amount, setAmount] = useState("")
@@ -77,10 +78,16 @@ export default function InputPage() {
     setIncomeCategory(incomeCardType === "self" ? "給与" : "振込")
   }, [incomeCardType])
 
-  // 支出用カード: 選択中のusageTypeに対応するカード
-  const selectedCard = useMemo(() => {
-    return cards.find(c => c.card_type === usageType) ?? null
+  // usageType に対応するカード一覧
+  const usageCards = useMemo(() => {
+    return cards.filter(c => c.card_type === usageType)
   }, [cards, usageType])
+
+  // 選択中カード（selectedCardId が null なら先頭カードを使用）
+  const selectedCard = useMemo(() => {
+    if (selectedCardId) return cards.find(c => c.id === selectedCardId) ?? usageCards[0] ?? null
+    return usageCards[0] ?? null
+  }, [cards, selectedCardId, usageCards])
 
   // 支出カテゴリ一覧
   const filteredCategories = useMemo(() => {
@@ -89,10 +96,11 @@ export default function InputPage() {
       .map(r => r.name)
   }, [usageType, allCategoryRows])
 
-  // usageType が変わったらカテゴリをリセット
+  // usageType が変わったらカテゴリ・支払方法をリセット
   useEffect(() => {
     if (filteredCategories.length > 0) setCategory(filteredCategories[0])
-  }, [filteredCategories])
+    setSelectedCardId(null)
+  }, [usageType, filteredCategories])
 
   // ── 支出登録 ──
   async function handleSubmit(e: React.FormEvent) {
@@ -260,6 +268,27 @@ export default function InputPage() {
                   </button>
                 </div>
               </div>
+
+              {/* 支払方法 */}
+              {usageCards.length > 1 && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-2">支払方法</label>
+                  <div className="flex gap-2 flex-wrap">
+                    {usageCards.map(c => (
+                      <button key={c.id} type="button"
+                        onClick={() => setSelectedCardId(c.id)}
+                        className="flex-1 py-2 rounded-lg text-sm font-medium border-2 transition-all"
+                        style={{
+                          borderColor: selectedCard?.id === c.id ? c.color : "#e5e7eb",
+                          backgroundColor: selectedCard?.id === c.id ? c.color + "18" : "white",
+                          color: selectedCard?.id === c.id ? c.color : "#6b7280",
+                        }}>
+                        {c.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* 日付 */}
               <div>
