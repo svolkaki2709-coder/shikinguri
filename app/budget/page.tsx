@@ -337,11 +337,19 @@ export default function BudgetPage() {
         {/* カテゴリ行 */}
         <div className="divide-y divide-gray-100">
           {rows.map((b, rowIdx) => {
-            const diff = b.budget - b.actual
-            const pct = b.budget > 0 ? Math.min((b.actual / b.budget) * 100, 100) : 0
-            const isOver = b.actual > b.budget && b.budget > 0
+            const sign = getEffectiveSign(b)
+            // sign=-1(支出): 予算-実績 が正なら余り、負なら超過
+            // sign=+1(収入/精算): 実績-予算 が正なら余剰、負なら不足
+            // sign=0(振替): 差額表示なし
+            const effectiveDiff = sign === 1 ? b.actual - b.budget : b.budget - b.actual
+            const hasBudget = b.budget > 0
+            const isBad = hasBudget && sign !== 0 && effectiveDiff < 0
+            const pct = hasBudget ? Math.min((b.actual / b.budget) * 100, 100) : 0
             const isDraggingOver = dragOverIdx?.group === group && dragOverIdx.idx === rowIdx
             const isDragging = dragItem?.group === group && dragItem.idx === rowIdx
+            const diffLabel = sign === 1
+              ? (isBad ? "▲不足 " : "+余剰 ")
+              : (isBad ? "▲超過 " : "+残り ")
             return (
               <div
                 key={`${b.category}-${b.cardType}`}
@@ -373,13 +381,15 @@ export default function BudgetPage() {
                       {GROUP_ORDER.map(g => <option key={g} value={g}>{g}</option>)}
                     </select>
                   </div>
-                  <span className={`text-xs font-semibold shrink-0 ml-2 ${isOver ? "text-red-500" : "text-green-600"}`}>
-                    {isOver ? "▲超過 " : "+残り "}{toJPY(Math.abs(diff))}
-                  </span>
+                  {sign !== 0 && hasBudget && (
+                    <span className={`text-xs font-semibold shrink-0 ml-2 ${isBad ? "text-red-500" : "text-green-600"}`}>
+                      {diffLabel}{toJPY(Math.abs(effectiveDiff))}
+                    </span>
+                  )}
                 </div>
                 <div className="w-full bg-gray-100 rounded-full h-1.5 mb-1">
                   <div
-                    className={`h-1.5 rounded-full ${isOver ? "bg-red-400" : (gc?.progress ?? "bg-blue-500")}`}
+                    className={`h-1.5 rounded-full ${isBad ? "bg-red-400" : (gc?.progress ?? "bg-blue-500")}`}
                     style={{ width: `${pct}%` }}
                   />
                 </div>
