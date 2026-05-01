@@ -54,33 +54,38 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // ---- 実績（取引合計） ----
-  const actualRows = await sql`
-    SELECT
-      t.category,
-      c.card_type,
-      TO_CHAR(t.date, 'YYYY-MM') AS month,
-      SUM(t.amount) AS actual
-    FROM transactions t
-    LEFT JOIN cards c ON t.card_id = c.id
-    WHERE TO_CHAR(t.date, 'YYYY-MM') >= ${from}
-      AND TO_CHAR(t.date, 'YYYY-MM') <= ${to}
-    GROUP BY t.category, c.card_type, TO_CHAR(t.date, 'YYYY-MM')
-  `
+  // ---- 実績（取引合計 + 収入合計） ----
+  const [actualRows, incomeActualRows] = await Promise.all([
+    sql`
+      SELECT
+        t.category,
+        c.card_type,
+        TO_CHAR(t.date, 'YYYY-MM') AS month,
+        SUM(t.amount) AS actual
+      FROM transactions t
+      LEFT JOIN cards c ON t.card_id = c.id
+      WHERE TO_CHAR(t.date, 'YYYY-MM') >= ${from}
+        AND TO_CHAR(t.date, 'YYYY-MM') <= ${to}
+      GROUP BY t.category, c.card_type, TO_CHAR(t.date, 'YYYY-MM')
+    `,
+    sql`
+      SELECT
+        category,
+        card_type,
+        TO_CHAR(date, 'YYYY-MM') AS month,
+        SUM(amount) AS actual
+      FROM incomes
+      WHERE TO_CHAR(date, 'YYYY-MM') >= ${from}
+        AND TO_CHAR(date, 'YYYY-MM') <= ${to}
+      GROUP BY category, card_type, TO_CHAR(date, 'YYYY-MM')
+    `,
+  ])
 
-  // ---- 収入 ----
-  const incomeRows = await sql`
-    SELECT
-      TO_CHAR(date, 'YYYY-MM') AS month,
-      SUM(amount) AS total
-    FROM incomes
-    WHERE TO_CHAR(date, 'YYYY-MM') >= ${from}
-      AND TO_CHAR(date, 'YYYY-MM') <= ${to}
-    GROUP BY TO_CHAR(date, 'YYYY-MM')
-  `
+  // ---- 収入月別合計（thead表示用） ----
   const incomeByMonth: Record<string, number> = {}
-  for (const r of incomeRows) {
-    incomeByMonth[r.month as string] = Number(r.total)
+  for (const r of incomeActualRows) {
+    const key = r.month as string
+    incomeByMonth[key] = (incomeByMonth[key] ?? 0) + Number(r.actual)
   }
 
   // ---- カテゴリ一覧（group_type, sort_order 付き） ----
@@ -90,11 +95,15 @@ export async function GET(req: NextRequest) {
     ORDER BY card_type, group_type NULLS LAST, sort_order, name
   `
 
-  // 実績マップ: "category__card_type__month" → actual
+  // 実績マップ: "category__card_type__month" → actual（transactions + incomes 合算）
   const actualMap: Record<string, number> = {}
   for (const r of actualRows) {
     const key = `${r.category}__${r.card_type}__${r.month}`
     actualMap[key] = Number(r.actual)
+  }
+  for (const r of incomeActualRows) {
+    const key = `${r.category}__${r.card_type}__${r.month}`
+    actualMap[key] = (actualMap[key] ?? 0) + Number(r.actual)
   }
 
   // ---- レスポンス構築 ----

@@ -715,26 +715,7 @@ export default function BudgetPage() {
                       <th className="text-right px-3 py-2 font-semibold min-w-[100px] bg-gray-700">年計</th>
                     </tr>
 
-                    {/* 収入行（個人のみ） */}
-                    {yearCardTypeFilter === "self" && (
-                      <tr className="bg-green-50 border-b border-green-200">
-                        <td className="sticky left-0 bg-green-50 px-3 py-1.5 font-semibold text-green-700">
-                          収入
-                        </td>
-                        <td className="text-right px-2 py-1.5 text-green-600 font-medium">—</td>
-                        {months.map(m => {
-                          const inc = incomeByMonth[m] ?? 0
-                          return (
-                            <td key={m} className="text-right px-2 py-1.5 font-medium text-green-700">
-                              {inc > 0 ? toJPYShort(inc) : <span className="text-gray-300">—</span>}
-                            </td>
-                          )
-                        })}
-                        <td className="text-right px-3 py-1.5 font-bold text-green-700 bg-green-100">
-                          {yearIncome > 0 ? toJPYShort(yearIncome) : "—"}
-                        </td>
-                      </tr>
-                    )}
+                    {/* 収入行は収入グループ内カテゴリ行に統合したため非表示 */}
                   </thead>
 
                   <tbody>
