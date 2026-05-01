@@ -294,6 +294,26 @@ function SettingsContent() {
     setExistingBudgets(prev => prev.filter(b => !(b.category === category && b.card_type === cardType)))
   }
 
+  const [editingCardId, setEditingCardId] = useState<number | null>(null)
+  const [editingCardName, setEditingCardName] = useState("")
+
+  async function handleRenameCard(id: number, name: string) {
+    const trimmed = name.trim()
+    if (!trimmed) { setEditingCardId(null); return }
+    const res = await fetch("/api/cards", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, name: trimmed }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "エラー" }))
+      alert(err.error ?? "名前の変更に失敗しました")
+      return
+    }
+    setCards(prev => prev.map(c => c.id === id ? { ...c, name: trimmed } : c))
+    setEditingCardId(null)
+  }
+
   async function handleDeleteCard(card: Card) {
     const sameType = cards.filter(c => c.card_type === card.card_type && c.id !== card.id)
     if (sameType.length === 0) {
@@ -907,8 +927,28 @@ function SettingsContent() {
                 {cards.map(c => (
                   <div key={c.id} className="flex items-center gap-2 px-3 py-2 border-b last:border-0">
                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
-                    <span className="text-xs font-medium text-gray-800 flex-1">{c.name}</span>
-                    <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${c.card_type === "joint" ? "bg-amber-100 text-amber-700" : "bg-indigo-100 text-indigo-700"}`}>
+                    {editingCardId === c.id ? (
+                      <input
+                        autoFocus
+                        value={editingCardName}
+                        onChange={e => setEditingCardName(e.target.value)}
+                        onBlur={() => handleRenameCard(c.id, editingCardName)}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") handleRenameCard(c.id, editingCardName)
+                          if (e.key === "Escape") setEditingCardId(null)
+                        }}
+                        className="text-xs font-medium flex-1 border border-blue-400 rounded px-2 py-0.5 outline-none focus:ring-1 focus:ring-blue-400 bg-white min-w-0"
+                      />
+                    ) : (
+                      <span
+                        onClick={() => { setEditingCardId(c.id); setEditingCardName(c.name) }}
+                        className="text-xs font-medium text-gray-800 flex-1 cursor-pointer hover:text-blue-600 hover:underline"
+                        title="クリックして名前を編集"
+                      >
+                        {c.name}
+                      </span>
+                    )}
+                    <span className={`text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${c.card_type === "joint" ? "bg-amber-100 text-amber-700" : "bg-indigo-100 text-indigo-700"}`}>
                       {c.card_type === "joint" ? "共用" : "個人"}
                     </span>
                     <button onClick={() => handleDeleteCard(c)}

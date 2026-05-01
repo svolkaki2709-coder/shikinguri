@@ -31,6 +31,20 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ card: result[0] })
 }
 
+export async function PATCH(req: NextRequest) {
+  const session = await auth()
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const { id, name } = await req.json()
+  if (!id || !name?.trim()) return NextResponse.json({ error: "id, name は必須です" }, { status: 400 })
+
+  const existing = await sql`SELECT * FROM cards WHERE name = ${name.trim()} AND id != ${Number(id)} LIMIT 1`
+  if (existing.length > 0) return NextResponse.json({ error: "同じ名前の支払方法が既に存在します" }, { status: 400 })
+
+  const result = await sql`UPDATE cards SET name = ${name.trim()} WHERE id = ${Number(id)} RETURNING *`
+  return NextResponse.json({ card: result[0] })
+}
+
 export async function DELETE(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
