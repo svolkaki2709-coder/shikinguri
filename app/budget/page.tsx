@@ -239,6 +239,9 @@ export default function BudgetPage() {
     setBudgets(prev => prev.map(b =>
       b.category === category && b.cardType === cardType ? { ...b, budget: amount } : b
     ))
+    setCategories(prev => prev.map(c =>
+      c.name === category && c.cardType === cardType ? { ...c, budget: amount, yearBudget: amount * 12 } : c
+    ))
     setEditingBudget(null)
   }
 
@@ -804,7 +807,28 @@ export default function BudgetPage() {
                                   <span className={`font-medium ${gc?.text ?? "text-gray-700"}`}>{row.name}</span>
                                 </td>
                                 <td className="text-right px-2 py-1.5 text-gray-500">
-                                  {row.budget > 0 ? toJPYShort(row.budget) : <span className="text-gray-200">—</span>}
+                                  {editingBudget?.category === row.name && editingBudget?.cardType === row.cardType ? (
+                                    <input
+                                      type="text"
+                                      autoFocus
+                                      value={editingBudget.value}
+                                      onChange={e => setEditingBudget({ ...editingBudget, value: e.target.value })}
+                                      onBlur={() => handleBudgetSave(row.name, row.cardType, editingBudget.value)}
+                                      onKeyDown={e => {
+                                        if (e.key === "Enter") handleBudgetSave(row.name, row.cardType, editingBudget.value)
+                                        if (e.key === "Escape") setEditingBudget(null)
+                                      }}
+                                      className="w-20 text-right text-xs border border-blue-400 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-blue-400 bg-white"
+                                    />
+                                  ) : (
+                                    <span
+                                      onClick={() => setEditingBudget({ category: row.name, cardType: row.cardType, value: row.budget > 0 ? String(row.budget) : "" })}
+                                      className="cursor-pointer hover:text-blue-600 hover:underline"
+                                      title="クリックして予算を編集"
+                                    >
+                                      {row.budget > 0 ? toJPYShort(row.budget) : <span className="text-gray-200">—</span>}
+                                    </span>
+                                  )}
                                 </td>
                                 {months.map(m => {
                                   const { budget: mb, actual: ma } = row.byMonth[m] ?? { budget: 0, actual: 0 }
