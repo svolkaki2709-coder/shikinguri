@@ -937,7 +937,7 @@ function SettingsContent() {
                           if (e.key === "Enter") handleRenameCard(c.id, editingCardName)
                           if (e.key === "Escape") setEditingCardId(null)
                         }}
-                        className="text-xs font-medium flex-1 border border-blue-400 rounded px-2 py-0.5 outline-none focus:ring-1 focus:ring-blue-400 bg-white min-w-0"
+                        className="text-xs font-medium text-gray-800 flex-1 border border-blue-400 rounded px-2 py-0.5 outline-none focus:ring-1 focus:ring-blue-400 bg-white min-w-0"
                       />
                     ) : (
                       <span
