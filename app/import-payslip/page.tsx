@@ -18,7 +18,20 @@ interface ParsedPayslip {
   taxableCommute: number | null
   totalDeduction: number | null
   yearEndAdjustment: number | null
+  extraItems: { label: string; amount: number }[]
   _debug?: { nums: number[]; labels: string[]; val: Record<string, number>; 住民税KeyHex?: string }
+}
+
+// 自動検出項目の分類タイプ
+// gross: 支給合計に含む（デフォルト）
+// exclude: 立替として除外（commuteTotal に加算）
+// separate: 個別収入として追加登録
+// ignore: 無視
+type ExtraItemType = "gross" | "exclude" | "separate" | "ignore"
+interface ExtraItemState {
+  label: string
+  amount: number
+  type: ExtraItemType
 }
 
 interface ImportHistoryGroup {
@@ -54,6 +67,8 @@ export default function ImportPayslipPage() {
   const [deductionAdj, setDeductionAdj] = useState<AdjustmentRow[]>([])
   // 支給追加（賞与・特別手当など）→ 別収入として個別保存
   const [incomeAdj, setIncomeAdj] = useState<AdjustmentRow[]>([])
+  // PDF自動検出項目（月給・固定残業手当・アニバーサリー手当など）
+  const [extraItems, setExtraItems] = useState<ExtraItemState[]>([])
   const [nextId, setNextId] = useState(1)
   const [error, setError] = useState("")
   const [saving, setSaving] = useState(false)
@@ -79,10 +94,14 @@ export default function ImportPayslipPage() {
 
   const commuteTotal = useMemo(() => {
     if (!result) return 0
+    const extraExclude = extraItems
+      .filter(e => e.type === "exclude")
+      .reduce((s, e) => s + e.amount, 0)
     return (result.travelReimbursement ?? 0)
       + (result.nonTaxableCommute ?? 0)
       + (result.taxableCommute ?? 0)
-  }, [result])
+      + extraExclude
+  }, [result, extraItems])
 
   // 登録する給与収入 = 支給合計（額面）− 営業交通費・非課税通勤手当・課税通勤手当
   const salaryIncome = useMemo(() => {
@@ -107,6 +126,11 @@ export default function ImportPayslipPage() {
       setResult(data)
       setDeductionAdj([])
       setIncomeAdj([])
+      // 自動検出項目を初期化（デフォルト: "gross"）
+      setExtraItems((data.extraItems ?? []).map((item: { label: string; amount: number }) => ({
+        ...item,
+        type: "gross" as ExtraItemType,
+      })))
       // 年末調整還付が検出されたら控除調整に自動セット
       if (data.yearEndAdjustment != null) {
         setDeductionAdj([{ id: 1, label: "年末調整還付", amount: String(data.yearEndAdjustment) }])
@@ -184,6 +208,17 @@ export default function ImportPayslipPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ date, amount: amt, category: adj.label, memo: "給与明細取込（支給追加）", card_type: "self" }),
+      }).then(r => r.json())
+      if (r.income?.id) ids.push(r.income.id)
+    }
+
+    // ③' 自動検出項目のうち "separate" → 個別収入として保存
+    for (const extra of extraItems.filter(e => e.type === "separate")) {
+      if (extra.amount === 0) continue
+      const r = await fetch("/api/income", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date, amount: extra.amount, category: extra.label, memo: "給与明細取込（自動検出）", card_type: "self" }),
       }).then(r => r.json())
       if (r.income?.id) ids.push(r.income.id)
     }
@@ -347,6 +382,37 @@ export default function ImportPayslipPage() {
                 <EditableRow label="非課税通勤手当" field="nonTaxableCommute" color="text-orange-600" />
                 <EditableRow label="課税通勤手当" field="taxableCommute" color="text-orange-600" />
               </div>
+
+              {/* 自動検出項目（月給・固定残業手当・アニバーサリー手当など） */}
+              {extraItems.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-dashed border-gray-200">
+                  <p className="text-[10px] text-gray-400 mb-1.5">PDF自動検出（支給内訳）</p>
+                  <div className="space-y-1">
+                    {extraItems.map((item, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <span className="flex-1 text-xs text-gray-700 truncate">{item.label}</span>
+                        <span className="text-xs text-gray-600 font-medium w-20 text-right shrink-0">
+                          {item.amount.toLocaleString("ja-JP")}
+                        </span>
+                        <select
+                          value={item.type}
+                          onChange={e => setExtraItems(prev => prev.map((ei, i) => i === idx ? { ...ei, type: e.target.value as ExtraItemType } : ei))}
+                          className="text-[10px] border border-gray-200 rounded-lg px-1.5 py-1 bg-white text-gray-700 outline-none focus:ring-1 focus:ring-blue-400 shrink-0"
+                        >
+                          <option value="gross">支給合計に含む</option>
+                          <option value="exclude">立替として除外</option>
+                          <option value="separate">個別収入として登録</option>
+                          <option value="ignore">無視</option>
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-1.5">
+                    「支給合計に含む」はすでに支給合計（額面）に含まれています
+                  </p>
+                </div>
+              )}
+
               {/* 支給追加（賞与・特別手当など） */}
               {incomeAdj.map(adj => {
                 const amt = Number(adj.amount.replace(/,/g, ""))
@@ -468,7 +534,10 @@ export default function ImportPayslipPage() {
             <div className="px-4 py-3 space-y-2">
               <div className="bg-gray-50 rounded-lg px-3 py-2 space-y-1">
                 <p className="text-[10px] font-semibold text-gray-500">
-                  登録内容（{2 + incomeAdj.filter(a => a.label && Number(a.amount.replace(/,/g, "")) !== 0).length}件）
+                  登録内容（{2
+                    + incomeAdj.filter(a => a.label && Number(a.amount.replace(/,/g, "")) !== 0).length
+                    + extraItems.filter(e => e.type === "separate" && e.amount !== 0).length
+                  }件）
                 </p>
                 <div className="flex justify-between text-xs">
                   <span className="text-gray-600">収入: 給与</span>
@@ -483,6 +552,12 @@ export default function ImportPayslipPage() {
                     </div>
                   )
                 })}
+                {extraItems.filter(e => e.type === "separate" && e.amount !== 0).map((e, i) => (
+                  <div key={i} className="flex justify-between text-xs">
+                    <span className="text-gray-600">収入: {e.label}</span>
+                    <span className="text-green-600 font-medium">{toJPY(e.amount)}</span>
+                  </div>
+                ))}
                 <div className="flex justify-between text-xs">
                   <span className="text-gray-600">控除: 給与源泉税</span>
                   <span className="text-red-500 font-medium">−{toJPY(deductionTotal)}</span>
