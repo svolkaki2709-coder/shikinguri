@@ -67,7 +67,7 @@ function getEffectiveSign(b: BudgetRow): number {
   // sign未設定 → group_typeで推測
   if (b.groupType === "収入") return 1
   if (b.groupType === "振替") return 0
-  if (b.groupType === "立替") return -1
+  if (b.groupType === "立替") return b.category.includes("精算") ? 1 : -1
   return -1  // 支出・投資・貯蓄・未設定
 }
 
@@ -89,7 +89,7 @@ function getCategorySign(row: CategoryData): number {
   if (row.sign === "neutral") return 0
   if (row.groupType === "収入") return 1
   if (row.groupType === "振替") return 0
-  if (row.groupType === "立替") return -1
+  if (row.groupType === "立替") return row.name.includes("精算") ? 1 : -1
   return -1
 }
 
@@ -396,8 +396,20 @@ export default function BudgetPage() {
   // ─── 月次タブ: グループカードレンダリング ────────────────────
   const renderMonthlyGroupCard = (group: string, rows: BudgetRow[]) => {
     const gc = GROUP_COLORS[group]
-    const gBudget = rows.reduce((s, b) => s + b.budget, 0)
-    const gActual = rows.reduce((s, b) => s + b.actual, 0)
+    // sign-aware 集計: sign=+1(収入系)は収入側、sign=-1(支出系)は支出側、sign=0は無視
+    // 収入グループはそのまま合計、それ以外は「支出 − 収入系」のネットを表示
+    const gBudget = group === "収入"
+      ? rows.reduce((s, b) => s + b.budget, 0)
+      : rows.reduce((s, b) => {
+          const sg = getEffectiveSign(b)
+          return sg === -1 ? s + b.budget : sg === 1 ? s - b.budget : s
+        }, 0)
+    const gActual = group === "収入"
+      ? rows.reduce((s, b) => s + b.actual, 0)
+      : rows.reduce((s, b) => {
+          const sg = getEffectiveSign(b)
+          return sg === -1 ? s + b.actual : sg === 1 ? s - b.actual : s
+        }, 0)
     const gDiff = gBudget - gActual
 
     return (
@@ -428,7 +440,9 @@ export default function BudgetPage() {
             const isDraggingOver = dragOverIdx?.group === group && dragOverIdx.idx === rowIdx
             const isDragging = dragItem?.group === group && dragItem.idx === rowIdx
             const diffLabel = sign === 1
-              ? (isBad ? "▲不足 " : "+余剰 ")
+              ? (isBad
+                  ? (b.groupType === "立替" ? "▲未精算 " : "▲不足 ")
+                  : (b.groupType === "立替" ? "+精算済 " : "+余剰 "))
               : (isBad ? "▲超過 " : "+残り ")
             return (
               <div
