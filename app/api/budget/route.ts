@@ -117,8 +117,8 @@ export async function PUT(req: NextRequest) {
 
     if (month) {
       if (is_from_month) {
-        // この月以降: 同カテゴリの既存 is_from_month レコードを全削除してから新規挿入
-        await sql`DELETE FROM budgets WHERE category = ${category} AND card_type = ${card_type ?? "self"} AND COALESCE(is_from_month, FALSE) = TRUE`
+        // 新しい開始月以降のレコードだけ削除（それより前の「以降」レコードは残す）
+        await sql`DELETE FROM budgets WHERE category = ${category} AND card_type = ${card_type ?? "self"} AND COALESCE(is_from_month, FALSE) = TRUE AND month >= ${month}`
       }
       // 同じ month のレコードを削除（制約違反を防ぐ）
       await sql`DELETE FROM budgets WHERE category = ${category} AND card_type = ${card_type ?? "self"} AND month = ${month}`
