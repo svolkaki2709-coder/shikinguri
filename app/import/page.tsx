@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
 
-interface Card { id: number; name: string; card_type: string; color: string }
+interface Card { id: number; name: string; card_type: string; color: string; has_csv: boolean }
 interface ImportLog {
   id: number
   card_name: string
@@ -31,7 +31,7 @@ export default function ImportPage() {
 
   useEffect(() => {
     fetch("/api/cards").then(r => r.json()).then(d => {
-      const c = d.cards ?? []
+      const c = (d.cards ?? []).filter((card: Card) => card.has_csv)
       setCards(c)
       if (c.length > 0) setCardId(c[0].id)
     })

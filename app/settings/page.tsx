@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
 import { useViewMode } from "@/components/ViewModeContext"
 
-interface Card { id: number; name: string; card_type: string; color: string }
+interface Card { id: number; name: string; card_type: string; color: string; has_csv: boolean }
 interface Recurring { id: number; day_of_month: number; card_id: number; card_name: string; card_type: string; color: string; category: string; amount: number; memo: string; entry_type: string }
 interface Category { name: string }
 interface BudgetRow { category: string; card_type: string; budget: number; is_monthly?: boolean; is_from_month?: boolean; record_month?: string | null }
@@ -318,6 +318,15 @@ function SettingsContent() {
       setNewCardName("")
     }
     setCardSaving(false)
+  }
+
+  async function handleToggleCsv(id: number, current: boolean) {
+    await fetch("/api/cards", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, has_csv: !current }),
+    })
+    setCards(prev => prev.map(c => c.id === id ? { ...c, has_csv: !current } : c))
   }
 
   async function handleRenameCard(id: number, name: string) {
@@ -1002,6 +1011,15 @@ function SettingsContent() {
                         {c.name}
                       </span>
                     )}
+                    <button
+                      onClick={() => handleToggleCsv(c.id, c.has_csv)}
+                      title={c.has_csv ? "CSV対応ON（クリックでOFF）" : "CSV対応OFF（クリックでON）"}
+                      className={`text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0 border transition-colors ${
+                        c.has_csv
+                          ? "bg-blue-100 text-blue-600 border-blue-300"
+                          : "bg-gray-100 text-gray-400 border-gray-200"
+                      }`}
+                    >CSV</button>
                     <button onClick={() => handleDeleteCard(c)}
                       className="text-gray-300 hover:text-red-400 text-lg leading-none w-5 shrink-0">×</button>
                   </div>

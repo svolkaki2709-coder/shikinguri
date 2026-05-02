@@ -3,7 +3,6 @@ import { auth } from "@/auth"
 import { sql } from "@/lib/db"
 
 async function migrateCards() {
-  // name単体のUNIQUE制約を削除し、(name, card_type)の複合制約に変更
   try { await sql`ALTER TABLE cards DROP CONSTRAINT IF EXISTS cards_name_key` } catch (_) {}
   try {
     await sql`
@@ -16,6 +15,7 @@ async function migrateCards() {
       END $$
     `
   } catch (_) {}
+  await sql`ALTER TABLE cards ADD COLUMN IF NOT EXISTS has_csv BOOLEAN DEFAULT FALSE`
 }
 
 export async function GET() {
@@ -54,9 +54,19 @@ export async function PATCH(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   try {
-    const { id, name } = await req.json()
-    if (!id || !name?.trim()) return NextResponse.json({ error: "id, name は必須です" }, { status: 400 })
+    const body = await req.json()
+    const { id } = body
+    if (!id) return NextResponse.json({ error: "id は必須です" }, { status: 400 })
 
+    // has_csv トグル
+    if (typeof body.has_csv === "boolean") {
+      const result = await sql`UPDATE cards SET has_csv = ${body.has_csv} WHERE id = ${Number(id)} RETURNING *`
+      return NextResponse.json({ card: result[0] })
+    }
+
+    // 名前変更
+    const { name } = body
+    if (!name?.trim()) return NextResponse.json({ error: "name は必須です" }, { status: 400 })
     const target = await sql`SELECT card_type FROM cards WHERE id = ${Number(id)} LIMIT 1`
     const cardType = target[0]?.card_type ?? "self"
     const existing = await sql`SELECT * FROM cards WHERE name = ${name.trim()} AND card_type = ${cardType} AND id != ${Number(id)} LIMIT 1`
