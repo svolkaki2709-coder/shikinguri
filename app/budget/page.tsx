@@ -724,10 +724,10 @@ function BudgetContent() {
             <div className="flex flex-wrap items-center gap-2">
               {/* 年選択 */}
               <div className="flex items-center gap-1 bg-white border rounded-lg px-2 py-1.5">
-                <button onClick={() => setYear(y => y - 1)}
+                <button onClick={() => setYear(year - 1)}
                   className="text-gray-600 hover:text-blue-600 px-1 font-bold text-sm">‹</button>
                 <span className="text-sm font-semibold text-gray-800 w-16 text-center">{year}年</span>
-                <button onClick={() => setYear(y => y + 1)}
+                <button onClick={() => setYear(year + 1)}
                   className="text-gray-600 hover:text-blue-600 px-1 font-bold text-sm">›</button>
               </div>
 
