@@ -53,14 +53,16 @@ export async function PUT(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { id, amount, category } = await req.json()
+  const { id, amount, category, date, memo } = await req.json()
   if (!id) return NextResponse.json({ error: "idが必要です" }, { status: 400 })
 
   const result = await sql`
     UPDATE incomes
     SET
       amount   = COALESCE(${amount != null ? Number(amount) : null}, amount),
-      category = COALESCE(${category ?? null}, category)
+      category = COALESCE(${category ?? null}, category),
+      date     = COALESCE(${date ?? null}, date),
+      memo     = COALESCE(${memo ?? null}, memo)
     WHERE id = ${Number(id)}
     RETURNING *
   `

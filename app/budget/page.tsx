@@ -177,25 +177,61 @@ function BudgetContent() {
   const [rangeTo, setRangeTo] = useState(String(now.getMonth() + 1).padStart(2, "0"))
 
   // ─── 明細ドリルダウン ─────────────────────────────────────────
-  interface DrillDownRow { id: number; date: string; amount: number; memo: string; source: string; card_name: string | null; card_type: string }
+  interface DrillDownRow { id: number; date: string; amount: number; memo: string; source: string; card_name: string | null; card_type: string; card_id?: number }
   const [drillDown, setDrillDown] = useState<{ category: string; cardType: string; month: string } | null>(null)
   const [drillDownRows, setDrillDownRows] = useState<DrillDownRow[]>([])
   const [drillDownLoading, setDrillDownLoading] = useState(false)
+  const [editingRow, setEditingRow] = useState<{ id: number; source: string; date: string; category: string; amount: string; memo: string } | null>(null)
+  const [editSaving, setEditSaving] = useState(false)
+  const [allCatRows, setAllCatRows] = useState<{ name: string; card_type: string }[]>([])
 
   useEffect(() => {
-    if (!drillDown) return
+    fetch("/api/categories").then(r => r.json()).then(d => setAllCatRows(d.rows ?? []))
+  }, [])
+
+  function refreshDrillDown(dd: { category: string; cardType: string; month: string }) {
     setDrillDownLoading(true)
-    fetch(`/api/history?month=${drillDown.month}&category=${encodeURIComponent(drillDown.category)}`)
+    fetch(`/api/history?month=${dd.month}&category=${encodeURIComponent(dd.category)}`)
       .then(r => r.json())
       .then(d => {
         const rows = (d.transactions ?? []) as DrillDownRow[]
-        setDrillDownRows(rows.filter(r => r.card_type === drillDown.cardType))
+        setDrillDownRows(rows.filter(r => r.card_type === dd.cardType))
       })
       .finally(() => setDrillDownLoading(false))
+  }
+
+  useEffect(() => {
+    if (!drillDown) return
+    refreshDrillDown(drillDown)
   }, [drillDown])
 
   function openDrillDown(category: string, cardType: string, month: string) {
     setDrillDown({ category, cardType, month })
+    setEditingRow(null)
+  }
+
+  async function handleSaveEdit() {
+    if (!editingRow) return
+    setEditSaving(true)
+    try {
+      if (editingRow.source === "income") {
+        await fetch("/api/income", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: editingRow.id, amount: Number(editingRow.amount.replace(/,/g, "")), category: editingRow.category, date: editingRow.date, memo: editingRow.memo }),
+        })
+      } else {
+        await fetch("/api/transactions", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: editingRow.id, category: editingRow.category, memo: editingRow.memo, date: editingRow.date, amount: Number(editingRow.amount.replace(/,/g, "")), card_id: drillDownRows.find(r => r.id === editingRow.id)?.card_id }),
+        })
+      }
+      setEditingRow(null)
+      if (drillDown) refreshDrillDown(drillDown)
+    } finally {
+      setEditSaving(false)
+    }
   }
 
   // ─── データ取得: 月次 ──────────────────────────────────────────
@@ -1337,25 +1373,68 @@ function BudgetContent() {
                       <th className="text-left py-1.5 font-medium">日付</th>
                       <th className="text-left py-1.5 font-medium">メモ / 種別</th>
                       <th className="text-right py-1.5 font-medium">金額</th>
+                      <th className="w-6"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {drillDownRows.map(r => (
-                      <tr key={`${r.source}-${r.id}`} className="hover:bg-gray-50">
-                        <td className="py-1.5 text-gray-600 whitespace-nowrap">{r.date}</td>
-                        <td className="py-1.5 text-gray-700 max-w-[200px]">
-                          <span className="block truncate">{r.memo || "—"}</span>
-                          {r.source === "income" ? (
-                            <span className="text-[10px] text-green-600">収入</span>
-                          ) : r.card_name ? (
-                            <span className="text-[10px] text-gray-400">{r.card_name}</span>
-                          ) : null}
-                        </td>
-                        <td className={`py-1.5 text-right font-semibold whitespace-nowrap ${Number(r.amount) < 0 ? "text-red-500" : "text-gray-800"}`}>
-                          {Number(r.amount).toLocaleString("ja-JP")}
-                        </td>
-                      </tr>
-                    ))}
+                    {drillDownRows.map(r => {
+                      const isEditing = editingRow?.id === r.id
+                      const catOptions = allCatRows.filter(c => c.card_type === r.card_type).map(c => c.name)
+                      if (isEditing && editingRow) {
+                        return (
+                          <tr key={`${r.source}-${r.id}`} className="bg-blue-50">
+                            <td className="py-2" colSpan={4}>
+                              <div className="flex flex-col gap-1.5 px-1">
+                                <div className="flex gap-1.5">
+                                  <input type="date" value={editingRow.date}
+                                    onChange={e => setEditingRow({ ...editingRow, date: e.target.value })}
+                                    className="border border-gray-300 rounded px-2 py-1 text-xs text-gray-900 w-32" />
+                                  <select value={editingRow.category}
+                                    onChange={e => setEditingRow({ ...editingRow, category: e.target.value })}
+                                    className="border border-gray-300 rounded px-2 py-1 text-xs text-gray-900 flex-1">
+                                    {catOptions.map(n => <option key={n} value={n}>{n}</option>)}
+                                    {!catOptions.includes(editingRow.category) && <option value={editingRow.category}>{editingRow.category}</option>}
+                                  </select>
+                                </div>
+                                <div className="flex gap-1.5">
+                                  <input type="text" value={editingRow.memo}
+                                    onChange={e => setEditingRow({ ...editingRow, memo: e.target.value })}
+                                    placeholder="メモ"
+                                    className="border border-gray-300 rounded px-2 py-1 text-xs text-gray-900 flex-1" />
+                                  <input type="text" inputMode="numeric" value={editingRow.amount}
+                                    onChange={e => { const v = e.target.value.replace(/,/g, ""); if (v === "" || /^-?\d+$/.test(v)) setEditingRow({ ...editingRow, amount: v }) }}
+                                    className="border border-gray-300 rounded px-2 py-1 text-xs text-gray-900 w-24 text-right" />
+                                </div>
+                                <div className="flex gap-1.5 justify-end">
+                                  <button onClick={() => setEditingRow(null)} className="text-xs px-3 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-100">キャンセル</button>
+                                  <button onClick={handleSaveEdit} disabled={editSaving} className="text-xs px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">{editSaving ? "保存中…" : "保存"}</button>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      }
+                      return (
+                        <tr key={`${r.source}-${r.id}`} className="hover:bg-gray-50">
+                          <td className="py-1.5 text-gray-600 whitespace-nowrap">{r.date}</td>
+                          <td className="py-1.5 text-gray-700 max-w-[200px]">
+                            <span className="block truncate">{r.memo || "—"}</span>
+                            {r.source === "income" ? (
+                              <span className="text-[10px] text-green-600">収入</span>
+                            ) : r.card_name ? (
+                              <span className="text-[10px] text-gray-400">{r.card_name}</span>
+                            ) : null}
+                          </td>
+                          <td className={`py-1.5 text-right font-semibold whitespace-nowrap ${Number(r.amount) < 0 ? "text-red-500" : "text-gray-800"}`}>
+                            {Number(r.amount).toLocaleString("ja-JP")}
+                          </td>
+                          <td className="py-1.5 text-right">
+                            <button onClick={() => setEditingRow({ id: r.id, source: r.source, date: r.date, category: drillDown?.category ?? "", amount: String(r.amount), memo: r.memo ?? "" })}
+                              className="text-gray-300 hover:text-blue-500 text-sm px-1">✎</button>
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               )}
