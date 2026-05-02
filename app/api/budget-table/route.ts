@@ -30,28 +30,49 @@ export async function GET(req: NextRequest) {
     m++; if (m > 12) { m = 1; y++ }
   }
 
-  // ---- 予算（デフォルト / 月別） ----
+  // ---- 予算（デフォルト / 月別 / この月以降） ----
+  // is_from_month=TRUE で期間開始前のレコードも取得（翌年以降にも適用するため）
   const budgetRows = await sql`
-    SELECT category, card_type, amount, month
+    SELECT category, card_type, amount, month, COALESCE(is_from_month, FALSE) AS is_from_month
     FROM budgets
-    WHERE month IS NULL OR (month >= ${from + "-01"} AND month <= ${to + "-31"})
-    ORDER BY category, card_type, (month IS NOT NULL) DESC
+    WHERE month IS NULL
+       OR (month >= ${from + "-01"} AND month <= ${to + "-31"})
+       OR (COALESCE(is_from_month, FALSE) = TRUE AND month < ${from + "-01"})
+    ORDER BY category, card_type, month NULLS LAST
   `
 
-  // カテゴリ・card_type ごとの月別予算を解決（月別 > デフォルト）
+  // カテゴリ・card_type ごとの予算を解決
+  // 優先順位: 月別確定 > is_from_month（最新） > デフォルト
   type BudgetKey = string
   const budgetDefault: Record<BudgetKey, number> = {}
-  const budgetMonthly: Record<BudgetKey, Record<string, number>> = {}
+  const budgetExact: Record<BudgetKey, Record<string, number>> = {}  // is_from_month=false の月別
+  const budgetFromMonth: Record<BudgetKey, Array<{ month: string; amount: number }>> = {}  // is_from_month=true
 
   for (const b of budgetRows) {
     const key = `${b.category}__${b.card_type}`
     if (!b.month) {
       budgetDefault[key] = Number(b.amount)
+    } else if (b.is_from_month) {
+      const mm = String(b.month).slice(0, 7)
+      if (!budgetFromMonth[key]) budgetFromMonth[key] = []
+      budgetFromMonth[key].push({ month: mm, amount: Number(b.amount) })
     } else {
-      const mm = String(b.month).slice(0, 7) // "YYYY-MM"
-      if (!budgetMonthly[key]) budgetMonthly[key] = {}
-      budgetMonthly[key][mm] = Number(b.amount)
+      const mm = String(b.month).slice(0, 7)
+      if (!budgetExact[key]) budgetExact[key] = {}
+      budgetExact[key][mm] = Number(b.amount)
     }
+  }
+  // is_from_month レコードを月の降順にソート（最新が先頭）
+  for (const key of Object.keys(budgetFromMonth)) {
+    budgetFromMonth[key].sort((a, b) => b.month.localeCompare(a.month))
+  }
+
+  function resolveBudget(key: string, mon: string): number {
+    if (budgetExact[key]?.[mon] !== undefined) return budgetExact[key][mon]
+    for (const rec of (budgetFromMonth[key] ?? [])) {
+      if (rec.month <= mon) return rec.amount
+    }
+    return budgetDefault[key] ?? 0
   }
 
   // ---- 実績（取引合計 + 収入合計） ----
@@ -113,7 +134,7 @@ export async function GET(req: NextRequest) {
 
     const byMonth: Record<string, { budget: number; actual: number }> = {}
     for (const mon of months) {
-      const b = budgetMonthly[key]?.[mon] ?? budget
+      const b = resolveBudget(key, mon)
       const a = actualMap[`${c.name}__${c.card_type}__${mon}`] ?? 0
       byMonth[mon] = { budget: b, actual: a }
     }
