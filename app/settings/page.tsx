@@ -309,9 +309,12 @@ function SettingsContent() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, card_type: cardViewType, color: cardViewType === "joint" ? "#f59e0b" : "#6366f1" }),
     })
-    if (res.ok) {
-      const d = await res.json()
-      setCards(prev => [...prev, d.card])
+    const d = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      alert(d.error ?? "追加に失敗しました")
+    } else if (d.card) {
+      // 既に同IDが存在する場合は追加しない（重複防止）
+      setCards(prev => prev.some(c => c.id === d.card.id) ? prev : [...prev, d.card])
       setNewCardName("")
     }
     setCardSaving(false)
