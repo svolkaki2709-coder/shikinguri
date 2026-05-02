@@ -11,6 +11,13 @@ import {
 } from "recharts"
 
 // ─── ユーティリティ ───────────────────────────────────────────────
+function fmtInput(v: string): string {
+  const raw = v.replace(/,/g, "")
+  if (raw === "") return ""
+  if (!/^\d+$/.test(raw)) return v
+  return Number(raw).toLocaleString()
+}
+
 function toJPY(n: number) {
   return new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 }).format(n)
 }
@@ -456,7 +463,7 @@ export default function BudgetPage() {
                         type="text"
                         autoFocus
                         value={editingBudget.value}
-                        onChange={e => setEditingBudget({ ...editingBudget, value: e.target.value })}
+                        onChange={e => setEditingBudget({ ...editingBudget, value: fmtInput(e.target.value) })}
                         onBlur={() => handleBudgetSave(b.category, b.cardType, editingBudget.value, editingBudget.periodType)}
                         onKeyDown={e => {
                           if (e.key === "Enter") handleBudgetSave(b.category, b.cardType, editingBudget.value, editingBudget.periodType)
@@ -771,7 +778,7 @@ export default function BudgetPage() {
 
             {/* ── テーブル表示 ── */}
             {!yearlyLoading && displayMode === "table" && (
-              <div className="overflow-x-auto rounded-xl shadow-sm border border-gray-200 bg-white">
+              <div className="overflow-auto rounded-xl shadow-sm border border-gray-200 bg-white" style={{ maxHeight: "calc(100vh - 170px)" }}>
                 <table className="text-xs border-collapse w-full" style={{ minWidth: `${140 + months.length * 90 + 100}px` }}>
                   <thead>
                     <tr className="bg-gray-800 text-white sticky top-0 z-10">
@@ -886,7 +893,7 @@ export default function BudgetPage() {
                                               type="text"
                                               autoFocus
                                               value={editingMonthBudget.value}
-                                              onChange={e => setEditingMonthBudget({ ...editingMonthBudget, value: e.target.value })}
+                                              onChange={e => setEditingMonthBudget({ ...editingMonthBudget, value: fmtInput(e.target.value) })}
                                               onBlur={() => handleMonthBudgetSave(row.name, row.cardType, m, editingMonthBudget.value, editingMonthBudget.mode)}
                                               onKeyDown={e => {
                                                 if (e.key === "Enter") handleMonthBudgetSave(row.name, row.cardType, m, editingMonthBudget.value, editingMonthBudget.mode)
@@ -943,7 +950,7 @@ export default function BudgetPage() {
                                                 type="text"
                                                 autoFocus
                                                 value={editingMonthBudget.value}
-                                                onChange={e => setEditingMonthBudget({ ...editingMonthBudget, value: e.target.value })}
+                                                onChange={e => setEditingMonthBudget({ ...editingMonthBudget, value: fmtInput(e.target.value) })}
                                                 onBlur={() => handleMonthBudgetSave(row.name, row.cardType, m, editingMonthBudget.value, editingMonthBudget.mode)}
                                                 onKeyDown={e => {
                                                   if (e.key === "Enter") handleMonthBudgetSave(row.name, row.cardType, m, editingMonthBudget.value, editingMonthBudget.mode)
