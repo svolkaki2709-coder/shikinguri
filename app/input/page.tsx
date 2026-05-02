@@ -18,6 +18,14 @@ interface PendingRecurring {
 }
 interface IncomeRecord { id: number; date: string; amount: number; category: string; memo: string }
 
+function effSign(r: CategoryRow): number {
+  if (r.sign === "plus") return 1
+  if (r.sign === "minus") return -1
+  if (r.group_type === "収入") return 1
+  if (r.group_type === "振替") return 0
+  return -1
+}
+
 export default function InputPage() {
   const now = new Date()
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
@@ -83,15 +91,6 @@ export default function InputPage() {
     if (selectedCardId) return cards.find(c => c.id === selectedCardId) ?? usageCards[0] ?? null
     return usageCards[0] ?? null
   }, [cards, selectedCardId, usageCards])
-
-  // カテゴリの実効符号（+1=収入, -1=支出, 0=振替）
-  function effSign(r: CategoryRow): number {
-    if (r.sign === "plus") return 1
-    if (r.sign === "minus") return -1
-    if (r.group_type === "収入") return 1
-    if (r.group_type === "振替") return 0
-    return -1
-  }
 
   // 支出カテゴリ一覧（マイナス符号のみ）
   const filteredCategories = useMemo(() => {
