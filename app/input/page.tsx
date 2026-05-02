@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react"
 import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
 
-interface Card { id: number; name: string; card_type: string; color: string }
+interface Card { id: number; name: string; card_type: string; color: string; has_csv: boolean }
 interface CategoryRow { name: string; card_type: string }
 interface PendingRecurring {
   id: number
@@ -78,9 +78,9 @@ export default function InputPage() {
     setIncomeCategory(incomeCardType === "self" ? "給与" : "振込")
   }, [incomeCardType])
 
-  // usageType に対応するカード一覧
+  // usageType に対応するカード一覧（CSV管理カードは除外）
   const usageCards = useMemo(() => {
-    return cards.filter(c => c.card_type === usageType)
+    return cards.filter(c => c.card_type === usageType && !c.has_csv)
   }, [cards, usageType])
 
   // 選択中カード（selectedCardId が null なら先頭カードを使用）
@@ -242,7 +242,7 @@ export default function InputPage() {
 
             {/* 支出フォーム */}
             <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm p-4 space-y-4">
-              <p className="text-xs text-gray-500">現金・電子マネー等の支出を手動で記録します</p>
+              <p className="text-xs text-gray-500">現金・電子マネー・PayPay等、カード以外の支出を記録します</p>
 
               {/* 共用 / 個人 トグル */}
               <div>
