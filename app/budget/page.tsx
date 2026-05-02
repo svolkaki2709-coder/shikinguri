@@ -291,7 +291,7 @@ function BudgetContent() {
   const yearIncome = monthlyIncome.reduce((s, v) => s + v, 0)
 
   const chartGroups = useMemo(() =>
-    yearGroups.filter(g => g.group !== "収入" && g.group !== "振替"),
+    yearGroups.filter(g => g.group !== "収入" && g.group !== "振替" && g.group !== "立替"),
     [yearGroups]
   )
 
@@ -299,11 +299,11 @@ function BudgetContent() {
     return months.map(m => {
       const point: Record<string, number | string> = { month: m.replace(/^\d{4}-/, "") + "月" }
       for (const { group, rows } of yearGroups) {
-        if (group === "収入" || group === "振替") continue
+        if (group === "収入" || group === "振替" || group === "立替") continue
         point[group] = rows.reduce((s, r) => s + (r.byMonth[m]?.actual ?? 0), 0)
       }
       point["予算"] = yearFiltered
-        .filter(r => r.groupType !== "収入" && r.groupType !== "振替")
+        .filter(r => r.groupType !== "収入" && r.groupType !== "振替" && r.groupType !== "立替")
         .reduce((s, r) => s + (r.byMonth[m]?.budget ?? 0), 0)
       if (yearCardTypeFilter === "self") {
         point["収入"] = incomeByMonth[m] ?? 0
