@@ -76,7 +76,7 @@ interface CategoryData {
 }
 
 type MainTab = "monthly" | "yearly"
-type ViewMode = "actual" | "diff" | "both"
+type ViewMode = "budget" | "actual" | "diff" | "both"
 type DisplayMode = "table" | "chart"
 
 // ─── メインページ ────────────────────────────────────────────────
@@ -639,7 +639,7 @@ export default function BudgetPage() {
               {/* 表示モード（テーブル時のみ） */}
               {displayMode === "table" && (
                 <div className="flex rounded-lg bg-gray-100 p-0.5">
-                  {([["actual", "実績"], ["diff", "差額"], ["both", "両方"]] as const).map(([k, label]) => (
+                  {([["budget", "予算"], ["actual", "実績"], ["diff", "差額"], ["both", "両方"]] as const).map(([k, label]) => (
                     <button key={k} onClick={() => setViewMode(k)}
                       className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
                         viewMode === k ? "bg-white text-blue-600 shadow-sm" : "text-gray-500"
@@ -758,7 +758,6 @@ export default function BudgetPage() {
                       <th className="text-left px-3 py-2 font-semibold sticky left-0 bg-gray-800 z-20 min-w-[140px]">
                         カテゴリ
                       </th>
-                      <th className="text-right px-2 py-2 font-semibold min-w-[84px]">月予算</th>
                       {months.map(m => (
                         <th key={m} className={`text-right px-2 py-2 font-medium min-w-[90px] ${
                           m === `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}` ? "bg-blue-700" : ""
@@ -786,15 +785,13 @@ export default function BudgetPage() {
                             <td className={`sticky left-0 px-3 py-1 font-bold text-xs ${gc?.header ?? "bg-gray-700 text-white"}`}>
                               {group}
                             </td>
-                            <td className="text-right px-2 py-1 font-semibold opacity-80">
-                              {toJPYShort(rows.reduce((s, r) => s + r.budget, 0))}
-                            </td>
                             {months.map(m => {
                               const mBudget = rows.reduce((s, r) => s + (r.byMonth[m]?.budget ?? 0), 0)
                               const mActual = rows.reduce((s, r) => s + (r.byMonth[m]?.actual ?? 0), 0)
                               const diff = mBudget - mActual
                               return (
                                 <td key={m} className="text-right px-2 py-1 font-semibold">
+                                  {viewMode === "budget" && <span className="opacity-80">{toJPYShort(mBudget)}</span>}
                                   {viewMode === "actual" && <span>{toJPYShort(mActual)}</span>}
                                   {viewMode === "diff" && (
                                     <span className={diff < 0 ? "text-red-200" : "opacity-80"}>
@@ -814,6 +811,7 @@ export default function BudgetPage() {
                               )
                             })}
                             <td className="text-right px-3 py-1 font-bold bg-black/10">
+                              {viewMode === "budget" && toJPYShort(groupYearBudget)}
                               {viewMode === "actual" && toJPYShort(groupYearActual)}
                               {viewMode === "diff" && (
                                 <span className={groupDiff < 0 ? "text-red-200" : ""}>
@@ -841,37 +839,37 @@ export default function BudgetPage() {
                                 <td className={`sticky left-0 px-3 py-1.5 ${gc?.row ?? "bg-white"} border-r border-gray-100`}>
                                   <span className={`font-medium ${gc?.text ?? "text-gray-700"}`}>{row.name}</span>
                                 </td>
-                                <td className="text-right px-2 py-1.5 text-gray-500">
-                                  {editingBudget?.category === row.name && editingBudget?.cardType === row.cardType ? (
-                                    <input
-                                      type="text"
-                                      autoFocus
-                                      value={editingBudget.value}
-                                      onChange={e => setEditingBudget({ ...editingBudget, value: e.target.value })}
-                                      onBlur={() => handleBudgetSave(row.name, row.cardType, editingBudget.value, "monthly")}
-                                      onKeyDown={e => {
-                                        if (e.key === "Enter") handleBudgetSave(row.name, row.cardType, editingBudget.value, "monthly")
-                                        if (e.key === "Escape") setEditingBudget(null)
-                                      }}
-                                      className="w-20 text-right text-xs border border-blue-400 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-blue-400 bg-white"
-                                    />
-                                  ) : (
-                                    <span
-                                      onClick={() => setEditingBudget({ category: row.name, cardType: row.cardType, value: row.budget > 0 ? String(row.budget) : "", periodType: "monthly" })}
-                                      className="cursor-pointer hover:text-blue-600 hover:underline"
-                                      title="クリックして予算を編集"
-                                    >
-                                      {row.budget > 0 ? toJPYShort(row.budget) : <span className="text-gray-200">—</span>}
-                                    </span>
-                                  )}
-                                </td>
                                 {months.map(m => {
                                   const { budget: mb, actual: ma } = row.byMonth[m] ?? { budget: 0, actual: 0 }
                                   const mdiff = mb - ma
                                   const isOver = ma > mb && mb > 0
                                   const isEditingCell = editingMonthBudget?.category === row.name && editingMonthBudget?.cardType === row.cardType && editingMonthBudget?.month === m
                                   return (
-                                    <td key={m} className={`text-right px-2 py-1 group/cell ${isOver && viewMode !== "diff" ? "bg-red-50" : ""}`}>
+                                    <td key={m} className={`text-right px-2 py-1 group/cell ${isOver && viewMode === "actual" ? "bg-red-50" : ""}`}>
+                                      {viewMode === "budget" && (
+                                        isEditingCell ? (
+                                          <input
+                                            type="text"
+                                            autoFocus
+                                            value={editingMonthBudget.value}
+                                            onChange={e => setEditingMonthBudget({ ...editingMonthBudget, value: e.target.value })}
+                                            onBlur={() => handleMonthBudgetSave(row.name, row.cardType, m, editingMonthBudget.value)}
+                                            onKeyDown={e => {
+                                              if (e.key === "Enter") handleMonthBudgetSave(row.name, row.cardType, m, editingMonthBudget.value)
+                                              if (e.key === "Escape") setEditingMonthBudget(null)
+                                            }}
+                                            className="w-16 text-right border border-blue-400 rounded px-1 py-0 outline-none bg-white text-gray-800 text-xs"
+                                          />
+                                        ) : (
+                                          <span
+                                            onClick={() => setEditingMonthBudget({ category: row.name, cardType: row.cardType, month: m, value: mb > 0 ? String(mb) : "" })}
+                                            className={`font-medium cursor-pointer hover:text-blue-500 hover:underline ${mb > 0 ? "text-gray-700" : "text-gray-200 opacity-0 group-hover/cell:opacity-100"}`}
+                                            title="クリックして予算を設定"
+                                          >
+                                            {mb > 0 ? toJPYShort(mb) : "+ 予算"}
+                                          </span>
+                                        )
+                                      )}
                                       {viewMode === "actual" && (
                                         <span className={`font-medium ${isOver ? "text-red-500" : ma > 0 ? "text-gray-800" : "text-gray-300"}`}>
                                           {ma > 0 ? toJPYShort(ma) : "—"}
@@ -918,6 +916,11 @@ export default function BudgetPage() {
                                 })}
                                 {/* 年計 */}
                                 <td className="text-right px-3 py-1.5 bg-gray-50 border-l border-gray-100">
+                                  {viewMode === "budget" && (
+                                    <span className="font-semibold text-gray-700">
+                                      {row.yearBudget > 0 ? toJPYShort(row.yearBudget) : "—"}
+                                    </span>
+                                  )}
                                   {viewMode === "actual" && (
                                     <span className={`font-semibold ${row.yearActual > row.yearBudget && row.yearBudget > 0 ? "text-red-500" : "text-gray-800"}`}>
                                       {row.yearActual > 0 ? toJPYShort(row.yearActual) : "—"}
