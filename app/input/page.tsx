@@ -73,11 +73,6 @@ export default function InputPage() {
       .then(d => setMonthIncomeRecords(d.incomes ?? []))
   }, [mainTab, incomeMonth, incomeCardType])
 
-  // 収入カテゴリ変更時のデフォルト（DBの先頭カテゴリ）
-  useEffect(() => {
-    if (incomeCategories.length > 0) setIncomeCategory(incomeCategories[0])
-  }, [incomeCardType, incomeCategories])
-
   // usageType に対応するカード一覧（CSV管理カードは除外）
   const usageCards = useMemo(() => {
     return cards.filter(c => c.card_type === usageType && !c.has_csv)
@@ -102,6 +97,11 @@ export default function InputPage() {
       .filter(r => r.card_type === incomeCardType && r.group_type === "収入")
       .map(r => r.name)
   }, [incomeCardType, allCategoryRows])
+
+  // 収入カテゴリ変更時のデフォルト（DBの先頭カテゴリ）
+  useEffect(() => {
+    if (incomeCategories.length > 0) setIncomeCategory(incomeCategories[0])
+  }, [incomeCardType, incomeCategories])
 
   // usageType が変わったらカテゴリ・支払方法をリセット
   useEffect(() => {
