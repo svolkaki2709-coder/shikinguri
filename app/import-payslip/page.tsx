@@ -103,11 +103,14 @@ export default function ImportPayslipPage() {
       + extraExclude
   }, [result, extraItems])
 
-  // 登録する給与収入 = 支給合計（額面）− 営業交通費・非課税通勤手当・課税通勤手当
+  // 登録する給与収入 = 支給合計（額面）− 立替・通勤手当 − 個別収入として登録する項目
   const salaryIncome = useMemo(() => {
     if (!result) return 0
-    return (result.grossPay ?? 0) - commuteTotal
-  }, [result, commuteTotal])
+    const extraSeparate = extraItems
+      .filter(e => e.type === "separate")
+      .reduce((s, e) => s + e.amount, 0)
+    return (result.grossPay ?? 0) - commuteTotal - extraSeparate
+  }, [result, commuteTotal, extraItems])
 
   // ─── PDF解析 ─────────────────────────────────────────────────────
   async function doParse(f: File) {
