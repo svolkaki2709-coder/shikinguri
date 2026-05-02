@@ -83,18 +83,24 @@ export async function GET(req: NextRequest) {
     actualMap[key] = (actualMap[key] ?? 0) + Number(r.actual)
   }
 
-  const rows = budgets.map((b) => ({
-    category: b.category,
-    cardType: b.card_type,
-    budget: Number(b.amount),
-    actual: actualMap[`${b.category}__${b.card_type}`] ?? 0,
-    isMonthly: b.month === month && !b.is_from_month,
-    isFromMonth: b.is_from_month === true,
-    recordMonth: b.month ?? null,
-    groupType: (b.group_type ?? null) as string | null,
-    sortOrder: (b.sort_order ?? null) as number | null,
-    sign: (b.sign ?? null) as string | null,
-  }))
+  const rows = budgets.map((b) => {
+    const effSign = b.sign === "plus" ? 1 : b.sign === "minus" ? -1
+      : b.group_type === "収入" ? 1 : b.group_type === "振替" ? 0 : -1
+    const rawActual = actualMap[`${b.category}__${b.card_type}`] ?? 0
+    const actual = effSign === -1 && rawActual < 0 ? Math.abs(rawActual) : rawActual
+    return {
+      category: b.category,
+      cardType: b.card_type,
+      budget: Number(b.amount),
+      actual,
+      isMonthly: b.month === month && !b.is_from_month,
+      isFromMonth: b.is_from_month === true,
+      recordMonth: b.month ?? null,
+      groupType: (b.group_type ?? null) as string | null,
+      sortOrder: (b.sort_order ?? null) as number | null,
+      sign: (b.sign ?? null) as string | null,
+    }
+  })
 
   // 全デフォルト一覧も返す（設定UI用）
   const defaults = await sql`SELECT category, card_type, amount FROM budgets WHERE month IS NULL ORDER BY card_type, category`

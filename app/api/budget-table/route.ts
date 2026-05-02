@@ -133,11 +133,14 @@ export async function GET(req: NextRequest) {
   const categories = categoryRows.map(c => {
     const key = `${c.name}__${c.card_type}`
     const budget = budgetDefault[key] ?? 0
+    const effSign = c.sign === "plus" ? 1 : c.sign === "minus" ? -1
+      : c.group_type === "収入" ? 1 : c.group_type === "振替" ? 0 : -1
 
     const byMonth: Record<string, { budget: number; actual: number }> = {}
     for (const mon of months) {
       const b = resolveBudget(key, mon)
-      const a = actualMap[`${c.name}__${c.card_type}__${mon}`] ?? 0
+      const rawA = actualMap[`${c.name}__${c.card_type}__${mon}`] ?? 0
+      const a = effSign === -1 && rawA < 0 ? Math.abs(rawA) : rawA
       byMonth[mon] = { budget: b, actual: a }
     }
 
