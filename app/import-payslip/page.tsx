@@ -17,6 +17,7 @@ interface ParsedPayslip {
   nonTaxableCommute: number | null
   taxableCommute: number | null
   totalDeduction: number | null
+  _debug?: { nums: number[]; labels: string[]; val: Record<string, number> }
 }
 
 interface ImportHistoryGroup {
@@ -410,6 +411,29 @@ export default function ImportPayslipPage() {
             </div>
           </div>
         )}
+        {/* デバッグ: ラベル↔数値対応確認 */}
+        {result?._debug && (
+          <details className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs">
+            <summary className="font-semibold text-gray-500 cursor-pointer">🔍 解析デバッグ（ズレ確認用）</summary>
+            <div className="mt-2 space-y-2">
+              <div>
+                <p className="font-semibold text-gray-600 mb-1">数値リスト（順番）:</p>
+                <p className="text-gray-700">{result._debug.nums.map((n, i) => `[${i}] ${n.toLocaleString()}`).join(" / ")}</p>
+              </div>
+              <div>
+                <p className="font-semibold text-gray-600 mb-1">ラベルリスト（順番）:</p>
+                <p className="text-gray-700">{result._debug.labels.map((l, i) => `[${i}] ${l}`).join(" / ")}</p>
+              </div>
+              <div>
+                <p className="font-semibold text-gray-600 mb-1">対応結果:</p>
+                {Object.entries(result._debug.val).map(([k, v]) => (
+                  <span key={k} className="inline-block mr-2 text-gray-700">{k}: {v.toLocaleString()}</span>
+                ))}
+              </div>
+            </div>
+          </details>
+        )}
+
         {/* 取込履歴 */}
         {history.length > 0 && (
           <div className="bg-white rounded-xl shadow-sm overflow-hidden">

@@ -119,6 +119,7 @@ function parsePayslipText(text: string): ParsedPayslip {
     nonTaxableCommute:   val["非課税通勤手当"]   ?? null,
     taxableCommute:      val["課税通勤手当"]     ?? null,
     totalDeduction,
+    _debug: { nums, labels, val },
   }
 }
 
