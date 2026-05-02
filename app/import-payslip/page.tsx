@@ -501,10 +501,14 @@ export default function ImportPayslipPage() {
                 <p className="text-gray-700">{result._debug.labels.map((l, i) => `[${i}] ${l}`).join(" / ")}</p>
               </div>
               <div>
-                <p className="font-semibold text-gray-600 mb-1">対応結果:</p>
+                <p className="font-semibold text-gray-600 mb-1">対応結果（val）:</p>
                 {Object.entries(result._debug.val).map(([k, v]) => (
                   <span key={k} className="inline-block mr-2 text-gray-700">{k}: {v.toLocaleString()}</span>
                 ))}
+              </div>
+              <div className="bg-yellow-50 border border-yellow-200 rounded p-2">
+                <p className="font-semibold text-yellow-700 mb-1">APIレスポンス（直接確認用）:</p>
+                <p className="text-gray-700">grossPay: {JSON.stringify(result.grossPay)} / incomeTax: {JSON.stringify(result.incomeTax)} / <strong>residentTax: {JSON.stringify(result.residentTax)}</strong> / healthInsurance: {JSON.stringify(result.healthInsurance)} / pension: {JSON.stringify(result.pension)}</p>
               </div>
             </div>
           </details>
