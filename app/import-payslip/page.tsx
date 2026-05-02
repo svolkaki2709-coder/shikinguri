@@ -261,7 +261,7 @@ export default function ImportPayslipPage() {
   return (
     <div className="pb-20">
       <PageHeader title="給与明細取込" />
-      <div className="px-4 py-3 space-y-4">
+      <div className="max-w-lg mx-auto px-4 py-3 space-y-4">
 
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-700">
           <p className="font-semibold">アイドマ・ホールディングス給与明細PDF対応</p>
