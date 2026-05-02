@@ -68,11 +68,122 @@ const TAX_NOTES = [
   },
 ]
 
+type FormulaType = "income_tax" | "resident_tax" | "health_insurance" | "pension" | "employment_insurance" | "total_deduction"
+
+interface FormulaTarget {
+  type: FormulaType
+  row: PayslipDetail
+}
+
+function FormulaModal({ target, onClose }: { target: FormulaTarget; onClose: () => void }) {
+  const { type, row } = target
+  const g = row.gross_pay ?? 0
+  const nc = row.nontaxable_commute ?? 0
+  const tr = row.travel_reimbursement ?? 0
+  const taxable = g - nc - tr
+  const hi = row.health_insurance ?? 0
+  const pe = row.pension ?? 0
+  const ei = row.employment_insurance ?? 0
+  const it = row.income_tax ?? 0
+  const rt = row.resident_tax ?? 0
+  const socialTotal = hi + pe + ei
+
+  const rate = (n: number, base: number) =>
+    base > 0 ? `${((n / base) * 100).toFixed(2)}%` : "—"
+
+  type Step = { label: string; value?: string; formula?: string; note?: string; highlight?: boolean }
+  let title = ""
+  let steps: Step[] = []
+
+  if (type === "income_tax") {
+    title = "所得税（源泉徴収）の計算"
+    steps = [
+      { label: "支給合計", value: `${g.toLocaleString()}円` },
+      { label: "非課税控除", formula: `− ${nc.toLocaleString()}（非課税通勤） − ${tr.toLocaleString()}（営業交通費）`, value: `= ${taxable.toLocaleString()}円` },
+      { label: "社会保険料合計", value: `${socialTotal.toLocaleString()}円（健保＋年金＋雇用）` },
+      { label: "課税対象額（概算）", formula: `${taxable.toLocaleString()} − ${socialTotal.toLocaleString()}`, value: `= ${(taxable - socialTotal).toLocaleString()}円` },
+      { label: "源泉所得税", value: `${it.toLocaleString()}円`, highlight: true },
+      { label: "実効税率", value: `${rate(it, taxable - socialTotal)}（課税対象比）`, note: "月次は源泉徴収税額表による概算。年末調整で確定。" },
+    ]
+  } else if (type === "resident_tax") {
+    title = "住民税の計算"
+    steps = [
+      { label: "月額住民税", value: `${rt.toLocaleString()}円`, highlight: true },
+      { label: "計算方式", formula: "前年の課税所得 × 10%（所得割）＋ 均等割（約5,000円/年）を12分割" },
+      { label: "課税ベース比", value: rate(rt, taxable), note: "支給合計から非課税分を除いた課税対象額に対する割合" },
+      { label: "課税対象額", value: `${taxable.toLocaleString()}円（支給 ${g.toLocaleString()} − 非課税 ${(nc + tr).toLocaleString()}）` },
+    ]
+  } else if (type === "health_insurance") {
+    title = "健康保険料の計算"
+    steps = [
+      { label: "課税対象額（標準報酬月額の目安）", value: `${taxable.toLocaleString()}円` },
+      { label: "健康保険料（個人負担）", value: `${hi.toLocaleString()}円`, highlight: true },
+      { label: "実効料率", value: rate(hi, taxable), note: "協会けんぽの場合、総額の約10%を会社と折半（個人負担≈5%）" },
+      { label: "計算式", formula: "標準報酬月額 × 保険料率（都道府県別） ÷ 2" },
+    ]
+  } else if (type === "pension") {
+    title = "厚生年金保険料の計算"
+    steps = [
+      { label: "課税対象額（標準報酬月額の目安）", value: `${taxable.toLocaleString()}円` },
+      { label: "厚生年金保険料（個人負担）", value: `${pe.toLocaleString()}円`, highlight: true },
+      { label: "実効料率", value: rate(pe, taxable), note: "法定料率 18.3%を会社と折半 → 個人負担 9.15%" },
+      { label: "計算式", formula: `標準報酬月額 × 18.3% ÷ 2（≈ ${taxable.toLocaleString()} × 9.15% = ${Math.round(taxable * 0.0915).toLocaleString()}円の目安）` },
+    ]
+  } else if (type === "employment_insurance") {
+    title = "雇用保険料の計算"
+    steps = [
+      { label: "賃金総額（課税対象額）", value: `${taxable.toLocaleString()}円` },
+      { label: "雇用保険料（個人負担）", value: `${ei.toLocaleString()}円`, highlight: true },
+      { label: "実効料率", value: rate(ei, taxable), note: "2024年度の労働者負担率は賃金の0.6%" },
+      { label: "計算式", formula: `課税対象額 × 0.6% = ${Math.round(taxable * 0.006).toLocaleString()}円（目安）` },
+    ]
+  } else if (type === "total_deduction") {
+    title = "控除合計の内訳"
+    const total = it + rt + hi + pe + ei
+    steps = [
+      { label: "所得税", value: `${it.toLocaleString()}円（${rate(it, taxable)}）` },
+      { label: "住民税", value: `${rt.toLocaleString()}円（${rate(rt, taxable)}）` },
+      { label: "健康保険料", value: `${hi.toLocaleString()}円（${rate(hi, taxable)}）` },
+      { label: "厚生年金保険料", value: `${pe.toLocaleString()}円（${rate(pe, taxable)}）` },
+      { label: "雇用保険料", value: `${ei.toLocaleString()}円（${rate(ei, taxable)}）` },
+      { label: "控除合計", value: `${total.toLocaleString()}円`, highlight: true },
+      { label: "実効負担率", value: `${rate(total, taxable)}（課税対象 ${taxable.toLocaleString()}円 比）` },
+      { label: "手取り計算", formula: `支給合計 ${g.toLocaleString()} − 控除合計 ${total.toLocaleString()} = ${(g - total).toLocaleString()}円（目安）` },
+    ]
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+        <div className="flex items-center justify-between px-5 py-3 border-b">
+          <p className="text-sm font-bold text-gray-800">{title}</p>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+        </div>
+        <div className="px-5 py-4 space-y-2.5">
+          {steps.map((s, i) => (
+            <div key={i} className={`rounded-lg px-3 py-2 ${s.highlight ? "bg-indigo-50 border border-indigo-200" : "bg-gray-50"}`}>
+              <p className="text-[10px] text-gray-500 font-medium mb-0.5">{s.label}</p>
+              {s.formula && <p className="text-xs text-gray-600 font-mono leading-relaxed">{s.formula}</p>}
+              {s.value && <p className={`text-sm font-bold ${s.highlight ? "text-indigo-700" : "text-gray-800"}`}>{s.value}</p>}
+              {s.note && <p className="text-[10px] text-gray-400 mt-0.5">{s.note}</p>}
+            </div>
+          ))}
+        </div>
+        <div className="px-5 pb-4">
+          <p className="text-[10px] text-gray-400">※ 計算式は目安です。実際の金額は標準報酬月額・保険料率・税額表により決定されます。</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function PayslipDetailsPage() {
   const [details, setDetails] = useState<PayslipDetail[]>([])
   const [loading, setLoading] = useState(true)
   const [deletingMonth, setDeletingMonth] = useState<string | null>(null)
   const [showNotes, setShowNotes] = useState(false)
+  const [formulaTarget, setFormulaTarget] = useState<FormulaTarget | null>(null)
 
   useEffect(() => {
     fetch("/api/payslip-details")
@@ -226,24 +337,34 @@ export default function PayslipDetailsPage() {
                             )}
                           </td>
                           <td className="px-3 py-2.5 text-right text-gray-700 font-medium whitespace-nowrap">{fmt(row.gross_pay)}</td>
-                          <td className="px-3 py-2.5 text-right text-red-600 whitespace-nowrap">
-                            <div>{fmt(row.income_tax)}</div>
+                          <td className="px-3 py-2.5 text-right text-red-600 whitespace-nowrap cursor-pointer hover:bg-red-50 rounded"
+                            onClick={() => setFormulaTarget({ type: "income_tax", row })}>
+                            <div className="hover:underline">{fmt(row.income_tax)}</div>
                             <div className="text-[10px] text-gray-400">{pct(row.income_tax, taxableBase)}</div>
                           </td>
-                          <td className="px-3 py-2.5 text-right text-orange-600 whitespace-nowrap">
-                            <div>{fmt(row.resident_tax)}</div>
+                          <td className="px-3 py-2.5 text-right text-orange-600 whitespace-nowrap cursor-pointer hover:bg-orange-50 rounded"
+                            onClick={() => setFormulaTarget({ type: "resident_tax", row })}>
+                            <div className="hover:underline">{fmt(row.resident_tax)}</div>
                             <div className="text-[10px] text-gray-400">{pct(row.resident_tax, taxableBase)}</div>
                           </td>
-                          <td className="px-3 py-2.5 text-right text-blue-600 whitespace-nowrap">
-                            <div>{fmt(row.health_insurance)}</div>
+                          <td className="px-3 py-2.5 text-right text-blue-600 whitespace-nowrap cursor-pointer hover:bg-blue-50 rounded"
+                            onClick={() => setFormulaTarget({ type: "health_insurance", row })}>
+                            <div className="hover:underline">{fmt(row.health_insurance)}</div>
                             <div className="text-[10px] text-gray-400">{pct(row.health_insurance, taxableBase)}</div>
                           </td>
-                          <td className="px-3 py-2.5 text-right text-blue-600 whitespace-nowrap">
-                            <div>{fmt(row.pension)}</div>
+                          <td className="px-3 py-2.5 text-right text-blue-600 whitespace-nowrap cursor-pointer hover:bg-blue-50 rounded"
+                            onClick={() => setFormulaTarget({ type: "pension", row })}>
+                            <div className="hover:underline">{fmt(row.pension)}</div>
                             <div className="text-[10px] text-gray-400">{pct(row.pension, taxableBase)}</div>
                           </td>
-                          <td className="px-3 py-2.5 text-right text-blue-600 whitespace-nowrap">{fmt(row.employment_insurance)}</td>
-                          <td className="px-3 py-2.5 text-right font-semibold text-gray-700 whitespace-nowrap">{fmt(calcDeduction)}</td>
+                          <td className="px-3 py-2.5 text-right text-blue-600 whitespace-nowrap cursor-pointer hover:bg-blue-50 rounded"
+                            onClick={() => setFormulaTarget({ type: "employment_insurance", row })}>
+                            <div className="hover:underline">{fmt(row.employment_insurance)}</div>
+                          </td>
+                          <td className="px-3 py-2.5 text-right font-semibold text-gray-700 whitespace-nowrap cursor-pointer hover:bg-gray-100 rounded"
+                            onClick={() => setFormulaTarget({ type: "total_deduction", row })}>
+                            <div className="hover:underline">{fmt(calcDeduction)}</div>
+                          </td>
                           <td className="px-3 py-2.5 text-right font-semibold text-green-600 whitespace-nowrap">{fmt(row.net_pay)}</td>
                           <td className="px-2 py-2.5 text-center">
                             <button
@@ -314,6 +435,10 @@ export default function PayslipDetailsPage() {
 
       </div>
       <BottomNav />
+
+      {formulaTarget && (
+        <FormulaModal target={formulaTarget} onClose={() => setFormulaTarget(null)} />
+      )}
     </div>
   )
 }
