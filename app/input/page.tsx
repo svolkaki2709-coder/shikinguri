@@ -264,15 +264,6 @@ export default function InputPage() {
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-2">用途</label>
                 <div className="flex rounded-xl bg-gray-100 p-1 gap-1">
-                  <button type="button" onClick={() => setUsageType("joint")}
-                    className="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all"
-                    style={{
-                      backgroundColor: usageType === "joint" ? jointColor + "22" : "transparent",
-                      color: usageType === "joint" ? jointColor : "#6b7280",
-                      boxShadow: usageType === "joint" ? `0 0 0 2px ${jointColor}` : "none",
-                    }}>
-                    共用
-                  </button>
                   <button type="button" onClick={() => setUsageType("self")}
                     className="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all"
                     style={{
@@ -281,6 +272,15 @@ export default function InputPage() {
                       boxShadow: usageType === "self" ? `0 0 0 2px ${selfColor}` : "none",
                     }}>
                     個人
+                  </button>
+                  <button type="button" onClick={() => setUsageType("joint")}
+                    className="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all"
+                    style={{
+                      backgroundColor: usageType === "joint" ? jointColor + "22" : "transparent",
+                      color: usageType === "joint" ? jointColor : "#6b7280",
+                      boxShadow: usageType === "joint" ? `0 0 0 2px ${jointColor}` : "none",
+                    }}>
+                    共用
                   </button>
                 </div>
               </div>
