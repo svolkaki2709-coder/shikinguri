@@ -2,10 +2,27 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { sql } from "@/lib/db"
 
+async function migrateCards() {
+  // name単体のUNIQUE制約を削除し、(name, card_type)の複合制約に変更
+  try { await sql`ALTER TABLE cards DROP CONSTRAINT IF EXISTS cards_name_key` } catch (_) {}
+  try {
+    await sql`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'cards_name_cardtype_key'
+        ) THEN
+          ALTER TABLE cards ADD CONSTRAINT cards_name_cardtype_key UNIQUE (name, card_type);
+        END IF;
+      END $$
+    `
+  } catch (_) {}
+}
+
 export async function GET() {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
+  await migrateCards()
   const cards = await sql`SELECT * FROM cards ORDER BY sort_order`
   return NextResponse.json({ cards })
 }
