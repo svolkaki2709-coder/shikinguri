@@ -173,6 +173,8 @@ function BudgetContent() {
   const [months, setMonths] = useState<string[]>([])
   const [categories, setCategories] = useState<CategoryData[]>([])
   const [incomeByMonth, setIncomeByMonth] = useState<Record<string, number>>({})
+  const [rangeFrom, setRangeFrom] = useState("01")
+  const [rangeTo, setRangeTo] = useState(String(now.getMonth() + 1).padStart(2, "0"))
 
   // ─── データ取得: 月次 ──────────────────────────────────────────
   useEffect(() => {
@@ -298,6 +300,13 @@ function BudgetContent() {
     return { byMonth, yearBudget, yearActual }
   }, [yearGroups, months])
   const yearIncome = monthlyIncome.reduce((s, v) => s + v, 0)
+
+  // 期間計: 選択した月範囲のみ
+  const rangeMonths = useMemo(() =>
+    months.filter(m => m >= `${year}-${rangeFrom}` && m <= `${year}-${rangeTo}`),
+    [months, year, rangeFrom, rangeTo]
+  )
+  const rangeLabel = rangeFrom === rangeTo ? `${Number(rangeFrom)}月計` : `${Number(rangeFrom)}〜${Number(rangeTo)}月計`
 
   const chartGroups = useMemo(() =>
     yearGroups.filter(g => g.group !== "収入" && g.group !== "振替" && g.group !== "立替"),
@@ -780,6 +789,26 @@ function BudgetContent() {
                 </div>
               )}
 
+              {/* 期間計セレクター（テーブル時のみ） */}
+              {displayMode === "table" && (
+                <div className="flex items-center gap-1 bg-white border rounded-lg px-2 py-1.5 text-xs text-gray-700">
+                  <span className="text-gray-400 shrink-0">期間</span>
+                  <select value={rangeFrom} onChange={e => setRangeFrom(e.target.value)}
+                    className="border-0 outline-none bg-transparent text-xs text-gray-800 cursor-pointer">
+                    {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")).map(m => (
+                      <option key={m} value={m}>{Number(m)}月</option>
+                    ))}
+                  </select>
+                  <span className="text-gray-400">〜</span>
+                  <select value={rangeTo} onChange={e => setRangeTo(e.target.value)}
+                    className="border-0 outline-none bg-transparent text-xs text-gray-800 cursor-pointer">
+                    {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")).map(m => (
+                      <option key={m} value={m}>{Number(m)}月</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <span className="text-xs text-gray-400 ml-auto">{months.length}ヶ月</span>
             </div>
 
@@ -882,7 +911,7 @@ function BudgetContent() {
             {/* ── テーブル表示 ── */}
             {!yearlyLoading && displayMode === "table" && (
               <div className="overflow-auto rounded-xl shadow-sm border border-gray-200 bg-white" style={{ maxHeight: "calc(100vh - 170px)" }}>
-                <table className="text-xs border-collapse w-full" style={{ minWidth: `${140 + months.length * 90 + 100}px` }}>
+                <table className="text-xs border-collapse w-full" style={{ minWidth: `${140 + months.length * 90 + 100 + 110}px` }}>
                   <thead>
                     <tr className="bg-gray-800 text-white sticky top-0 z-10">
                       <th className="text-left px-3 py-2 font-semibold sticky left-0 bg-gray-800 z-20 min-w-[140px]">
@@ -896,6 +925,7 @@ function BudgetContent() {
                         </th>
                       ))}
                       <th className="text-right px-3 py-2 font-semibold min-w-[100px] bg-gray-700">年計</th>
+                      <th className="text-right px-3 py-2 font-semibold min-w-[110px] bg-indigo-800 whitespace-nowrap">{rangeLabel}</th>
                     </tr>
 
                     {/* 収入行は収入グループ内カテゴリ行に統合したため非表示 */}
@@ -970,6 +1000,25 @@ function BudgetContent() {
                                 </span>
                               )}
                             </td>
+                            {/* 期間計 */}
+                            {(() => {
+                              const rBudget = signAwareSum(r => rangeMonths.reduce((s, m) => s + (r.byMonth[m]?.budget ?? 0), 0))
+                              const rActual = signAwareSum(r => rangeMonths.reduce((s, m) => s + (r.byMonth[m]?.actual ?? 0), 0))
+                              const rDiff = isIncomeGroup ? rActual - rBudget : rBudget - rActual
+                              return (
+                                <td className="text-right px-3 py-1 font-bold bg-indigo-900/30">
+                                  {viewMode === "budget" && toJPYShort(rBudget)}
+                                  {viewMode === "actual" && toJPYShort(rActual)}
+                                  {viewMode === "diff" && <span className={rDiff < 0 ? "text-red-200" : ""}>{rDiff >= 0 ? "+" : ""}{toJPYShort(rDiff)}</span>}
+                                  {viewMode === "both" && (
+                                    <span className="text-[10px]">
+                                      <span>{toJPYShort(rActual)}</span><br />
+                                      <span className={rDiff < 0 ? "text-red-200" : "opacity-80"}>{rDiff >= 0 ? "+" : ""}{toJPYShort(rDiff)}</span>
+                                    </span>
+                                  )}
+                                </td>
+                              )
+                            })()}
                           </tr>
 
                           {/* カテゴリ行 */}
@@ -1123,6 +1172,25 @@ function BudgetContent() {
                                     </span>
                                   )}
                                 </td>
+                                {/* 期間計 */}
+                                {(() => {
+                                  const rb = rangeMonths.reduce((s, m) => s + (row.byMonth[m]?.budget ?? 0), 0)
+                                  const ra = rangeMonths.reduce((s, m) => s + (row.byMonth[m]?.actual ?? 0), 0)
+                                  const rdiff = rowSign === 1 ? ra - rb : rb - ra
+                                  return (
+                                    <td className="text-right px-3 py-1.5 bg-indigo-50 border-l border-indigo-100">
+                                      {viewMode === "budget" && <span className="font-semibold text-indigo-700">{rb > 0 ? toJPYShort(rb) : "—"}</span>}
+                                      {viewMode === "actual" && <span className={`font-semibold ${ra > rb && rb > 0 ? "text-red-500" : "text-indigo-800"}`}>{ra > 0 ? toJPYShort(ra) : "—"}</span>}
+                                      {viewMode === "diff" && <span className={`font-semibold ${rb === 0 ? "text-gray-300" : rdiff < 0 ? "text-red-500" : "text-green-600"}`}>{rb > 0 ? `${rdiff >= 0 ? "+" : ""}${toJPYShort(rdiff)}` : "—"}</span>}
+                                      {viewMode === "both" && (
+                                        <span className="text-[10px] leading-tight">
+                                          <span className={`block font-semibold ${ra > 0 ? "text-indigo-800" : "text-gray-300"}`}>{ra > 0 ? toJPYShort(ra) : "—"}</span>
+                                          {rb > 0 && <span className={`block font-medium ${rdiff < 0 ? "text-red-500" : "text-green-600"}`}>{rdiff >= 0 ? "+" : ""}{toJPYShort(rdiff)}</span>}
+                                        </span>
+                                      )}
+                                    </td>
+                                  )
+                                })()}
                               </tr>
                             )
                           })}
@@ -1168,6 +1236,31 @@ function BudgetContent() {
                           </span>
                         )}
                       </td>
+                      {/* 期間計余剰 */}
+                      {(() => {
+                        const allRows = yearGroups.flatMap(g => g.rows)
+                        let rsb = 0, rsa = 0
+                        for (const row of allRows) {
+                          const sign = getCategorySign(row)
+                          const rb = rangeMonths.reduce((s, m) => s + (row.byMonth[m]?.budget ?? 0), 0)
+                          const ra = rangeMonths.reduce((s, m) => s + (row.byMonth[m]?.actual ?? 0), 0)
+                          if (sign === 1)  { rsb += rb; rsa += ra }
+                          if (sign === -1) { rsb -= rb; rsa -= ra }
+                        }
+                        return (
+                          <td className="text-right px-3 py-2 font-bold bg-indigo-900">
+                            {viewMode === "budget" && <span className={rsb >= 0 ? "text-green-300" : "text-red-300"}>{toJPYShort(rsb)}</span>}
+                            {viewMode === "actual" && <span className={rsa >= 0 ? "text-green-300" : "text-red-300"}>{toJPYShort(rsa)}</span>}
+                            {viewMode === "diff" && <span className="text-gray-400">—</span>}
+                            {viewMode === "both" && (
+                              <span className="text-[10px] leading-tight block">
+                                <span className={`block font-bold ${rsa >= 0 ? "text-green-300" : "text-red-300"}`}>{toJPYShort(rsa)}</span>
+                                <span className={`block opacity-70 ${rsb >= 0 ? "text-green-200" : "text-red-200"}`}>予{toJPYShort(rsb)}</span>
+                              </span>
+                            )}
+                          </td>
+                        )
+                      })()}
                     </tr>
                   </tfoot>
                 </table>
