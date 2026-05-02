@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
+﻿import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 // v1.1.1: lib直接インポートでVercelのfs問題を回避（v1のentry pointがtest fileを読もうとするバグ対策）
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -35,6 +35,13 @@ interface ParsedPayslip {
  * 解析方針: 数値ブロックとラベルブロックを別々に収集し、
  *   nums[0]=差引総支給額, nums[i+1]=labels[i] として対応させる
  */
+
+/** PDFから取り出したテキストに混入するゼロ幅スペース・BOM・NBSPなどを除去 */
+function stripInvisible(s: string): string {
+  // ​=ZWS ‌=ZWNJ ‍=ZWJ ‎=LRM ‏=RLM ﻿=BOM  =NBSP
+  return s.replace(/[​‌‍‎‏﻿ ]/g, "").trim()
+}
+
 function parsePayslipText(text: string): ParsedPayslip {
   const lines = text.split(/[\r\n]+/).map(l => l.trim()).filter(l => l.length > 0)
 
@@ -83,9 +90,11 @@ function parsePayslipText(text: string): ParsedPayslip {
     if (/^[△▲]\d+$/.test(c)) continue
     // 4桁以上の数値を含む行はスキップ（備考欄: 課税支給累計額など）
     if (/\d{4,}/.test(line.replace(/[（）()年月〜～]/g, ""))) continue
-    if (SECTION_HEADERS.has(line)) continue
-    if (line.trim().length === 0) continue
-    labels.push(line.trim())
+    // 不可視文字（ZWS/BOM/NBSP等）を除去してキー名を正規化
+    const cleanLabel = stripInvisible(line)
+    if (SECTION_HEADERS.has(cleanLabel)) continue
+    if (cleanLabel.length === 0) continue
+    labels.push(cleanLabel)
   }
 
   // ==== STEP 3: ラベル→数値マッピング ====
