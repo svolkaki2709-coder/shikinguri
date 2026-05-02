@@ -872,7 +872,7 @@ export default function BudgetPage() {
                                             <div className="flex rounded overflow-hidden border border-gray-200 text-[9px]">
                                               {(["this", "from", "all"] as const).map((md, i) => (
                                                 <button key={md} type="button"
-                                                  onClick={() => setEditingMonthBudget({ ...editingMonthBudget, mode: md })}
+                                                  onMouseDown={e => { e.preventDefault(); setEditingMonthBudget({ ...editingMonthBudget, mode: md }) }}
                                                   className={`px-1.5 py-0.5 ${i > 0 ? "border-l border-gray-200" : ""} transition-colors ${
                                                     editingMonthBudget.mode === md
                                                       ? md === "this" ? "bg-blue-500 text-white" : md === "from" ? "bg-purple-500 text-white" : "bg-green-500 text-white"
@@ -928,7 +928,7 @@ export default function BudgetPage() {
                                                 <span className="flex rounded overflow-hidden border border-gray-200 text-[9px]">
                                                   {(["this", "from", "all"] as const).map((md, i) => (
                                                     <button key={md} type="button"
-                                                      onClick={() => setEditingMonthBudget({ ...editingMonthBudget, mode: md })}
+                                                      onMouseDown={e => { e.preventDefault(); setEditingMonthBudget({ ...editingMonthBudget, mode: md }) }}
                                                       className={`px-1 py-0.5 ${i > 0 ? "border-l border-gray-200" : ""} transition-colors ${
                                                         editingMonthBudget.mode === md
                                                           ? md === "this" ? "bg-blue-500 text-white" : md === "from" ? "bg-purple-500 text-white" : "bg-green-500 text-white"
