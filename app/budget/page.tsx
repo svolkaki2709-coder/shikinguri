@@ -67,7 +67,7 @@ function getEffectiveSign(b: BudgetRow): number {
   // sign未設定 → group_typeで推測
   if (b.groupType === "収入") return 1
   if (b.groupType === "振替") return 0
-  if (b.groupType === "立替") return b.category.includes("精算") ? 1 : -1
+  if (b.groupType === "立替") return -1
   return -1  // 支出・投資・貯蓄・未設定
 }
 
@@ -89,7 +89,7 @@ function getCategorySign(row: CategoryData): number {
   if (row.sign === "neutral") return 0
   if (row.groupType === "収入") return 1
   if (row.groupType === "振替") return 0
-  if (row.groupType === "立替") return row.name.includes("精算") ? 1 : -1
+  if (row.groupType === "立替") return -1
   return -1
 }
 
