@@ -129,7 +129,7 @@ export default function ImportPayslipPage() {
               }}
               onBlur={commitEdit}
               onKeyDown={e => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditingKey(null) }}
-              className="w-28 border-b border-blue-400 text-right text-xs font-medium outline-none bg-transparent py-0.5"
+              className="w-28 border-b border-blue-400 text-right text-xs font-medium outline-none bg-transparent py-0.5 text-gray-900"
             />
           </div>
         ) : (
