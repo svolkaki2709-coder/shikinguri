@@ -577,7 +577,10 @@ function BudgetContent() {
                   />
                 </div>
                 <div className="flex justify-between items-center text-[11px] text-gray-500">
-                  <span>実績 {toJPY(b.actual)}</span>
+                  <span
+                    className={b.actual !== 0 ? "cursor-pointer underline decoration-dotted hover:text-blue-600 transition-colors" : ""}
+                    onClick={e => { if (b.actual !== 0) { e.stopPropagation(); openDrillDown(b.category, b.cardType, month) } }}
+                  >実績 {toJPY(b.actual)}</span>
                   {editingBudget?.category === b.category && editingBudget?.cardType === b.cardType ? (
                     <div className="flex items-center gap-1" onClick={e => e.stopPropagation()} onDragStart={e => e.stopPropagation()}>
                       {/* 毎月 / 今月 トグル */}
