@@ -83,10 +83,10 @@ export default function ImportPayslipPage() {
       + (result.taxableCommute ?? 0)
   }, [result])
 
-  // 登録する給与収入 = 差引総支給額 − 立替・通勤手当合計
+  // 登録する給与収入 = 支給合計（額面）− 営業交通費・非課税通勤手当・課税通勤手当
   const salaryIncome = useMemo(() => {
     if (!result) return 0
-    return (result.netPay ?? 0) - commuteTotal
+    return (result.grossPay ?? 0) - commuteTotal
   }, [result, commuteTotal])
 
   // ─── PDF解析 ─────────────────────────────────────────────────────
@@ -315,7 +315,7 @@ export default function ImportPayslipPage() {
                 <span className="text-xs text-green-700 font-semibold">登録する給与収入</span>
                 <span className="text-xs text-green-700 font-bold">{toJPY(salaryIncome)}</span>
               </div>
-              <p className="text-[10px] text-gray-400 mt-1">差引総支給額 − 立替・通勤手当</p>
+              <p className="text-[10px] text-gray-400 mt-1">支給合計（額面）− 営業交通費・通勤手当</p>
             </div>
 
             {/* 控除＋調整 */}
