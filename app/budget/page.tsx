@@ -208,6 +208,23 @@ export default function BudgetPage() {
     months.map(m => incomeByMonth[m] ?? 0),
     [months, incomeByMonth]
   )
+
+  // ─── 年次: 余剰計算（収入 − 振替以外の支出系） ────────────────
+  const surplusData = useMemo(() => {
+    const incomeRows = yearGroups.find(g => g.group === "収入")?.rows ?? []
+    const expenseRows = yearGroups.filter(g => g.group !== "収入" && g.group !== "振替").flatMap(g => g.rows)
+    const byMonth: Record<string, { budget: number; actual: number }> = {}
+    for (const m of months) {
+      const inB = incomeRows.reduce((s, r) => s + (r.byMonth[m]?.budget ?? 0), 0)
+      const inA = incomeRows.reduce((s, r) => s + (r.byMonth[m]?.actual ?? 0), 0)
+      const exB = expenseRows.reduce((s, r) => s + (r.byMonth[m]?.budget ?? 0), 0)
+      const exA = expenseRows.reduce((s, r) => s + (r.byMonth[m]?.actual ?? 0), 0)
+      byMonth[m] = { budget: inB - exB, actual: inA - exA }
+    }
+    const yearBudget = months.reduce((s, m) => s + byMonth[m].budget, 0)
+    const yearActual = months.reduce((s, m) => s + byMonth[m].actual, 0)
+    return { byMonth, yearBudget, yearActual }
+  }, [yearGroups, months])
   const yearIncome = monthlyIncome.reduce((s, v) => s + v, 0)
 
   const chartGroups = useMemo(() =>
@@ -1010,6 +1027,46 @@ export default function BudgetPage() {
                       )
                     })}
                   </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-gray-400 bg-gray-900 text-white sticky bottom-0">
+                      <td className="sticky left-0 bg-gray-900 px-3 py-2 font-bold text-sm">余剰</td>
+                      {months.map(m => {
+                        const { budget: sb, actual: sa } = surplusData.byMonth[m] ?? { budget: 0, actual: 0 }
+                        return (
+                          <td key={m} className="text-right px-2 py-2 font-bold">
+                            {viewMode === "budget" && (
+                              <span className={sb >= 0 ? "text-green-300" : "text-red-300"}>{toJPYShort(sb)}</span>
+                            )}
+                            {viewMode === "actual" && (
+                              <span className={sa >= 0 ? "text-green-300" : "text-red-300"}>{toJPYShort(sa)}</span>
+                            )}
+                            {viewMode === "diff" && <span className="text-gray-400">—</span>}
+                            {viewMode === "both" && (
+                              <span className="text-[10px] leading-snug block">
+                                <span className={`block ${sa >= 0 ? "text-green-300" : "text-red-300"}`}>{toJPYShort(sa)}</span>
+                                <span className={`block opacity-70 ${sb >= 0 ? "text-green-200" : "text-red-200"}`}>予{toJPYShort(sb)}</span>
+                              </span>
+                            )}
+                          </td>
+                        )
+                      })}
+                      <td className="text-right px-3 py-2 font-bold bg-gray-800">
+                        {viewMode === "budget" && (
+                          <span className={surplusData.yearBudget >= 0 ? "text-green-300" : "text-red-300"}>{toJPYShort(surplusData.yearBudget)}</span>
+                        )}
+                        {viewMode === "actual" && (
+                          <span className={surplusData.yearActual >= 0 ? "text-green-300" : "text-red-300"}>{toJPYShort(surplusData.yearActual)}</span>
+                        )}
+                        {viewMode === "diff" && <span className="text-gray-400">—</span>}
+                        {viewMode === "both" && (
+                          <span className="text-[10px] leading-tight block">
+                            <span className={`block font-bold ${surplusData.yearActual >= 0 ? "text-green-300" : "text-red-300"}`}>{toJPYShort(surplusData.yearActual)}</span>
+                            <span className={`block opacity-70 ${surplusData.yearBudget >= 0 ? "text-green-200" : "text-red-200"}`}>予{toJPYShort(surplusData.yearBudget)}</span>
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             )}
