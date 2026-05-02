@@ -102,11 +102,13 @@ export async function GET(req: NextRequest) {
     `,
   ])
 
-  // ---- 収入月別合計（thead表示用） ----
+  // ---- 収入月別合計（thead表示用）: 給与源泉税など負値を除き額面で集計 ----
   const incomeByMonth: Record<string, number> = {}
   for (const r of incomeActualRows) {
+    const actual = Number(r.actual)
+    if (actual <= 0) continue
     const key = r.month as string
-    incomeByMonth[key] = (incomeByMonth[key] ?? 0) + Number(r.actual)
+    incomeByMonth[key] = (incomeByMonth[key] ?? 0) + actual
   }
 
   // ---- カテゴリ一覧（group_type, sort_order, sign 付き） ----

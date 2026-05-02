@@ -183,8 +183,17 @@ function BudgetContent() {
       fetch(`/api/income?month=${month}&card_type=joint`).then(r => r.json()),
     ]).then(([budgetData, incomeData, jointIncomeData]) => {
       setBudgets(budgetData.budgets ?? [])
-      setIncomeTotal(incomeData.total ?? 0)
-      setJointIncomeTotal(jointIncomeData.total ?? 0)
+      // 給与源泉税など負値のincomeを除き、額面（支給ベース）で表示
+      setIncomeTotal(
+        ((incomeData.incomes ?? []) as Array<{ amount: number }>)
+          .filter(r => r.amount > 0)
+          .reduce((s, r) => s + r.amount, 0)
+      )
+      setJointIncomeTotal(
+        ((jointIncomeData.incomes ?? []) as Array<{ amount: number }>)
+          .filter(r => r.amount > 0)
+          .reduce((s, r) => s + r.amount, 0)
+      )
     }).finally(() => setMonthlyLoading(false))
   }, [month])
 
