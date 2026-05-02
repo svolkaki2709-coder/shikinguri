@@ -176,6 +176,28 @@ function BudgetContent() {
   const [rangeFrom, setRangeFrom] = useState("01")
   const [rangeTo, setRangeTo] = useState(String(now.getMonth() + 1).padStart(2, "0"))
 
+  // ─── 明細ドリルダウン ─────────────────────────────────────────
+  interface DrillDownRow { id: number; date: string; amount: number; memo: string; source: string; card_name: string | null; card_type: string }
+  const [drillDown, setDrillDown] = useState<{ category: string; cardType: string; month: string } | null>(null)
+  const [drillDownRows, setDrillDownRows] = useState<DrillDownRow[]>([])
+  const [drillDownLoading, setDrillDownLoading] = useState(false)
+
+  useEffect(() => {
+    if (!drillDown) return
+    setDrillDownLoading(true)
+    fetch(`/api/history?month=${drillDown.month}&category=${encodeURIComponent(drillDown.category)}`)
+      .then(r => r.json())
+      .then(d => {
+        const rows = (d.transactions ?? []) as DrillDownRow[]
+        setDrillDownRows(rows.filter(r => r.card_type === drillDown.cardType))
+      })
+      .finally(() => setDrillDownLoading(false))
+  }, [drillDown])
+
+  function openDrillDown(category: string, cardType: string, month: string) {
+    setDrillDown({ category, cardType, month })
+  }
+
   // ─── データ取得: 月次 ──────────────────────────────────────────
   useEffect(() => {
     setMonthlyLoading(true)
@@ -1082,7 +1104,9 @@ function BudgetContent() {
                                         )
                                       )}
                                       {viewMode === "actual" && (
-                                        <span className={`font-medium ${isOver ? "text-red-500" : ma > 0 ? "text-gray-800" : "text-gray-300"}`}>
+                                        <span
+                                          onClick={() => ma > 0 && openDrillDown(row.name, row.cardType, m)}
+                                          className={`font-medium ${isOver ? "text-red-500" : ma > 0 ? "text-gray-800 cursor-pointer hover:underline hover:text-blue-600" : "text-gray-300"}`}>
                                           {ma > 0 ? toJPYShort(ma) : "—"}
                                         </span>
                                       )}
@@ -1094,7 +1118,9 @@ function BudgetContent() {
                                       {viewMode === "both" && (
                                         <span className="text-[10px] leading-snug block">
                                           {/* 実績行 */}
-                                          <span className={`block font-medium ${isOver ? "text-red-500" : ma > 0 ? "text-gray-800" : "text-gray-300"}`}>
+                                          <span
+                                            onClick={() => ma > 0 && openDrillDown(row.name, row.cardType, m)}
+                                            className={`block font-medium ${isOver ? "text-red-500" : ma > 0 ? "text-gray-800 cursor-pointer hover:underline hover:text-blue-600" : "text-gray-300"}`}>
                                             {ma > 0 ? toJPYShort(ma) : "—"}
                                           </span>
                                           {/* 予算行（クリックで編集） */}
@@ -1280,6 +1306,70 @@ function BudgetContent() {
         )}
       </div>
       <BottomNav />
+
+      {/* ─── 明細ドリルダウンモーダル ─── */}
+      {drillDown && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+          onClick={e => { if (e.target === e.currentTarget) setDrillDown(null) }}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col">
+            {/* ヘッダー */}
+            <div className="flex items-center justify-between px-5 py-3 border-b">
+              <div>
+                <p className="text-sm font-bold text-gray-800">{drillDown.category}</p>
+                <p className="text-xs text-gray-500">{drillDown.month.replace("-", "年")}月 の明細</p>
+              </div>
+              <button onClick={() => setDrillDown(null)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+            </div>
+
+            {/* ボディ */}
+            <div className="overflow-y-auto flex-1 px-5 py-3">
+              {drillDownLoading ? (
+                <p className="text-center text-gray-400 text-sm py-8">読み込み中...</p>
+              ) : drillDownRows.length === 0 ? (
+                <p className="text-center text-gray-400 text-sm py-8">明細がありません</p>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-gray-500 border-b">
+                      <th className="text-left py-1.5 font-medium">日付</th>
+                      <th className="text-left py-1.5 font-medium">メモ / 種別</th>
+                      <th className="text-right py-1.5 font-medium">金額</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {drillDownRows.map(r => (
+                      <tr key={`${r.source}-${r.id}`} className="hover:bg-gray-50">
+                        <td className="py-1.5 text-gray-600 whitespace-nowrap">{r.date}</td>
+                        <td className="py-1.5 text-gray-700 max-w-[200px]">
+                          <span className="block truncate">{r.memo || "—"}</span>
+                          {r.source === "income" ? (
+                            <span className="text-[10px] text-green-600">収入</span>
+                          ) : r.card_name ? (
+                            <span className="text-[10px] text-gray-400">{r.card_name}</span>
+                          ) : null}
+                        </td>
+                        <td className={`py-1.5 text-right font-semibold whitespace-nowrap ${Number(r.amount) < 0 ? "text-red-500" : "text-gray-800"}`}>
+                          {Number(r.amount).toLocaleString("ja-JP")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* フッター: 合計 */}
+            {!drillDownLoading && drillDownRows.length > 0 && (
+              <div className="border-t px-5 py-3 flex justify-between items-center">
+                <span className="text-xs text-gray-500">{drillDownRows.length}件</span>
+                <span className="text-sm font-bold text-gray-800">
+                  合計 {drillDownRows.reduce((s, r) => s + Number(r.amount), 0).toLocaleString("ja-JP")}円
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
