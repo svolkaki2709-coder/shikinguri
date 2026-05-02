@@ -18,8 +18,6 @@ interface ParsedPayslip {
   taxableCommute: number | null      // 課税通勤手当（立替）
   totalDeduction: number | null  // 控除合計
   yearEndAdjustment: number | null // 年末調整還付（負値=還付）
-  // 既知フィールド以外の自動検出項目（月給・固定残業手当・アニバーサリー手当など）
-  extraItems: { label: string; amount: number }[]
   _debug?: {
     nums: number[]
     labels: string[]
@@ -142,18 +140,6 @@ function parsePayslipText(text: string): ParsedPayslip {
     val["住民税"] = 0
   }
 
-  // ==== STEP 5: 既知フィールド以外の自動検出項目 ====
-  // val に含まれるが既知ラベルにマッピングされない項目（月給・手当など）を返す
-  const KNOWN_LABELS = new Set([
-    "差引総支給額", "計",
-    "所得税", "住民税", "健康保険料", "厚生年金保険料", "雇用保険料",
-    "営業交通費", "非課税通勤手当", "課税通勤手当", "年末調整還付",
-  ])
-  const extraItems = Object.entries(val)
-    .filter(([k]) => !KNOWN_LABELS.has(k))
-    .filter(([, v]) => v !== 0)  // 0円項目は除外（勤怠控除など）
-    .map(([label, amount]) => ({ label, amount }))
-
   // デバッグ用: val内の住民税キーの実際の文字コードを確認
   const 住民税ActualKey = Object.keys(val).find(k => k.includes("住") && k.includes("税"))
   const 住民税KeyHex = 住民税ActualKey
@@ -174,7 +160,6 @@ function parsePayslipText(text: string): ParsedPayslip {
     taxableCommute:      val["課税通勤手当"]     ?? null,
     totalDeduction,
     yearEndAdjustment,
-    extraItems,
     _debug: { nums, labels, val, 住民税KeyHex },
   }
 }
