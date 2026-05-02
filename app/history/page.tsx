@@ -49,6 +49,7 @@ function HistoryContent() {
   const [cardId, setCardId] = useState(searchParams.get("card_id") ?? "")
   const [category, setCategory] = useState(searchParams.get("category") ?? "")
   const [keyword, setKeyword] = useState(searchParams.get("keyword") ?? "")
+  const [usageFilter, setUsageFilter] = useState<"all" | "self" | "joint">("all")
 
   // 編集モーダル
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
@@ -145,14 +146,21 @@ function HistoryContent() {
     setEditingTransaction(null)
   }
 
-  const total = transactions.reduce((s, t) => s + t.amount, 0)
+  const filteredTransactions = usageFilter === "all"
+    ? transactions
+    : transactions.filter(t => t.card_type === usageFilter)
+
+  const total = filteredTransactions.reduce((s, t) => s + t.amount, 0)
 
   const grouped: Record<string, Transaction[]> = {}
-  for (const t of transactions) {
+  for (const t of filteredTransactions) {
     if (!grouped[t.date]) grouped[t.date] = []
     grouped[t.date].push(t)
   }
   const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a))
+
+  // 表示するカードボタン（usageFilterに合わせる）
+  const visibleCards = usageFilter === "all" ? cards : cards.filter(c => c.card_type === usageFilter)
 
   return (
     <div className={mode === "mobile" ? "pb-20" : ""}>
@@ -162,13 +170,28 @@ function HistoryContent() {
         <div className={`bg-white rounded-xl shadow-sm p-3 ${isPC ? "mb-4" : "mb-3 space-y-3"}`}>
           {isPC ? (
             <div className="flex items-center gap-3 flex-wrap">
+              {/* 個人/共用トグル */}
+              <div className="flex rounded-lg bg-gray-100 p-0.5 shrink-0">
+                {([["all", "すべて"], ["self", "個人"], ["joint", "共用"]] as const).map(([k, label]) => (
+                  <button key={k} onClick={() => { setUsageFilter(k); setCardId("") }}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${
+                      usageFilter === k
+                        ? k === "joint" ? "bg-white text-amber-600 shadow-sm"
+                        : k === "self" ? "bg-white text-indigo-600 shadow-sm"
+                        : "bg-white text-gray-700 shadow-sm"
+                        : "text-gray-500"
+                    }`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
               {/* カードフィルター */}
               <div className="flex gap-1.5 flex-wrap">
                 <button onClick={() => setCardId("")}
                   className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${cardId === "" ? "bg-gray-700 text-white border-gray-700" : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"}`}>
                   すべて
                 </button>
-                {cards.map(c => (
+                {visibleCards.map(c => (
                   <button key={c.id} onClick={() => setCardId(String(c.id))}
                     className="px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all"
                     style={{
@@ -207,19 +230,34 @@ function HistoryContent() {
                 className="border rounded-lg px-2 py-1 text-xs w-36" />
               {/* 件数 */}
               <div className="ml-auto flex items-center gap-3">
-                <span className="text-xs text-gray-500">{transactions.length}件</span>
+                <span className="text-xs text-gray-500">{filteredTransactions.length}件</span>
                 <span className="text-sm font-bold text-gray-800">{toJPY(total)}</span>
               </div>
             </div>
           ) : (
             <>
+              {/* モバイル: 個人/共用トグル */}
+              <div className="flex rounded-lg bg-gray-100 p-0.5">
+                {([["all", "すべて"], ["self", "個人"], ["joint", "共用"]] as const).map(([k, label]) => (
+                  <button key={k} onClick={() => { setUsageFilter(k); setCardId("") }}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                      usageFilter === k
+                        ? k === "joint" ? "bg-white text-amber-600 shadow-sm"
+                        : k === "self" ? "bg-white text-indigo-600 shadow-sm"
+                        : "bg-white text-gray-700 shadow-sm"
+                        : "text-gray-500"
+                    }`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
               {/* モバイル: カードフィルター */}
               <div className="flex gap-1.5 flex-wrap">
                 <button onClick={() => setCardId("")}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${cardId === "" ? "bg-gray-700 text-white border-gray-700" : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"}`}>
                   すべて
                 </button>
-                {cards.map(c => (
+                {visibleCards.map(c => (
                   <button key={c.id} onClick={() => setCardId(String(c.id))}
                     className="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all"
                     style={{
@@ -267,7 +305,7 @@ function HistoryContent() {
 
         {!isPC && (
           <div className="flex justify-between items-center px-1 mb-2">
-            <span className="text-sm text-gray-500">{transactions.length}件</span>
+            <span className="text-sm text-gray-500">{filteredTransactions.length}件</span>
             <span className="text-base font-bold text-gray-800">{toJPY(total)}</span>
           </div>
         )}
@@ -289,10 +327,10 @@ function HistoryContent() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {transactions.length === 0 ? (
+                {filteredTransactions.length === 0 ? (
                   <tr><td colSpan={6} className="text-center py-8 text-gray-400">明細がありません</td></tr>
                 ) : (
-                  transactions.map(t => (
+                  filteredTransactions.map(t => (
                     <tr key={t.id} className={`hover:bg-gray-50 transition-colors ${t.category === "未分類" ? "bg-orange-50 hover:bg-orange-100" : ""}`}>
                       <td className="px-4 py-1.5 text-gray-600 whitespace-nowrap">{t.date}</td>
                       <td className="px-3 py-1.5">
@@ -376,7 +414,7 @@ function HistoryContent() {
           )
         })}
 
-        {!loading && transactions.length === 0 && !isPC && (
+        {!loading && filteredTransactions.length === 0 && !isPC && (
           <div className="text-center py-6 text-gray-500 text-sm">明細がありません</div>
         )}
       </div>
