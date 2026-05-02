@@ -54,7 +54,6 @@ export default function InputPage() {
   // ── 収入フォーム ──
   const [incomeCardType, setIncomeCardType] = useState<"self" | "joint">("self")
   const [incomeDate, setIncomeDate] = useState(now.toISOString().split("T")[0])
-  const [incomeMonth, setIncomeMonth] = useState(currentMonth)
   const [incomeAmount, setIncomeAmount] = useState("")
   const [incomeCategory, setIncomeCategory] = useState("給与")
   const [incomeMemo, setIncomeMemo] = useState("")
@@ -77,10 +76,10 @@ export default function InputPage() {
   // 収入タブの履歴取得
   useEffect(() => {
     if (mainTab !== "income") return
-    fetch(`/api/income?month=${incomeMonth}&card_type=${incomeCardType}`)
+    fetch(`/api/income?month=${incomeDate.slice(0, 7)}&card_type=${incomeCardType}`)
       .then(r => r.json())
       .then(d => setMonthIncomeRecords(d.incomes ?? []))
-  }, [mainTab, incomeMonth, incomeCardType])
+  }, [mainTab, incomeDate.slice(0, 7), incomeCardType])
 
   // usageType に対応するカード一覧（CSV管理カードは除外）
   const usageCards = useMemo(() => {
@@ -184,7 +183,7 @@ export default function InputPage() {
     setIncomeAmount("")
     setIncomeMemo("")
     setIncomeSaving(false)
-    const d = await fetch(`/api/income?month=${incomeMonth}&card_type=${incomeCardType}`).then(r => r.json())
+    const d = await fetch(`/api/income?month=${incomeDate.slice(0, 7)}&card_type=${incomeCardType}`).then(r => r.json())
     setMonthIncomeRecords(d.incomes ?? [])
   }
 
@@ -194,18 +193,7 @@ export default function InputPage() {
     setMonthIncomeRecords(prev => prev.filter(r => r.id !== id))
   }
 
-  function prevMonth(m: string) {
-    const [y, mo] = m.split("-").map(Number)
-    const d = new Date(y, mo - 2, 1)
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
-  }
-  function nextMonth(m: string) {
-    const [y, mo] = m.split("-").map(Number)
-    const d = new Date(y, mo, 1)
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
-  }
-
-  const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
+const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
   const selfColor = cards.find(c => c.card_type === "self")?.color ?? "#6366f1"
 
   return (
@@ -384,23 +372,10 @@ export default function InputPage() {
                 </button>
               </div>
 
-              {/* 月 */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">月</label>
-                <div className="flex items-center gap-1">
-                  <button type="button" onClick={() => { const m = prevMonth(incomeMonth); setIncomeMonth(m); setIncomeDate(`${m}-01`) }}
-                    className="text-gray-500 hover:text-blue-600 px-2 py-1.5 rounded-lg hover:bg-gray-100 font-bold">‹</button>
-                  <input type="month" value={incomeMonth} onChange={e => { setIncomeMonth(e.target.value); setIncomeDate(`${e.target.value}-01`) }}
-                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 text-center focus:outline-none focus:ring-2 focus:ring-green-500" />
-                  <button type="button" onClick={() => { const m = nextMonth(incomeMonth); setIncomeMonth(m); setIncomeDate(`${m}-01`) }}
-                    className="text-gray-500 hover:text-blue-600 px-2 py-1.5 rounded-lg hover:bg-gray-100 font-bold">›</button>
-                </div>
-              </div>
-
               {/* 日付 */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">日付</label>
-                <input type="date" value={incomeDate} onChange={e => { setIncomeDate(e.target.value); setIncomeMonth(e.target.value.slice(0, 7)) }}
+                <input type="date" value={incomeDate} onChange={e => setIncomeDate(e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" />
               </div>
 
@@ -463,7 +438,7 @@ export default function InputPage() {
             {monthIncomeRecords.length > 0 && (
               <div className="bg-white rounded-xl shadow-sm overflow-hidden">
                 <p className="text-xs font-semibold text-gray-600 px-4 py-2.5 border-b bg-gray-50">
-                  {incomeMonth} の収入記録
+                  {incomeDate.slice(0, 7)} の収入記録
                 </p>
                 {monthIncomeRecords.map(r => (
                   <div key={r.id} className="flex items-center justify-between px-4 py-2.5 border-b last:border-0">
