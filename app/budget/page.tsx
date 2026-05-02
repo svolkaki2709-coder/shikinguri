@@ -914,7 +914,11 @@ function BudgetContent() {
                             }, 0)
                       const groupYearBudget = signAwareSum(r => r.yearBudget)
                       const groupYearActual = signAwareSum(r => r.yearActual)
-                      const groupDiff = groupYearBudget - groupYearActual
+                      const isIncomeGroup = group === "収入"
+                      // 収入グループ: 実績 > 予算 = 良い、その他: 予算 > 実績 = 良い
+                      const groupDiff = isIncomeGroup
+                        ? groupYearActual - groupYearBudget
+                        : groupYearBudget - groupYearActual
 
                       return (
                         <>
@@ -926,7 +930,7 @@ function BudgetContent() {
                             {months.map(m => {
                               const mBudget = signAwareSum(r => r.byMonth[m]?.budget ?? 0)
                               const mActual = signAwareSum(r => r.byMonth[m]?.actual ?? 0)
-                              const diff = mBudget - mActual
+                              const diff = isIncomeGroup ? mActual - mBudget : mBudget - mActual
                               return (
                                 <td key={m} className="text-right px-2 py-1 font-semibold">
                                   {viewMode === "budget" && <span className="opacity-80">{toJPYShort(mBudget)}</span>}
@@ -970,7 +974,12 @@ function BudgetContent() {
 
                           {/* カテゴリ行 */}
                           {rows.map(row => {
-                            const diff = row.yearBudget - row.yearActual
+                            const rowSign = getCategorySign(row)
+                            // 収入系(sign=1): 実績 > 予算 = 良い → diff = 実績 - 予算
+                            // 支出系(sign=-1): 実績 < 予算 = 良い → diff = 予算 - 実績
+                            const diff = rowSign === 1
+                              ? row.yearActual - row.yearBudget
+                              : row.yearBudget - row.yearActual
                             return (
                               <tr key={`${row.name}-${row.cardType}`}
                                 className={`border-b border-gray-100 hover:bg-yellow-50 transition-colors ${gc?.row ?? "bg-white"}`}>
@@ -979,8 +988,8 @@ function BudgetContent() {
                                 </td>
                                 {months.map(m => {
                                   const { budget: mb, actual: ma } = row.byMonth[m] ?? { budget: 0, actual: 0 }
-                                  const mdiff = mb - ma
-                                  const isOver = ma > mb && mb > 0
+                                  const mdiff = rowSign === 1 ? ma - mb : mb - ma
+                                  const isOver = mb > 0 && (rowSign === 1 ? ma < mb : ma > mb)
                                   const isEditingCell = editingMonthBudget?.category === row.name && editingMonthBudget?.cardType === row.cardType && editingMonthBudget?.month === m
                                   return (
                                     <td key={m} className={`text-right px-2 py-1 group/cell ${isOver && viewMode === "actual" ? "bg-red-50" : ""}`}>
