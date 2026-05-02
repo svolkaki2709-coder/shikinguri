@@ -772,7 +772,7 @@ export default function BudgetPage() {
             {/* ── テーブル表示 ── */}
             {!yearlyLoading && displayMode === "table" && (
               <div className="overflow-x-auto rounded-xl shadow-sm border border-gray-200 bg-white">
-                <table className="text-xs border-collapse" style={{ minWidth: `${140 + months.length * 90 + 100}px` }}>
+                <table className="text-xs border-collapse w-full" style={{ minWidth: `${140 + months.length * 90 + 100}px` }}>
                   <thead>
                     <tr className="bg-gray-800 text-white sticky top-0 z-10">
                       <th className="text-left px-3 py-2 font-semibold sticky left-0 bg-gray-800 z-20 min-w-[140px]">
