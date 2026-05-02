@@ -83,6 +83,7 @@ function SettingsContent() {
   // カテゴリ管理
   const [newCatName, setNewCatName] = useState("")
   const [catSaving, setCatSaving] = useState(false)
+  const [cardViewType, setCardViewType] = useState<"self" | "joint">("self")
   const [catViewType, setCatViewType] = useState<"self" | "joint">("self")
   const [newCatCardType, setNewCatCardType] = useState<"self" | "joint">("self")
   const [categoryRows, setCategoryRows] = useState<{ name: string; card_type: string; group_type: string | null; sort_order: number | null; sign: string | null }[]>([])
@@ -923,8 +924,21 @@ function SettingsContent() {
           const CardBlock = () => (
             <div className="bg-white rounded-xl shadow-sm p-3 space-y-2">
               <h2 className="text-xs font-semibold text-gray-700">支払方法管理</h2>
+              {/* 個人/共用トグル */}
+              <div className="flex rounded-lg bg-gray-100 p-0.5">
+                {([["self", "個人"] as const, ["joint", "共用"] as const]).map(([k, label]) => (
+                  <button key={k} type="button" onClick={() => setCardViewType(k)}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                      cardViewType === k
+                        ? k === "self" ? "bg-white text-indigo-600 shadow-sm" : "bg-white text-amber-600 shadow-sm"
+                        : "text-gray-500"
+                    }`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
               <div className="border rounded-lg overflow-hidden">
-                {cards.map(c => (
+                {cards.filter(c => c.card_type === cardViewType).map(c => (
                   <div key={c.id} className="flex items-center gap-2 px-3 py-2 border-b last:border-0">
                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
                     {editingCardId === c.id ? (
@@ -948,9 +962,6 @@ function SettingsContent() {
                         {c.name}
                       </span>
                     )}
-                    <span className={`text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${c.card_type === "joint" ? "bg-amber-100 text-amber-700" : "bg-indigo-100 text-indigo-700"}`}>
-                      {c.card_type === "joint" ? "共用" : "個人"}
-                    </span>
                     <button onClick={() => handleDeleteCard(c)}
                       className="text-gray-300 hover:text-red-400 text-lg leading-none w-5 shrink-0">×</button>
                   </div>
