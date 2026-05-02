@@ -17,6 +17,7 @@ interface ParsedPayslip {
   nonTaxableCommute: number | null   // 非課税通勤手当（立替）
   taxableCommute: number | null      // 課税通勤手当（立替）
   totalDeduction: number | null  // 控除合計
+  yearEndAdjustment: number | null // 年末調整還付（負値=還付）
   _debug?: { nums: number[]; labels: string[]; val: Record<string, number> }
 }
 
@@ -107,12 +108,35 @@ function parsePayslipText(text: string): ParsedPayslip {
     }
   }
 
+  // ==== STEP 4: 後処理 ====
+  // 住民税が負値 = 年末調整還付の値が誤マッピングされている
+  // （12月など住民税=0の月はPDF数値ブロックから省略されるためずれる）
+  let yearEndAdjustment: number | null = null
+  if ((val["住民税"] ?? 0) < 0) {
+    yearEndAdjustment = val["住民税"]  // 例: -37,042
+    val["住民税"] = 0
+  }
+  // 明示的な年末調整ラベルがあれば上書き
+  for (let i = 0; i < labels.length; i++) {
+    if (labels[i].includes("年末調整") && nums[i + 1] != null && nums[i + 1] < 0) {
+      yearEndAdjustment = nums[i + 1]
+      break
+    }
+  }
+  // totalDeductionが取れなかった場合（計ラベルのずれ）は手動計算
+  if (totalDeduction === null) {
+    const base = (val["所得税"] ?? 0) + (val["住民税"] ?? 0)
+      + (val["健康保険料"] ?? 0) + (val["厚生年金保険料"] ?? 0)
+      + (val["雇用保険料"] ?? 0)
+    totalDeduction = base + (yearEndAdjustment ?? 0) || null
+  }
+
   return {
     paymentMonth,
     netPay:              val["差引総支給額"]    ?? null,
     grossPay,
     incomeTax:           val["所得税"]          ?? null,
-    residentTax:         val["住民税"]          ?? null,
+    residentTax:         val["住民税"] != null && val["住民税"] >= 0 ? val["住民税"] : null,
     healthInsurance:     val["健康保険料"]       ?? null,
     pension:             val["厚生年金保険料"]   ?? null,
     employmentInsurance: val["雇用保険料"]       ?? null,
@@ -120,6 +144,7 @@ function parsePayslipText(text: string): ParsedPayslip {
     nonTaxableCommute:   val["非課税通勤手当"]   ?? null,
     taxableCommute:      val["課税通勤手当"]     ?? null,
     totalDeduction,
+    yearEndAdjustment,
     _debug: { nums, labels, val },
   }
 }

@@ -17,6 +17,7 @@ interface ParsedPayslip {
   nonTaxableCommute: number | null
   taxableCommute: number | null
   totalDeduction: number | null
+  yearEndAdjustment: number | null
   _debug?: { nums: number[]; labels: string[]; val: Record<string, number> }
 }
 
@@ -104,6 +105,11 @@ export default function ImportPayslipPage() {
       const data = await res.json()
       if (data.error) { setError(data.error); return }
       setResult(data)
+      // 年末調整還付が検出されたら調整項目に自動セット
+      if (data.yearEndAdjustment != null) {
+        setAdjustments([{ id: 1, label: "年末調整還付", amount: String(data.yearEndAdjustment) }])
+        setNextId(2)
+      }
     } catch {
       setError("解析に失敗しました")
     } finally {
