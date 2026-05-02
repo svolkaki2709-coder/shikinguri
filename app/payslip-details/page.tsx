@@ -171,6 +171,9 @@ export default function PayslipDetailsPage() {
         {/* 年別テーブル */}
         {byYear.map(([year, rows]) => {
           const totalGross = yearSum(rows, "gross_pay")
+          const totalNontaxableCommute = yearSum(rows, "nontaxable_commute")
+          const totalTravelReimbursement = yearSum(rows, "travel_reimbursement")
+          const totalTaxableBase = totalGross - totalNontaxableCommute - totalTravelReimbursement
           const totalIncomeTax = yearSum(rows, "income_tax")
           const totalResidentTax = yearSum(rows, "resident_tax")
           const totalHealthIns = yearSum(rows, "health_insurance")
@@ -210,6 +213,10 @@ export default function PayslipDetailsPage() {
                         (row.income_tax ?? 0) + (row.resident_tax ?? 0) +
                         (row.health_insurance ?? 0) + (row.pension ?? 0) +
                         (row.employment_insurance ?? 0)
+                      // 課税対象ベース = 支給合計 − 非課税通勤手当 − 営業交通費
+                      const taxableBase = (row.gross_pay ?? 0)
+                        - (row.nontaxable_commute ?? 0)
+                        - (row.travel_reimbursement ?? 0)
                       return (
                         <tr key={row.id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap">
@@ -221,19 +228,19 @@ export default function PayslipDetailsPage() {
                           <td className="px-3 py-2.5 text-right text-gray-700 font-medium whitespace-nowrap">{fmt(row.gross_pay)}</td>
                           <td className="px-3 py-2.5 text-right text-red-600 whitespace-nowrap">
                             <div>{fmt(row.income_tax)}</div>
-                            <div className="text-[10px] text-gray-400">{pct(row.income_tax, row.gross_pay)}</div>
+                            <div className="text-[10px] text-gray-400">{pct(row.income_tax, taxableBase)}</div>
                           </td>
                           <td className="px-3 py-2.5 text-right text-orange-600 whitespace-nowrap">
                             <div>{fmt(row.resident_tax)}</div>
-                            <div className="text-[10px] text-gray-400">{pct(row.resident_tax, row.gross_pay)}</div>
+                            <div className="text-[10px] text-gray-400">{pct(row.resident_tax, taxableBase)}</div>
                           </td>
                           <td className="px-3 py-2.5 text-right text-blue-600 whitespace-nowrap">
                             <div>{fmt(row.health_insurance)}</div>
-                            <div className="text-[10px] text-gray-400">{pct(row.health_insurance, row.gross_pay)}</div>
+                            <div className="text-[10px] text-gray-400">{pct(row.health_insurance, taxableBase)}</div>
                           </td>
                           <td className="px-3 py-2.5 text-right text-blue-600 whitespace-nowrap">
                             <div>{fmt(row.pension)}</div>
-                            <div className="text-[10px] text-gray-400">{pct(row.pension, row.gross_pay)}</div>
+                            <div className="text-[10px] text-gray-400">{pct(row.pension, taxableBase)}</div>
                           </td>
                           <td className="px-3 py-2.5 text-right text-blue-600 whitespace-nowrap">{fmt(row.employment_insurance)}</td>
                           <td className="px-3 py-2.5 text-right font-semibold text-gray-700 whitespace-nowrap">{fmt(calcDeduction)}</td>
@@ -260,24 +267,24 @@ export default function PayslipDetailsPage() {
                       <td className="px-3 py-2.5 text-right text-gray-800">{fmt(totalGross)}</td>
                       <td className="px-3 py-2.5 text-right text-red-600">
                         <div>{fmt(totalIncomeTax)}</div>
-                        <div className="text-[10px] text-gray-400 font-normal">{pct(totalIncomeTax, totalGross)}</div>
+                        <div className="text-[10px] text-gray-400 font-normal">{pct(totalIncomeTax, totalTaxableBase)}</div>
                       </td>
                       <td className="px-3 py-2.5 text-right text-orange-600">
                         <div>{fmt(totalResidentTax)}</div>
-                        <div className="text-[10px] text-gray-400 font-normal">{pct(totalResidentTax, totalGross)}</div>
+                        <div className="text-[10px] text-gray-400 font-normal">{pct(totalResidentTax, totalTaxableBase)}</div>
                       </td>
                       <td className="px-3 py-2.5 text-right text-blue-600">
                         <div>{fmt(totalHealthIns)}</div>
-                        <div className="text-[10px] text-gray-400 font-normal">{pct(totalHealthIns, totalGross)}</div>
+                        <div className="text-[10px] text-gray-400 font-normal">{pct(totalHealthIns, totalTaxableBase)}</div>
                       </td>
                       <td className="px-3 py-2.5 text-right text-blue-600">
                         <div>{fmt(totalPension)}</div>
-                        <div className="text-[10px] text-gray-400 font-normal">{pct(totalPension, totalGross)}</div>
+                        <div className="text-[10px] text-gray-400 font-normal">{pct(totalPension, totalTaxableBase)}</div>
                       </td>
                       <td className="px-3 py-2.5 text-right text-blue-600">{fmt(totalEmployment)}</td>
                       <td className="px-3 py-2.5 text-right text-gray-800">
                         <div>{fmt(totalDeduction)}</div>
-                        <div className="text-[10px] text-gray-400 font-normal">{pct(totalDeduction, totalGross)}</div>
+                        <div className="text-[10px] text-gray-400 font-normal">{pct(totalDeduction, totalTaxableBase)}</div>
                       </td>
                       <td className="px-3 py-2.5 text-right text-green-600" colSpan={2}>
                         {totalYEA !== 0 && (
@@ -298,7 +305,7 @@ export default function PayslipDetailsPage() {
                 <div className="text-center">
                   <p className="text-[10px] text-gray-400">年間控除合計（税＋社保）</p>
                   <p className="text-sm font-bold text-red-600">{fmtJPY(totalDeduction)}</p>
-                  <p className="text-[10px] text-gray-400">{pct(totalDeduction, totalGross)}</p>
+                  <p className="text-[10px] text-gray-400">{pct(totalDeduction, totalTaxableBase)}</p>
                 </div>
               </div>
             </div>
