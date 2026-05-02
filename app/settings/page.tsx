@@ -423,7 +423,7 @@ function SettingsContent() {
   }
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: "recurring", label: "定期支出" },
+    { key: "recurring", label: "定期" },
     { key: "plan", label: "計画" },
     { key: "category", label: "カテゴリ" },
   ]
