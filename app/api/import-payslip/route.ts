@@ -17,6 +17,7 @@ interface ParsedPayslip {
   nonTaxableCommute: number | null   // 非課税通勤手当（立替）
   taxableCommute: number | null      // 課税通勤手当（立替）
   totalDeduction: number | null  // 控除合計
+  _debug?: { nums: number[]; labels: string[]; val: Record<string, number> }
 }
 
 /**
