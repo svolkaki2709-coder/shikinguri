@@ -430,7 +430,7 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
 
               <button onClick={handleSaveIncome} disabled={incomeSaving || !incomeAmount}
                 className="w-full bg-green-600 text-white rounded-lg py-2.5 text-sm font-semibold hover:bg-green-700 disabled:opacity-50 transition-colors">
-                {incomeSaving ? "保存中..." : "収入を記録"}
+                {incomeSaving ? "保存中..." : "入金を記録"}
               </button>
             </div>
 
