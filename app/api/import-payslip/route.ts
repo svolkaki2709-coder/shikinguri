@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 // v1.1.1: lib直接インポートでVercelのfs問題を回避（v1のentry pointがtest fileを読もうとするバグ対策）
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -18,7 +18,12 @@ interface ParsedPayslip {
   taxableCommute: number | null      // 課税通勤手当（立替）
   totalDeduction: number | null  // 控除合計
   yearEndAdjustment: number | null // 年末調整還付（負値=還付）
-  _debug?: { nums: number[]; labels: string[]; val: Record<string, number> }
+  _debug?: {
+    nums: number[]
+    labels: string[]
+    val: Record<string, number>
+    住民税KeyHex?: string  // 住民税キーの文字コード確認用
+  }
 }
 
 /**
@@ -36,10 +41,13 @@ interface ParsedPayslip {
  *   nums[0]=差引総支給額, nums[i+1]=labels[i] として対応させる
  */
 
-/** PDFから取り出したテキストに混入するゼロ幅スペース・BOM・NBSPなどを除去 */
+/**
+ * PDFテキストに混入するゼロ幅スペース・BOM・全角スペース等の不可視文字を除去（ホワイトリスト方式）
+ * 残す文字: ASCII可視文字(0x20-0x7E) / 日本語句読点〜カタカナ(U+3001-U+30FF) / CJK漢字(U+4E00-U+9FFF) / 全角記号(U+FF01-U+FFEF)
+ * 除去対象: 全角スペース(U+3000) / ZWS(U+200B) / BOM(U+FEFF) / NBSP(U+00A0) / その他制御文字 など
+ */
 function stripInvisible(s: string): string {
-  // ​=ZWS ‌=ZWNJ ‍=ZWJ ‎=LRM ‏=RLM ﻿=BOM  =NBSP
-  return s.replace(/[​‌‍‎‏﻿ ]/g, "").trim()
+  return s.replace(/[^ -~、-ヿ一-鿿！-￯]/g, "").trim()
 }
 
 function parsePayslipText(text: string): ParsedPayslip {
@@ -90,7 +98,7 @@ function parsePayslipText(text: string): ParsedPayslip {
     if (/^[△▲]\d+$/.test(c)) continue
     // 4桁以上の数値を含む行はスキップ（備考欄: 課税支給累計額など）
     if (/\d{4,}/.test(line.replace(/[（）()年月〜～]/g, ""))) continue
-    // 不可視文字（ZWS/BOM/NBSP等）を除去してキー名を正規化
+    // 不可視文字・全角スペース等を除去してキー名を正規化（ホワイトリスト方式）
     const cleanLabel = stripInvisible(line)
     if (SECTION_HEADERS.has(cleanLabel)) continue
     if (cleanLabel.length === 0) continue
@@ -127,6 +135,12 @@ function parsePayslipText(text: string): ParsedPayslip {
     val["住民税"] = 0
   }
 
+  // デバッグ用: val内の住民税キーの実際の文字コードを確認
+  const 住民税ActualKey = Object.keys(val).find(k => k.includes("住") && k.includes("税"))
+  const 住民税KeyHex = 住民税ActualKey
+    ? Array.from(住民税ActualKey).map(c => c.codePointAt(0)?.toString(16).toUpperCase().padStart(4, "0")).join(",")
+    : "not-found"
+
   return {
     paymentMonth,
     netPay:              val["差引総支給額"]    ?? null,
@@ -141,7 +155,7 @@ function parsePayslipText(text: string): ParsedPayslip {
     taxableCommute:      val["課税通勤手当"]     ?? null,
     totalDeduction,
     yearEndAdjustment,
-    _debug: { nums, labels, val },
+    _debug: { nums, labels, val, 住民税KeyHex },
   }
 }
 

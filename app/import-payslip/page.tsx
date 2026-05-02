@@ -18,7 +18,7 @@ interface ParsedPayslip {
   taxableCommute: number | null
   totalDeduction: number | null
   yearEndAdjustment: number | null
-  _debug?: { nums: number[]; labels: string[]; val: Record<string, number> }
+  _debug?: { nums: number[]; labels: string[]; val: Record<string, number>; 住民税KeyHex?: string }
 }
 
 interface ImportHistoryGroup {
@@ -509,6 +509,9 @@ export default function ImportPayslipPage() {
               <div className="bg-yellow-50 border border-yellow-200 rounded p-2">
                 <p className="font-semibold text-yellow-700 mb-1">APIレスポンス（直接確認用）:</p>
                 <p className="text-gray-700">grossPay: {JSON.stringify(result.grossPay)} / incomeTax: {JSON.stringify(result.incomeTax)} / <strong>residentTax: {JSON.stringify(result.residentTax)}</strong> / healthInsurance: {JSON.stringify(result.healthInsurance)} / pension: {JSON.stringify(result.pension)}</p>
+                {result._debug?.住民税KeyHex && (
+                  <p className="text-orange-600 mt-1 font-mono text-[10px]">住民税キー文字コード: {result._debug.住民税KeyHex}</p>
+                )}
               </div>
             </div>
           </details>
