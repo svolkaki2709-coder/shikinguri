@@ -254,6 +254,28 @@ export default function BudgetPage() {
     setEditingBudget(null)
   }
 
+  // ─── 年次テーブル: 月別予算インライン編集 ─────────────────────
+  const [editingMonthBudget, setEditingMonthBudget] = useState<{
+    category: string; cardType: string; month: string; value: string
+  } | null>(null)
+
+  async function handleMonthBudgetSave(category: string, cardType: string, m: string, value: string) {
+    const amount = Number(value.replace(/,/g, ""))
+    if (isNaN(amount) || value.trim() === "") { setEditingMonthBudget(null); return }
+    await fetch("/api/budget", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ category, amount, card_type: cardType, month: m, is_from_month: false }),
+    })
+    setCategories(prev => prev.map(c => {
+      if (c.name !== category || c.cardType !== cardType) return c
+      const newByMonth = { ...c.byMonth, [m]: { ...(c.byMonth[m] ?? { actual: 0 }), budget: amount } }
+      const newYearBudget = months.reduce((s, mo) => s + (newByMonth[mo]?.budget ?? 0), 0)
+      return { ...c, byMonth: newByMonth, yearBudget: newYearBudget, budget: amount }
+    }))
+    setEditingMonthBudget(null)
+  }
+
   // ─── ドラッグ状態 ─────────────────────────────────────────────
   const [dragItem, setDragItem] = useState<{ group: string; idx: number } | null>(null)
   const [dragOverIdx, setDragOverIdx] = useState<{ group: string; idx: number } | null>(null)
@@ -847,8 +869,9 @@ export default function BudgetPage() {
                                   const { budget: mb, actual: ma } = row.byMonth[m] ?? { budget: 0, actual: 0 }
                                   const mdiff = mb - ma
                                   const isOver = ma > mb && mb > 0
+                                  const isEditingCell = editingMonthBudget?.category === row.name && editingMonthBudget?.cardType === row.cardType && editingMonthBudget?.month === m
                                   return (
-                                    <td key={m} className={`text-right px-2 py-1.5 ${isOver && viewMode !== "diff" ? "bg-red-50" : ""}`}>
+                                    <td key={m} className={`text-right px-2 py-1 group/cell ${isOver && viewMode !== "diff" ? "bg-red-50" : ""}`}>
                                       {viewMode === "actual" && (
                                         <span className={`font-medium ${isOver ? "text-red-500" : ma > 0 ? "text-gray-800" : "text-gray-300"}`}>
                                           {ma > 0 ? toJPYShort(ma) : "—"}
@@ -860,13 +883,32 @@ export default function BudgetPage() {
                                         </span>
                                       )}
                                       {viewMode === "both" && (
-                                        <span className="text-[10px] leading-tight">
+                                        <span className="text-[10px] leading-snug block">
+                                          {/* 実績行 */}
                                           <span className={`block font-medium ${isOver ? "text-red-500" : ma > 0 ? "text-gray-800" : "text-gray-300"}`}>
                                             {ma > 0 ? toJPYShort(ma) : "—"}
                                           </span>
-                                          {mb > 0 && (
-                                            <span className={`block ${mdiff < 0 ? "text-red-400" : "text-green-600"}`}>
-                                              {mdiff >= 0 ? "+" : ""}{toJPYShort(mdiff)}
+                                          {/* 予算行（クリックで編集） */}
+                                          {isEditingCell ? (
+                                            <input
+                                              type="text"
+                                              autoFocus
+                                              value={editingMonthBudget.value}
+                                              onChange={e => setEditingMonthBudget({ ...editingMonthBudget, value: e.target.value })}
+                                              onBlur={() => handleMonthBudgetSave(row.name, row.cardType, m, editingMonthBudget.value)}
+                                              onKeyDown={e => {
+                                                if (e.key === "Enter") handleMonthBudgetSave(row.name, row.cardType, m, editingMonthBudget.value)
+                                                if (e.key === "Escape") setEditingMonthBudget(null)
+                                              }}
+                                              className="w-16 text-right border border-blue-400 rounded px-1 py-0 outline-none bg-white text-gray-800"
+                                            />
+                                          ) : (
+                                            <span
+                                              onClick={() => setEditingMonthBudget({ category: row.name, cardType: row.cardType, month: m, value: mb > 0 ? String(mb) : "" })}
+                                              className={`block cursor-pointer hover:text-blue-500 hover:underline ${mb > 0 ? (mdiff < 0 ? "text-red-400" : "text-blue-400") : "text-gray-200 opacity-0 group-hover/cell:opacity-100"}`}
+                                              title="クリックして予算を設定"
+                                            >
+                                              {mb > 0 ? `予${toJPYShort(mb)}` : "+ 予算"}
                                             </span>
                                           )}
                                         </span>
