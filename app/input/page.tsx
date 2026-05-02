@@ -435,12 +435,12 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
             </div>
 
             {/* 収入履歴 */}
-            {monthIncomeRecords.length > 0 && (
+            {monthIncomeRecords.filter(r => Number(r.amount) > 0).length > 0 && (
               <div className="bg-white rounded-xl shadow-sm overflow-hidden">
                 <p className="text-xs font-semibold text-gray-600 px-4 py-2.5 border-b bg-gray-50">
                   {incomeDate.slice(0, 7)} の入金記録
                 </p>
-                {monthIncomeRecords.map(r => (
+                {monthIncomeRecords.filter(r => Number(r.amount) > 0).map(r => (
                   <div key={r.id} className="flex items-center justify-between px-4 py-2.5 border-b last:border-0">
                     <div>
                       <p className="text-sm font-medium text-gray-800">{r.category}</p>
@@ -458,7 +458,7 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
               </div>
             )}
 
-            {monthIncomeRecords.length === 0 && (
+            {monthIncomeRecords.filter(r => Number(r.amount) > 0).length === 0 && (
               <p className="text-center text-xs text-gray-400 py-4">この月の入金記録はありません</p>
             )}
           </div>
