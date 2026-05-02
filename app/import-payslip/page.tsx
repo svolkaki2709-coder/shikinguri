@@ -188,6 +188,27 @@ export default function ImportPayslipPage() {
       if (r.income?.id) ids.push(r.income.id)
     }
 
+    // ④ 給与源泉詳細テーブルに保存（月次税・社保の内訳）
+    await fetch("/api/payslip-details", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        payment_month:       result.paymentMonth,
+        gross_pay:           result.grossPay,
+        net_pay:             result.netPay,
+        income_tax:          result.incomeTax,
+        resident_tax:        result.residentTax,
+        health_insurance:    result.healthInsurance,
+        pension:             result.pension,
+        employment_insurance: result.employmentInsurance,
+        travel_reimbursement: result.travelReimbursement,
+        nontaxable_commute:  result.nonTaxableCommute,
+        taxable_commute:     result.taxableCommute,
+        total_deduction:     result.totalDeduction,
+        year_end_adjustment: result.yearEndAdjustment,
+      }),
+    })
+
     const savedLabels = [`給与 ${toJPY(salaryIncome)}`, `給与源泉税 ${toJPY(-deductionTotal)}`]
     incomeAdj.forEach(a => { const n = Number(a.amount.replace(/,/g, "")); if (a.label && n) savedLabels.push(`${a.label} ${toJPY(n)}`) })
     setSavedIds(ids)

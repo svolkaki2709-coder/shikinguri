@@ -10,6 +10,7 @@ const navItems = [
   { href: "/history", label: "履歴", icon: "📋" },
   { href: "/import", label: "CSV", icon: "📂" },
   { href: "/import-payslip", label: "給与", icon: "💴" },
+  { href: "/payslip-details", label: "源泉", icon: "🧾" },
   { href: "/budget", label: "予算", icon: "📅" },
   { href: "/assets", label: "資産", icon: "💹" },
   { href: "/settings", label: "設定", icon: "⚙️" },
