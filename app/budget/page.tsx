@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState, useMemo, Suspense } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
@@ -99,16 +100,42 @@ type DisplayMode = "table" | "chart"
 
 // ─── メインページ ────────────────────────────────────────────────
 export default function BudgetPage() {
+  return (
+    <Suspense fallback={<div className="pb-20"><PageHeader title="予算管理" /><div className="text-center py-8 text-gray-400">読み込み中...</div><BottomNav /></div>}>
+      <BudgetContent />
+    </Suspense>
+  )
+}
+
+function BudgetContent() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const { mode } = useViewMode()
   const isPC = mode === "pc"
   const now = new Date()
   const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
 
-  const [mainTab, setMainTab] = useState<MainTab>("monthly")
+  const [mainTab, setMainTabState] = useState<MainTab>(
+    (searchParams.get("tab") as MainTab | null) ?? "monthly"
+  )
+  function setMainTab(t: MainTab) {
+    setMainTabState(t)
+    const p = new URLSearchParams(searchParams.toString())
+    p.set("tab", t)
+    router.replace(`?${p.toString()}`, { scroll: false })
+  }
 
   // ── 月次タブ用 state ──
-  const [month, setMonth] = useState(defaultMonth)
-  const [cardTypeFilter, setCardTypeFilter] = useState<"self" | "joint">("self")
+  const [month, setMonth] = useState(searchParams.get("month") ?? defaultMonth)
+  const [cardTypeFilter, setCardTypeFilterState] = useState<"self" | "joint">(
+    (searchParams.get("ct") as "self" | "joint" | null) ?? "self"
+  )
+  function setCardTypeFilter(v: "self" | "joint") {
+    setCardTypeFilterState(v)
+    const p = new URLSearchParams(searchParams.toString())
+    p.set("ct", v)
+    router.replace(`?${p.toString()}`, { scroll: false })
+  }
   const [monthlyLoading, setMonthlyLoading] = useState(true)
   const [budgets, setBudgets] = useState<BudgetRow[]>([])
   const [incomeTotal, setIncomeTotal] = useState(0)
@@ -116,9 +143,31 @@ export default function BudgetPage() {
 
   // ── 年次タブ用 state ──
   const currentYear = now.getFullYear()
-  const [year, setYear] = useState(currentYear)
-  const [yearCardTypeFilter, setYearCardTypeFilter] = useState<"self" | "joint">("self")
-  const [viewMode, setViewMode] = useState<ViewMode>("actual")
+  const [year, setYearState] = useState(Number(searchParams.get("year") ?? currentYear))
+  function setYear(y: number) {
+    setYearState(y)
+    const p = new URLSearchParams(searchParams.toString())
+    p.set("year", String(y))
+    router.replace(`?${p.toString()}`, { scroll: false })
+  }
+  const [yearCardTypeFilter, setYearCardTypeFilterState] = useState<"self" | "joint">(
+    (searchParams.get("yct") as "self" | "joint" | null) ?? "self"
+  )
+  function setYearCardTypeFilter(v: "self" | "joint") {
+    setYearCardTypeFilterState(v)
+    const p = new URLSearchParams(searchParams.toString())
+    p.set("yct", v)
+    router.replace(`?${p.toString()}`, { scroll: false })
+  }
+  const [viewMode, setViewModeState] = useState<ViewMode>(
+    (searchParams.get("vm") as ViewMode | null) ?? "actual"
+  )
+  function setViewMode(v: ViewMode) {
+    setViewModeState(v)
+    const p = new URLSearchParams(searchParams.toString())
+    p.set("vm", v)
+    router.replace(`?${p.toString()}`, { scroll: false })
+  }
   const [displayMode, setDisplayMode] = useState<DisplayMode>("table")
   const [yearlyLoading, setYearlyLoading] = useState(true)
   const [months, setMonths] = useState<string[]>([])
