@@ -19,12 +19,20 @@ interface ParsedPayslip {
   totalDeduction: number | null
 }
 
+interface Adjustment {
+  id: number
+  label: string
+  amount: string  // 正=収入加算、負=マイナス記入（例: -50000）
+}
+
 type PayslipKey = keyof ParsedPayslip
 
 function toJPY(n: number | null) {
   if (n == null) return "—"
   return new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 }).format(n)
 }
+
+const ADJUSTMENT_PRESETS = ["年末調整", "賞与", "特別手当", "交通費精算", "その他"]
 
 export default function ImportPayslipPage() {
   const fileRef = useRef<HTMLInputElement>(null)
@@ -33,6 +41,8 @@ export default function ImportPayslipPage() {
   const [result, setResult] = useState<ParsedPayslip | null>(null)
   const [editingKey, setEditingKey] = useState<PayslipKey | null>(null)
   const [editingValue, setEditingValue] = useState("")
+  const [adjustments, setAdjustments] = useState<Adjustment[]>([])
+  const [nextId, setNextId] = useState(1)
   const [error, setError] = useState("")
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState("")
@@ -43,6 +53,7 @@ export default function ImportPayslipPage() {
     setError("")
     setSaveMsg("")
     setEditingKey(null)
+    setAdjustments([])
     const form = new FormData()
     form.append("file", f)
     try {
@@ -68,6 +79,19 @@ export default function ImportPayslipPage() {
     const num = raw === "" ? null : Number(raw)
     setResult(prev => prev ? { ...prev, [editingKey]: isNaN(num as number) ? prev[editingKey] : num } : prev)
     setEditingKey(null)
+  }
+
+  function addAdjustment(preset?: string) {
+    setAdjustments(prev => [...prev, { id: nextId, label: preset ?? "", amount: "" }])
+    setNextId(n => n + 1)
+  }
+
+  function updateAdjustment(id: number, field: "label" | "amount", value: string) {
+    setAdjustments(prev => prev.map(a => a.id === id ? { ...a, [field]: value } : a))
+  }
+
+  function removeAdjustment(id: number) {
+    setAdjustments(prev => prev.filter(a => a.id !== id))
   }
 
   async function handleSave() {
@@ -101,6 +125,19 @@ export default function ImportPayslipPage() {
         })
         saved.push(`${d.category} ${toJPY(d.amount)}`)
       }
+    }
+
+    // 調整項目
+    for (const adj of adjustments) {
+      const amt = Number(adj.amount.replace(/,/g, ""))
+      if (!adj.label || isNaN(amt) || amt === 0) continue
+      const label = adj.label || "調整"
+      await fetch("/api/income", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date, amount: amt, category: label, memo: "給与明細取込（調整）", card_type: "self" }),
+      })
+      saved.push(`${label} ${toJPY(amt)}`)
     }
 
     setSaveMsg(`保存しました: ${saved.join(" / ")}`)
@@ -232,10 +269,101 @@ export default function ImportPayslipPage() {
               </div>
             )}
 
+            {/* 調整項目 */}
+            <div className="px-4 py-3 border-b border-gray-100">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] font-semibold text-gray-400">調整項目</p>
+                <button
+                  type="button"
+                  onClick={() => addAdjustment()}
+                  className="text-[10px] text-blue-600 hover:text-blue-700 font-semibold px-2 py-0.5 rounded border border-blue-200 hover:bg-blue-50 transition-colors"
+                >
+                  ＋ 追加
+                </button>
+              </div>
+
+              {/* プリセット */}
+              {adjustments.length === 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {ADJUSTMENT_PRESETS.map(p => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => addAdjustment(p)}
+                      className="text-[10px] px-2.5 py-1 rounded-full border border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {adjustments.length > 0 && (
+                <div className="space-y-2">
+                  {adjustments.map(adj => {
+                    const amt = Number(adj.amount.replace(/,/g, ""))
+                    const isNeg = !isNaN(amt) && amt < 0
+                    const isPos = !isNaN(amt) && amt > 0
+                    return (
+                      <div key={adj.id} className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          placeholder="項目名（例: 年末調整）"
+                          value={adj.label}
+                          onChange={e => updateAdjustment(adj.id, "label", e.target.value)}
+                          className="flex-1 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-900 outline-none focus:ring-1 focus:ring-blue-400 min-w-0"
+                        />
+                        <div className="relative shrink-0">
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">¥</span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="0"
+                            value={adj.amount}
+                            onChange={e => {
+                              const v = e.target.value
+                              if (v === "" || v === "-" || /^-?\d*$/.test(v.replace(/,/g, ""))) {
+                                updateAdjustment(adj.id, "amount", v)
+                              }
+                            }}
+                            className={`w-28 border rounded-lg pl-6 pr-2 py-1.5 text-right text-xs font-medium outline-none focus:ring-1 focus:ring-blue-400 text-gray-900 ${
+                              isNeg ? "border-red-300 bg-red-50" : isPos ? "border-green-300 bg-green-50" : "border-gray-200"
+                            }`}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeAdjustment(adj.id)}
+                          className="text-gray-300 hover:text-red-400 text-lg leading-none shrink-0"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    )
+                  })}
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {ADJUSTMENT_PRESETS.map(p => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => addAdjustment(p)}
+                        className="text-[10px] px-2 py-0.5 rounded-full border border-gray-200 text-gray-400 hover:border-blue-300 hover:text-blue-600 transition-colors"
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <p className="text-[10px] text-gray-400 mt-2">
+                プラス＝収入加算、マイナス（例: -50000）＝控除として記録します
+              </p>
+            </div>
+
             {/* 保存 */}
             <div className="px-4 py-3 space-y-2">
               <p className="text-[10px] text-gray-400">
-                保存すると「給与（差引総支給額）」と各控除項目を収入・支出として記録します
+                保存すると「給与（差引総支給額）」と各控除・調整項目を収入として記録します
               </p>
               {saveMsg && <p className="text-xs text-green-600 font-medium">{saveMsg}</p>}
               <button
