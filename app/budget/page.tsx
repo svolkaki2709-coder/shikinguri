@@ -256,22 +256,42 @@ export default function BudgetPage() {
 
   // ─── 年次テーブル: 月別予算インライン編集 ─────────────────────
   const [editingMonthBudget, setEditingMonthBudget] = useState<{
-    category: string; cardType: string; month: string; value: string
+    category: string; cardType: string; month: string; value: string; mode: "this" | "from" | "all"
   } | null>(null)
 
-  async function handleMonthBudgetSave(category: string, cardType: string, m: string, value: string) {
+  async function handleMonthBudgetSave(
+    category: string, cardType: string, m: string, value: string,
+    mode: "this" | "from" | "all" = "this"
+  ) {
     const amount = Number(value.replace(/,/g, ""))
     if (isNaN(amount) || value.trim() === "") { setEditingMonthBudget(null); return }
+
+    const bodyData = mode === "all"
+      ? { category, amount, card_type: cardType, month: null, is_from_month: false }
+      : { category, amount, card_type: cardType, month: m, is_from_month: mode === "from" }
     await fetch("/api/budget", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ category, amount, card_type: cardType, month: m, is_from_month: false }),
+      body: JSON.stringify(bodyData),
     })
+
     setCategories(prev => prev.map(c => {
       if (c.name !== category || c.cardType !== cardType) return c
-      const newByMonth = { ...c.byMonth, [m]: { ...(c.byMonth[m] ?? { actual: 0 }), budget: amount } }
+      const newByMonth = { ...c.byMonth }
+      if (mode === "all") {
+        for (const mo of months) {
+          newByMonth[mo] = { ...(newByMonth[mo] ?? { actual: 0 }), budget: amount }
+        }
+      } else if (mode === "from") {
+        const startIdx = months.indexOf(m)
+        for (let i = startIdx; i < months.length; i++) {
+          newByMonth[months[i]] = { ...(newByMonth[months[i]] ?? { actual: 0 }), budget: amount }
+        }
+      } else {
+        newByMonth[m] = { ...(newByMonth[m] ?? { actual: 0 }), budget: amount }
+      }
       const newYearBudget = months.reduce((s, mo) => s + (newByMonth[mo]?.budget ?? 0), 0)
-      return { ...c, byMonth: newByMonth, yearBudget: newYearBudget, budget: amount }
+      return { ...c, byMonth: newByMonth, yearBudget: newYearBudget, ...(mode === "all" ? { budget: amount } : {}) }
     }))
     setEditingMonthBudget(null)
   }
@@ -848,21 +868,36 @@ export default function BudgetPage() {
                                     <td key={m} className={`text-right px-2 py-1 group/cell ${isOver && viewMode === "actual" ? "bg-red-50" : ""}`}>
                                       {viewMode === "budget" && (
                                         isEditingCell ? (
-                                          <input
-                                            type="text"
-                                            autoFocus
-                                            value={editingMonthBudget.value}
-                                            onChange={e => setEditingMonthBudget({ ...editingMonthBudget, value: e.target.value })}
-                                            onBlur={() => handleMonthBudgetSave(row.name, row.cardType, m, editingMonthBudget.value)}
-                                            onKeyDown={e => {
-                                              if (e.key === "Enter") handleMonthBudgetSave(row.name, row.cardType, m, editingMonthBudget.value)
-                                              if (e.key === "Escape") setEditingMonthBudget(null)
-                                            }}
-                                            className="w-16 text-right border border-blue-400 rounded px-1 py-0 outline-none bg-white text-gray-800 text-xs"
-                                          />
+                                          <div className="flex flex-col gap-0.5 items-end" onClick={e => e.stopPropagation()}>
+                                            <div className="flex rounded overflow-hidden border border-gray-200 text-[9px]">
+                                              {(["this", "from", "all"] as const).map((md, i) => (
+                                                <button key={md} type="button"
+                                                  onClick={() => setEditingMonthBudget({ ...editingMonthBudget, mode: md })}
+                                                  className={`px-1.5 py-0.5 ${i > 0 ? "border-l border-gray-200" : ""} transition-colors ${
+                                                    editingMonthBudget.mode === md
+                                                      ? md === "this" ? "bg-blue-500 text-white" : md === "from" ? "bg-purple-500 text-white" : "bg-green-500 text-white"
+                                                      : "bg-white text-gray-400"
+                                                  }`}>
+                                                  {md === "this" ? "この月" : md === "from" ? "以降" : "全月"}
+                                                </button>
+                                              ))}
+                                            </div>
+                                            <input
+                                              type="text"
+                                              autoFocus
+                                              value={editingMonthBudget.value}
+                                              onChange={e => setEditingMonthBudget({ ...editingMonthBudget, value: e.target.value })}
+                                              onBlur={() => handleMonthBudgetSave(row.name, row.cardType, m, editingMonthBudget.value, editingMonthBudget.mode)}
+                                              onKeyDown={e => {
+                                                if (e.key === "Enter") handleMonthBudgetSave(row.name, row.cardType, m, editingMonthBudget.value, editingMonthBudget.mode)
+                                                if (e.key === "Escape") setEditingMonthBudget(null)
+                                              }}
+                                              className="w-16 text-right border border-blue-400 rounded px-1 py-0 outline-none bg-white text-gray-800 text-xs"
+                                            />
+                                          </div>
                                         ) : (
                                           <span
-                                            onClick={() => setEditingMonthBudget({ category: row.name, cardType: row.cardType, month: m, value: mb > 0 ? String(mb) : "" })}
+                                            onClick={() => setEditingMonthBudget({ category: row.name, cardType: row.cardType, month: m, value: mb > 0 ? String(mb) : "", mode: "this" })}
                                             className={`font-medium cursor-pointer hover:text-blue-500 hover:underline ${mb > 0 ? "text-gray-700" : "text-gray-200 opacity-0 group-hover/cell:opacity-100"}`}
                                             title="クリックして予算を設定"
                                           >
@@ -888,21 +923,38 @@ export default function BudgetPage() {
                                           </span>
                                           {/* 予算行（クリックで編集） */}
                                           {isEditingCell ? (
-                                            <input
-                                              type="text"
-                                              autoFocus
-                                              value={editingMonthBudget.value}
-                                              onChange={e => setEditingMonthBudget({ ...editingMonthBudget, value: e.target.value })}
-                                              onBlur={() => handleMonthBudgetSave(row.name, row.cardType, m, editingMonthBudget.value)}
-                                              onKeyDown={e => {
-                                                if (e.key === "Enter") handleMonthBudgetSave(row.name, row.cardType, m, editingMonthBudget.value)
-                                                if (e.key === "Escape") setEditingMonthBudget(null)
-                                              }}
-                                              className="w-16 text-right border border-blue-400 rounded px-1 py-0 outline-none bg-white text-gray-800"
-                                            />
+                                            <span className="block" onClick={e => e.stopPropagation()}>
+                                              <span className="flex justify-end mb-0.5">
+                                                <span className="flex rounded overflow-hidden border border-gray-200 text-[9px]">
+                                                  {(["this", "from", "all"] as const).map((md, i) => (
+                                                    <button key={md} type="button"
+                                                      onClick={() => setEditingMonthBudget({ ...editingMonthBudget, mode: md })}
+                                                      className={`px-1 py-0.5 ${i > 0 ? "border-l border-gray-200" : ""} transition-colors ${
+                                                        editingMonthBudget.mode === md
+                                                          ? md === "this" ? "bg-blue-500 text-white" : md === "from" ? "bg-purple-500 text-white" : "bg-green-500 text-white"
+                                                          : "bg-white text-gray-400"
+                                                      }`}>
+                                                      {md === "this" ? "この月" : md === "from" ? "以降" : "全月"}
+                                                    </button>
+                                                  ))}
+                                                </span>
+                                              </span>
+                                              <input
+                                                type="text"
+                                                autoFocus
+                                                value={editingMonthBudget.value}
+                                                onChange={e => setEditingMonthBudget({ ...editingMonthBudget, value: e.target.value })}
+                                                onBlur={() => handleMonthBudgetSave(row.name, row.cardType, m, editingMonthBudget.value, editingMonthBudget.mode)}
+                                                onKeyDown={e => {
+                                                  if (e.key === "Enter") handleMonthBudgetSave(row.name, row.cardType, m, editingMonthBudget.value, editingMonthBudget.mode)
+                                                  if (e.key === "Escape") setEditingMonthBudget(null)
+                                                }}
+                                                className="w-16 text-right border border-blue-400 rounded px-1 py-0 outline-none bg-white text-gray-800"
+                                              />
+                                            </span>
                                           ) : (
                                             <span
-                                              onClick={() => setEditingMonthBudget({ category: row.name, cardType: row.cardType, month: m, value: mb > 0 ? String(mb) : "" })}
+                                              onClick={() => setEditingMonthBudget({ category: row.name, cardType: row.cardType, month: m, value: mb > 0 ? String(mb) : "", mode: "this" })}
                                               className={`block cursor-pointer hover:text-blue-500 hover:underline ${mb > 0 ? (mdiff < 0 ? "text-red-400" : "text-blue-400") : "text-gray-200 opacity-0 group-hover/cell:opacity-100"}`}
                                               title="クリックして予算を設定"
                                             >
