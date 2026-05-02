@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
 
 interface Card { id: number; name: string; card_type: string; color: string; has_csv: boolean }
-interface CategoryRow { name: string; card_type: string; group_type?: string | null }
+interface CategoryRow { name: string; card_type: string; group_type?: string | null; sign?: string | null }
 interface PendingRecurring {
   id: number
   day_of_month: number
