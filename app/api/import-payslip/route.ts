@@ -123,7 +123,7 @@ function parsePayslipText(text: string): ParsedPayslip {
     netPay:              val["差引総支給額"]    ?? null,
     grossPay,
     incomeTax:           val["所得税"]          ?? null,
-    residentTax:         val["住民税"] != null && val["住民税"] >= 0 ? val["住民税"] : null,
+    residentTax:         val["住民税"] ?? null,
     healthInsurance:     val["健康保険料"]       ?? null,
     pension:             val["厚生年金保険料"]   ?? null,
     employmentInsurance: val["雇用保険料"]       ?? null,

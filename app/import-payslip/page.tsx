@@ -40,7 +40,8 @@ function toJPY(n: number | null | undefined) {
   return new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 }).format(n)
 }
 
-const ADJUSTMENT_PRESETS = ["年末調整", "賞与", "特別手当", "その他"]
+const DEDUCTION_PRESETS = ["年末調整還付", "その他控除"]
+const INCOME_PRESETS = ["賞与", "特別手当", "その他"]
 
 export default function ImportPayslipPage() {
   const fileRef = useRef<HTMLInputElement>(null)
@@ -49,7 +50,10 @@ export default function ImportPayslipPage() {
   const [result, setResult] = useState<ParsedPayslip | null>(null)
   const [editingKey, setEditingKey] = useState<PayslipKey | null>(null)
   const [editingValue, setEditingValue] = useState("")
-  const [adjustments, setAdjustments] = useState<AdjustmentRow[]>([])
+  // 控除調整（年末調整還付など）→ 控除合計に加算
+  const [deductionAdj, setDeductionAdj] = useState<AdjustmentRow[]>([])
+  // 支給追加（賞与・特別手当など）→ 別収入として個別保存
+  const [incomeAdj, setIncomeAdj] = useState<AdjustmentRow[]>([])
   const [nextId, setNextId] = useState(1)
   const [error, setError] = useState("")
   const [saving, setSaving] = useState(false)
@@ -59,12 +63,9 @@ export default function ImportPayslipPage() {
   const [deletingDate, setDeletingDate] = useState<string | null>(null)
 
   // ─── 計算値 ───────────────────────────────────────────────────────
-  const adjustmentTotal = useMemo(() => {
-    return adjustments.reduce((s, a) => {
-      const n = Number(a.amount.replace(/,/g, ""))
-      return s + (isNaN(n) ? 0 : n)
-    }, 0)
-  }, [adjustments])
+  const deductionAdjTotal = useMemo(() =>
+    deductionAdj.reduce((s, a) => { const n = Number(a.amount.replace(/,/g, "")); return s + (isNaN(n) ? 0 : n) }, 0)
+  , [deductionAdj])
 
   const deductionTotal = useMemo(() => {
     if (!result) return 0
@@ -73,8 +74,8 @@ export default function ImportPayslipPage() {
       + (result.healthInsurance ?? 0)
       + (result.pension ?? 0)
       + (result.employmentInsurance ?? 0)
-      + adjustmentTotal
-  }, [result, adjustmentTotal])
+      + deductionAdjTotal
+  }, [result, deductionAdjTotal])
 
   const commuteTotal = useMemo(() => {
     if (!result) return 0
@@ -97,7 +98,6 @@ export default function ImportPayslipPage() {
     setSaveMsg("")
     setSavedIds([])
     setEditingKey(null)
-    setAdjustments([])
     const form = new FormData()
     form.append("file", f)
     try {
@@ -105,9 +105,11 @@ export default function ImportPayslipPage() {
       const data = await res.json()
       if (data.error) { setError(data.error); return }
       setResult(data)
-      // 年末調整還付が検出されたら調整項目に自動セット
+      setDeductionAdj([])
+      setIncomeAdj([])
+      // 年末調整還付が検出されたら控除調整に自動セット
       if (data.yearEndAdjustment != null) {
-        setAdjustments([{ id: 1, label: "年末調整還付", amount: String(data.yearEndAdjustment) }])
+        setDeductionAdj([{ id: 1, label: "年末調整還付", amount: String(data.yearEndAdjustment) }])
         setNextId(2)
       }
     } catch {
@@ -131,18 +133,18 @@ export default function ImportPayslipPage() {
     setEditingKey(null)
   }
 
-  // ─── 調整項目 ─────────────────────────────────────────────────────
-  function addAdjustment(preset?: string) {
-    setAdjustments(prev => [...prev, { id: nextId, label: preset ?? "", amount: "" }])
+  // ─── 調整項目ヘルパー ─────────────────────────────────────────────
+  type AdjSetter = React.Dispatch<React.SetStateAction<AdjustmentRow[]>>
+
+  function addAdj(setter: AdjSetter, preset?: string) {
+    setter(prev => [...prev, { id: nextId, label: preset ?? "", amount: "" }])
     setNextId(n => n + 1)
   }
-
-  function updateAdjustment(id: number, field: "label" | "amount", value: string) {
-    setAdjustments(prev => prev.map(a => a.id === id ? { ...a, [field]: value } : a))
+  function updateAdj(setter: AdjSetter, id: number, field: "label" | "amount", value: string) {
+    setter(prev => prev.map(a => a.id === id ? { ...a, [field]: value } : a))
   }
-
-  function removeAdjustment(id: number) {
-    setAdjustments(prev => prev.filter(a => a.id !== id))
+  function removeAdj(setter: AdjSetter, id: number) {
+    setter(prev => prev.filter(a => a.id !== id))
   }
 
   // ─── 保存 ─────────────────────────────────────────────────────────
@@ -174,8 +176,22 @@ export default function ImportPayslipPage() {
       if (r.income?.id) ids.push(r.income.id)
     }
 
+    // ③ 支給追加（賞与・特別手当など）→ 個別収入として保存
+    for (const adj of incomeAdj) {
+      const amt = Number(adj.amount.replace(/,/g, ""))
+      if (!adj.label || isNaN(amt) || amt === 0) continue
+      const r = await fetch("/api/income", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date, amount: amt, category: adj.label, memo: "給与明細取込（支給追加）", card_type: "self" }),
+      }).then(r => r.json())
+      if (r.income?.id) ids.push(r.income.id)
+    }
+
+    const savedLabels = [`給与 ${toJPY(salaryIncome)}`, `給与源泉税 ${toJPY(-deductionTotal)}`]
+    incomeAdj.forEach(a => { const n = Number(a.amount.replace(/,/g, "")); if (a.label && n) savedLabels.push(`${a.label} ${toJPY(n)}`) })
     setSavedIds(ids)
-    setSaveMsg(`保存しました: 給与 ${toJPY(salaryIncome)} / 給与源泉税 ${toJPY(-deductionTotal)}`)
+    setSaveMsg(`保存しました: ${savedLabels.join(" / ")}`)
     setSaving(false)
   }
 
@@ -310,6 +326,49 @@ export default function ImportPayslipPage() {
                 <EditableRow label="非課税通勤手当" field="nonTaxableCommute" color="text-orange-600" />
                 <EditableRow label="課税通勤手当" field="taxableCommute" color="text-orange-600" />
               </div>
+              {/* 支給追加（賞与・特別手当など） */}
+              {incomeAdj.map(adj => {
+                const amt = Number(adj.amount.replace(/,/g, ""))
+                return (
+                  <div key={adj.id} className="flex items-center gap-2 pt-0.5">
+                    <input
+                      type="text" placeholder="項目名（例: 賞与）"
+                      value={adj.label}
+                      onChange={e => updateAdj(setIncomeAdj, adj.id, "label", e.target.value)}
+                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-xs text-gray-900 outline-none focus:ring-1 focus:ring-blue-400 min-w-0"
+                    />
+                    <div className="relative shrink-0">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">¥</span>
+                      <input
+                        type="text" inputMode="numeric" placeholder="0"
+                        value={adj.amount}
+                        onChange={e => {
+                          const v = e.target.value
+                          if (v === "" || /^\d*$/.test(v.replace(/,/g, ""))) updateAdj(setIncomeAdj, adj.id, "amount", v)
+                        }}
+                        className={`w-28 border rounded-lg pl-5 pr-2 py-1 text-right text-xs font-medium outline-none focus:ring-1 focus:ring-blue-400 text-gray-900 ${
+                          !isNaN(amt) && amt > 0 ? "border-green-300 bg-green-50" : "border-gray-200"
+                        }`}
+                      />
+                    </div>
+                    <button type="button" onClick={() => removeAdj(setIncomeAdj, adj.id)}
+                      className="text-gray-300 hover:text-red-400 text-lg leading-none shrink-0">×</button>
+                  </div>
+                )
+              })}
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {INCOME_PRESETS.map(p => (
+                  <button key={p} type="button" onClick={() => addAdj(setIncomeAdj, p)}
+                    className="text-[10px] px-2 py-0.5 rounded-full border border-gray-200 text-gray-500 hover:border-green-300 hover:text-green-600 hover:bg-green-50 transition-colors">
+                    ＋{p}
+                  </button>
+                ))}
+                <button type="button" onClick={() => addAdj(setIncomeAdj)}
+                  className="text-[10px] px-2 py-0.5 rounded-full border border-dashed border-gray-300 text-gray-400 hover:border-green-300 hover:text-green-500 transition-colors">
+                  ＋支給追加
+                </button>
+              </div>
+
               {/* 登録される給与額 */}
               <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between items-center bg-green-50 -mx-4 px-4 py-1.5">
                 <span className="text-xs text-green-700 font-semibold">登録する給与収入</span>
@@ -328,17 +387,17 @@ export default function ImportPayslipPage() {
                 <EditableRow label="厚生年金保険料" field="pension" color="text-red-500" />
                 <EditableRow label="雇用保険料" field="employmentInsurance" color="text-red-500" />
 
-                {/* 調整項目 */}
-                {adjustments.map(adj => {
+                {/* 控除調整項目（年末調整還付など） */}
+                {deductionAdj.map(adj => {
                   const amt = Number(adj.amount.replace(/,/g, ""))
                   const isNeg = !isNaN(amt) && adj.amount !== "" && amt < 0
                   const isPos = !isNaN(amt) && adj.amount !== "" && amt > 0
                   return (
                     <div key={adj.id} className="flex items-center gap-2 pt-0.5">
                       <input
-                        type="text" placeholder="項目名（例: 年末調整）"
+                        type="text" placeholder="項目名（例: 年末調整還付）"
                         value={adj.label}
-                        onChange={e => updateAdjustment(adj.id, "label", e.target.value)}
+                        onChange={e => updateAdj(setDeductionAdj, adj.id, "label", e.target.value)}
                         className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-xs text-gray-900 outline-none focus:ring-1 focus:ring-blue-400 min-w-0"
                       />
                       <div className="relative shrink-0">
@@ -348,30 +407,30 @@ export default function ImportPayslipPage() {
                           value={adj.amount}
                           onChange={e => {
                             const v = e.target.value
-                            if (v === "" || v === "-" || /^-?\d*$/.test(v.replace(/,/g, ""))) updateAdjustment(adj.id, "amount", v)
+                            if (v === "" || v === "-" || /^-?\d*$/.test(v.replace(/,/g, ""))) updateAdj(setDeductionAdj, adj.id, "amount", v)
                           }}
                           className={`w-28 border rounded-lg pl-5 pr-2 py-1 text-right text-xs font-medium outline-none focus:ring-1 focus:ring-blue-400 text-gray-900 ${
                             isNeg ? "border-green-300 bg-green-50" : isPos ? "border-red-300 bg-red-50" : "border-gray-200"
                           }`}
                         />
                       </div>
-                      <button type="button" onClick={() => removeAdjustment(adj.id)}
+                      <button type="button" onClick={() => removeAdj(setDeductionAdj, adj.id)}
                         className="text-gray-300 hover:text-red-400 text-lg leading-none shrink-0">×</button>
                     </div>
                   )
                 })}
 
-                {/* 調整追加ボタン */}
+                {/* 控除調整追加ボタン */}
                 <div className="flex flex-wrap gap-1.5 pt-1">
-                  {ADJUSTMENT_PRESETS.map(p => (
-                    <button key={p} type="button" onClick={() => addAdjustment(p)}
+                  {DEDUCTION_PRESETS.map(p => (
+                    <button key={p} type="button" onClick={() => addAdj(setDeductionAdj, p)}
                       className="text-[10px] px-2 py-0.5 rounded-full border border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors">
                       ＋{p}
                     </button>
                   ))}
-                  <button type="button" onClick={() => addAdjustment()}
+                  <button type="button" onClick={() => addAdj(setDeductionAdj)}
                     className="text-[10px] px-2 py-0.5 rounded-full border border-dashed border-gray-300 text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-colors">
-                    ＋その他
+                    ＋控除追加
                   </button>
                 </div>
                 <p className="text-[10px] text-gray-400">マイナス入力（例: -37042）＝還付（控除を減らす）</p>
@@ -387,11 +446,22 @@ export default function ImportPayslipPage() {
             {/* 保存 */}
             <div className="px-4 py-3 space-y-2">
               <div className="bg-gray-50 rounded-lg px-3 py-2 space-y-1">
-                <p className="text-[10px] font-semibold text-gray-500">登録内容（2件）</p>
+                <p className="text-[10px] font-semibold text-gray-500">
+                  登録内容（{2 + incomeAdj.filter(a => a.label && Number(a.amount.replace(/,/g, "")) !== 0).length}件）
+                </p>
                 <div className="flex justify-between text-xs">
                   <span className="text-gray-600">収入: 給与</span>
                   <span className="text-green-600 font-medium">{toJPY(salaryIncome)}</span>
                 </div>
+                {incomeAdj.filter(a => a.label).map(a => {
+                  const amt = Number(a.amount.replace(/,/g, ""))
+                  return (
+                    <div key={a.id} className="flex justify-between text-xs">
+                      <span className="text-gray-600">収入: {a.label}</span>
+                      <span className="text-green-600 font-medium">{toJPY(isNaN(amt) ? 0 : amt)}</span>
+                    </div>
+                  )
+                })}
                 <div className="flex justify-between text-xs">
                   <span className="text-gray-600">控除: 給与源泉税</span>
                   <span className="text-red-500 font-medium">−{toJPY(deductionTotal)}</span>
