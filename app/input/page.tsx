@@ -188,7 +188,7 @@ export default function InputPage() {
   }
 
   async function handleDeleteIncome(id: number) {
-    if (!confirm("この収入記録を削除しますか？")) return
+    if (!confirm("この入金記録を削除しますか？")) return
     await fetch(`/api/income?id=${id}`, { method: "DELETE" })
     setMonthIncomeRecords(prev => prev.filter(r => r.id !== id))
   }
@@ -438,7 +438,7 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
             {monthIncomeRecords.length > 0 && (
               <div className="bg-white rounded-xl shadow-sm overflow-hidden">
                 <p className="text-xs font-semibold text-gray-600 px-4 py-2.5 border-b bg-gray-50">
-                  {incomeDate.slice(0, 7)} の収入記録
+                  {incomeDate.slice(0, 7)} の入金記録
                 </p>
                 {monthIncomeRecords.map(r => (
                   <div key={r.id} className="flex items-center justify-between px-4 py-2.5 border-b last:border-0">
@@ -459,7 +459,7 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
             )}
 
             {monthIncomeRecords.length === 0 && (
-              <p className="text-center text-xs text-gray-400 py-4">この月の収入記録はありません</p>
+              <p className="text-center text-xs text-gray-400 py-4">この月の入金記録はありません</p>
             )}
           </div>
         )}
