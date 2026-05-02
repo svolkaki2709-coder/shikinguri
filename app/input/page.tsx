@@ -53,6 +53,7 @@ export default function InputPage() {
 
   // ── 収入フォーム ──
   const [incomeCardType, setIncomeCardType] = useState<"self" | "joint">("self")
+  const [incomeDate, setIncomeDate] = useState(now.toISOString().split("T")[0])
   const [incomeMonth, setIncomeMonth] = useState(currentMonth)
   const [incomeAmount, setIncomeAmount] = useState("")
   const [incomeCategory, setIncomeCategory] = useState("給与")
@@ -177,7 +178,7 @@ export default function InputPage() {
     await fetch("/api/income", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date: `${incomeMonth}-01`, amount: Number(incomeAmount.replace(/,/g, "")), category: incomeCategory, memo: incomeMemo, card_type: incomeCardType }),
+      body: JSON.stringify({ date: incomeDate, amount: Number(incomeAmount.replace(/,/g, "")), category: incomeCategory, memo: incomeMemo, card_type: incomeCardType }),
     })
     setIncomeMsg("保存しました")
     setIncomeAmount("")
@@ -387,13 +388,20 @@ export default function InputPage() {
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">月</label>
                 <div className="flex items-center gap-1">
-                  <button type="button" onClick={() => setIncomeMonth(prevMonth(incomeMonth))}
+                  <button type="button" onClick={() => { const m = prevMonth(incomeMonth); setIncomeMonth(m); setIncomeDate(`${m}-01`) }}
                     className="text-gray-500 hover:text-blue-600 px-2 py-1.5 rounded-lg hover:bg-gray-100 font-bold">‹</button>
-                  <input type="month" value={incomeMonth} onChange={e => setIncomeMonth(e.target.value)}
+                  <input type="month" value={incomeMonth} onChange={e => { setIncomeMonth(e.target.value); setIncomeDate(`${e.target.value}-01`) }}
                     className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 text-center focus:outline-none focus:ring-2 focus:ring-green-500" />
-                  <button type="button" onClick={() => setIncomeMonth(nextMonth(incomeMonth))}
+                  <button type="button" onClick={() => { const m = nextMonth(incomeMonth); setIncomeMonth(m); setIncomeDate(`${m}-01`) }}
                     className="text-gray-500 hover:text-blue-600 px-2 py-1.5 rounded-lg hover:bg-gray-100 font-bold">›</button>
                 </div>
+              </div>
+
+              {/* 日付 */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">日付</label>
+                <input type="date" value={incomeDate} onChange={e => { setIncomeDate(e.target.value); setIncomeMonth(e.target.value.slice(0, 7)) }}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" />
               </div>
 
               {/* カテゴリ */}
@@ -464,8 +472,8 @@ export default function InputPage() {
                       {r.memo && <p className="text-xs text-gray-400">{r.memo}</p>}
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-green-600">
-                        +¥{Number(r.amount).toLocaleString("ja-JP")}
+                      <span className={`text-sm font-semibold ${Number(r.amount) >= 0 ? "text-green-600" : "text-red-500"}`}>
+                        {Number(r.amount) >= 0 ? "+" : ""}¥{Number(r.amount).toLocaleString("ja-JP")}
                       </span>
                       <button onClick={() => handleDeleteIncome(r.id)}
                         className="text-gray-300 hover:text-red-400 text-xl leading-none w-6">×</button>
