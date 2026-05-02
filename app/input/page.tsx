@@ -221,7 +221,7 @@ export default function InputPage() {
           </button>
           <button onClick={() => setMainTab("income")}
             className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${mainTab === "income" ? "bg-white shadow-sm text-green-600" : "text-gray-600"}`}>
-            💰 収入
+            💰 入金
           </button>
         </div>
 
@@ -376,11 +376,11 @@ export default function InputPage() {
               <div className="flex rounded-xl bg-gray-100 p-1 gap-1">
                 <button type="button" onClick={() => setIncomeCardType("self")}
                   className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${incomeCardType === "self" ? "bg-white shadow-sm text-indigo-600" : "text-gray-600"}`}>
-                  個人収入
+                  個人
                 </button>
                 <button type="button" onClick={() => setIncomeCardType("joint")}
                   className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${incomeCardType === "joint" ? "bg-white shadow-sm text-amber-600" : "text-gray-600"}`}>
-                  共用入金
+                  共用
                 </button>
               </div>
 
