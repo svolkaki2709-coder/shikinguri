@@ -79,7 +79,8 @@ function parsePayslipText(text: string): ParsedPayslip {
     if (!passedBlock) continue
     if (TIMESHEET.test(line)) continue
     const c = line.replace(/[,，\s]/g, "")
-    if (/^\d+$/.test(c)) continue  // 数値行スキップ
+    if (/^-?\d+$/.test(c)) continue  // 正負の数値行スキップ（△▲含む）
+    if (/^[△▲]\d+$/.test(c)) continue
     // 4桁以上の数値を含む行はスキップ（備考欄: 課税支給累計額など）
     if (/\d{4,}/.test(line.replace(/[（）()年月〜～]/g, ""))) continue
     if (SECTION_HEADERS.has(line)) continue
@@ -109,26 +110,12 @@ function parsePayslipText(text: string): ParsedPayslip {
   }
 
   // ==== STEP 4: 後処理 ====
-  // 住民税が負値 = 年末調整還付の値が誤マッピングされている
-  // （12月など住民税=0の月はPDF数値ブロックから省略されるためずれる）
-  let yearEndAdjustment: number | null = null
-  if ((val["住民税"] ?? 0) < 0) {
-    yearEndAdjustment = val["住民税"]  // 例: -37,042
+  // 年末調整還付（負値）を取得。住民税が負値になっていた場合のフォールバックも対応
+  let yearEndAdjustment: number | null = val["年末調整還付"] ?? null
+  if (yearEndAdjustment === null && (val["住民税"] ?? 0) < 0) {
+    // ラベルずれが残っていた場合の安全策
+    yearEndAdjustment = val["住民税"]
     val["住民税"] = 0
-  }
-  // 明示的な年末調整ラベルがあれば上書き
-  for (let i = 0; i < labels.length; i++) {
-    if (labels[i].includes("年末調整") && nums[i + 1] != null && nums[i + 1] < 0) {
-      yearEndAdjustment = nums[i + 1]
-      break
-    }
-  }
-  // totalDeductionが取れなかった場合（計ラベルのずれ）は手動計算
-  if (totalDeduction === null) {
-    const base = (val["所得税"] ?? 0) + (val["住民税"] ?? 0)
-      + (val["健康保険料"] ?? 0) + (val["厚生年金保険料"] ?? 0)
-      + (val["雇用保険料"] ?? 0)
-    totalDeduction = base + (yearEndAdjustment ?? 0) || null
   }
 
   return {
