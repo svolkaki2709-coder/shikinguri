@@ -163,7 +163,7 @@ export default function DashboardPage() {
       {viewCards.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm p-3">
           <div className="flex justify-between items-center mb-2">
-            <h2 className="text-xs font-semibold text-gray-700">カード別内訳</h2>
+            <h2 className="text-xs font-semibold text-gray-700">支払方法別内訳</h2>
             <span className="text-xs font-bold text-gray-800">{toJPY(viewTotal)}</span>
           </div>
           {viewCards.map(c => (
