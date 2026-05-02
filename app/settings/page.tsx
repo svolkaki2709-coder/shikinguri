@@ -297,6 +297,25 @@ function SettingsContent() {
 
   const [editingCardId, setEditingCardId] = useState<number | null>(null)
   const [editingCardName, setEditingCardName] = useState("")
+  const [newCardName, setNewCardName] = useState("")
+  const [cardSaving, setCardSaving] = useState(false)
+
+  async function handleAddCard() {
+    const name = newCardName.trim()
+    if (!name) return
+    setCardSaving(true)
+    const res = await fetch("/api/cards", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, card_type: cardViewType, color: cardViewType === "joint" ? "#f59e0b" : "#6366f1" }),
+    })
+    if (res.ok) {
+      const d = await res.json()
+      setCards(prev => [...prev, d.card])
+      setNewCardName("")
+    }
+    setCardSaving(false)
+  }
 
   async function handleRenameCard(id: number, name: string) {
     const trimmed = name.trim()
@@ -936,6 +955,24 @@ function SettingsContent() {
                     {label}
                   </button>
                 ))}
+              </div>
+              {/* 新規追加フォーム */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newCardName}
+                  onChange={e => setNewCardName(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") handleAddCard() }}
+                  placeholder="新しい支払方法名"
+                  className="flex-1 text-xs border rounded-lg px-3 py-1.5 text-gray-800 outline-none focus:ring-1 focus:ring-blue-400"
+                />
+                <button
+                  onClick={handleAddCard}
+                  disabled={cardSaving || !newCardName.trim()}
+                  className="text-xs bg-blue-600 text-white rounded-lg px-3 py-1.5 font-medium disabled:opacity-40"
+                >
+                  追加
+                </button>
               </div>
               <div className="border rounded-lg overflow-hidden">
                 {cards.filter(c => c.card_type === cardViewType).map(c => (
