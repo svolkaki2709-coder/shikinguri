@@ -109,9 +109,9 @@ export async function GET(req: NextRequest) {
     incomeByMonth[key] = (incomeByMonth[key] ?? 0) + Number(r.actual)
   }
 
-  // ---- カテゴリ一覧（group_type, sort_order 付き） ----
+  // ---- カテゴリ一覧（group_type, sort_order, sign 付き） ----
   const categoryRows = await sql`
-    SELECT name, card_type, group_type, COALESCE(sort_order, 9999) AS sort_order
+    SELECT name, card_type, group_type, COALESCE(sort_order, 9999) AS sort_order, sign
     FROM categories
     ORDER BY card_type, group_type NULLS LAST, sort_order, name
   `
@@ -147,9 +147,10 @@ export async function GET(req: NextRequest) {
       cardType: c.card_type as string,
       groupType: (c.group_type ?? null) as string | null,
       sortOrder: Number(c.sort_order),
-      budget,      // 月間デフォルト予算
-      yearBudget,  // 期間内合計予算
-      yearActual,  // 期間内合計実績
+      sign: (c.sign ?? null) as string | null,
+      budget,
+      yearBudget,
+      yearActual,
       byMonth,
     }
   })

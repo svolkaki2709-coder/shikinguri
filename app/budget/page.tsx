@@ -76,10 +76,21 @@ interface CategoryData {
   cardType: string
   groupType: string | null
   sortOrder: number
+  sign: string | null
   budget: number
   yearBudget: number
   yearActual: number
   byMonth: Record<string, { budget: number; actual: number }>
+}
+
+function getCategorySign(row: CategoryData): number {
+  if (row.sign === "plus") return 1
+  if (row.sign === "minus") return -1
+  if (row.sign === "neutral") return 0
+  if (row.groupType === "収入") return 1
+  if (row.groupType === "振替") return 0
+  if (row.groupType === "立替") return row.name.includes("精算") ? 1 : -1
+  return -1
 }
 
 type MainTab = "monthly" | "yearly"
@@ -211,14 +222,17 @@ export default function BudgetPage() {
 
   // ─── 年次: 余剰計算（収入 − 振替以外の支出系） ────────────────
   const surplusData = useMemo(() => {
-    const incomeRows = yearGroups.find(g => g.group === "収入")?.rows ?? []
-    const expenseRows = yearGroups.filter(g => g.group !== "収入" && g.group !== "振替").flatMap(g => g.rows)
+    const allRows = yearGroups.flatMap(g => g.rows)
     const byMonth: Record<string, { budget: number; actual: number }> = {}
     for (const m of months) {
-      const inB = incomeRows.reduce((s, r) => s + (r.byMonth[m]?.budget ?? 0), 0)
-      const inA = incomeRows.reduce((s, r) => s + (r.byMonth[m]?.actual ?? 0), 0)
-      const exB = expenseRows.reduce((s, r) => s + (r.byMonth[m]?.budget ?? 0), 0)
-      const exA = expenseRows.reduce((s, r) => s + (r.byMonth[m]?.actual ?? 0), 0)
+      let inB = 0, inA = 0, exB = 0, exA = 0
+      for (const row of allRows) {
+        const sign = getCategorySign(row)
+        const mb = row.byMonth[m]?.budget ?? 0
+        const ma = row.byMonth[m]?.actual ?? 0
+        if (sign === 1)  { inB += mb; inA += ma }
+        if (sign === -1) { exB += mb; exA += ma }
+      }
       byMonth[m] = { budget: inB - exB, actual: inA - exA }
     }
     const yearBudget = months.reduce((s, m) => s + byMonth[m].budget, 0)
