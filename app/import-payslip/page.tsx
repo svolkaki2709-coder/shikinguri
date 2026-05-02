@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState, useMemo } from "react"
+import { useRef, useState, useMemo, useEffect, useCallback } from "react"
 import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
 
@@ -17,6 +17,12 @@ interface ParsedPayslip {
   nonTaxableCommute: number | null
   taxableCommute: number | null
   totalDeduction: number | null
+}
+
+interface ImportHistoryGroup {
+  date: string       // YYYY-MM-DD
+  month: string      // YYYY年MM月
+  records: { id: number; amount: number; category: string }[]
 }
 
 interface AdjustmentRow {
@@ -47,6 +53,8 @@ export default function ImportPayslipPage() {
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState("")
   const [savedIds, setSavedIds] = useState<number[]>([])
+  const [history, setHistory] = useState<ImportHistoryGroup[]>([])
+  const [deletingDate, setDeletingDate] = useState<string | null>(null)
 
   // ─── 計算値 ───────────────────────────────────────────────────────
   const adjustmentTotal = useMemo(() => {
@@ -172,6 +180,51 @@ export default function ImportPayslipPage() {
     ))
     setSavedIds([])
     setSaveMsg("取り消しました")
+    loadHistory()
+  }
+
+  // ─── 取込履歴（DBから） ───────────────────────────────────────────
+  const loadHistory = useCallback(async () => {
+    // 直近6ヶ月分を検索して給与明細取込のメモを持つレコードをグループ化
+    const now = new Date()
+    const months: string[] = []
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`)
+    }
+    const results = await Promise.all(
+      months.map(m => fetch(`/api/income?month=${m}&card_type=self`).then(r => r.json()))
+    )
+    const groups: ImportHistoryGroup[] = []
+    for (const { incomes } of results) {
+      if (!incomes) continue
+      const payslipRecords = (incomes as Array<{ id: number; date: string; amount: number; category: string; memo: string }>)
+        .filter(r => r.memo?.includes("給与明細取込"))
+      if (payslipRecords.length === 0) continue
+      // 日付ごとにグループ化
+      const byDate: Record<string, typeof payslipRecords> = {}
+      for (const r of payslipRecords) {
+        const d = r.date.slice(0, 10)
+        if (!byDate[d]) byDate[d] = []
+        byDate[d].push(r)
+      }
+      for (const [date, records] of Object.entries(byDate)) {
+        const [y, m] = date.split("-")
+        groups.push({ date, month: `${y}年${m}月`, records })
+      }
+    }
+    groups.sort((a, b) => b.date.localeCompare(a.date))
+    setHistory(groups)
+  }, [])
+
+  useEffect(() => { loadHistory() }, [loadHistory])
+
+  async function handleDeleteHistoryGroup(group: ImportHistoryGroup) {
+    if (!confirm(`${group.month}支払分の給与明細取込データ（${group.records.length}件）を削除しますか？`)) return
+    setDeletingDate(group.date)
+    await Promise.all(group.records.map(r => fetch(`/api/income?id=${r.id}`, { method: "DELETE" })))
+    setDeletingDate(null)
+    loadHistory()
   }
 
   // ─── 編集可能行コンポーネント ─────────────────────────────────────
@@ -357,6 +410,30 @@ export default function ImportPayslipPage() {
             </div>
           </div>
         )}
+        {/* 取込履歴 */}
+        {history.length > 0 && (
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <p className="text-xs font-semibold text-gray-600 px-4 py-2.5 border-b bg-gray-50">取込履歴（直近6ヶ月）</p>
+            {history.map(group => (
+              <div key={group.date} className="flex items-center justify-between px-4 py-3 border-b last:border-0">
+                <div>
+                  <p className="text-sm font-medium text-gray-800">{group.month}支払分</p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {group.records.map(r => `${r.category} ${toJPY(r.amount)}`).join(" / ")}
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleDeleteHistoryGroup(group)}
+                  disabled={deletingDate === group.date}
+                  className="text-xs text-red-400 hover:text-red-600 border border-red-200 hover:border-red-400 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-40 shrink-0 ml-3"
+                >
+                  {deletingDate === group.date ? "削除中..." : "削除"}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
       </div>
       <BottomNav />
     </div>
