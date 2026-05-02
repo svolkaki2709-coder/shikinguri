@@ -22,7 +22,7 @@ interface ParsedPayslip {
     nums: number[]
     labels: string[]
     val: Record<string, number>
-    住民税KeyHex?: string  // 住民税キーの文字コード確認用
+    住民税KeyHex?: string
   }
 }
 
@@ -42,12 +42,16 @@ interface ParsedPayslip {
  */
 
 /**
- * PDFテキストに混入するゼロ幅スペース・BOM・全角スペース等の不可視文字を除去（ホワイトリスト方式）
- * 残す文字: ASCII可視文字(0x20-0x7E) / 日本語句読点〜カタカナ(U+3001-U+30FF) / CJK漢字(U+4E00-U+9FFF) / 全角記号(U+FF01-U+FFEF)
- * 除去対象: 全角スペース(U+3000) / ZWS(U+200B) / BOM(U+FEFF) / NBSP(U+00A0) / その他制御文字 など
+ * PDFテキスト中の不可視文字を除去してラベルを正規化する。
+ * - \p{Cf}: Unicode書式文字（ZWS U+200B, BOM U+FEFF, ゼロ幅系など）
+ * - 　: 全角スペース（ideographic space）
+ * 漢字・ひらがな・カタカナは一切除去しない。
  */
-function stripInvisible(s: string): string {
-  return s.replace(/[^ -~、-ヿ一-鿿！-￯]/g, "").trim()
+function normalizeLabel(s: string): string {
+  return s
+    .replace(/\p{Cf}/gu, "")
+    .replace(/　/g, "")
+    .trim()
 }
 
 function parsePayslipText(text: string): ParsedPayslip {
@@ -98,8 +102,8 @@ function parsePayslipText(text: string): ParsedPayslip {
     if (/^[△▲]\d+$/.test(c)) continue
     // 4桁以上の数値を含む行はスキップ（備考欄: 課税支給累計額など）
     if (/\d{4,}/.test(line.replace(/[（）()年月〜～]/g, ""))) continue
-    // 不可視文字・全角スペース等を除去してキー名を正規化（ホワイトリスト方式）
-    const cleanLabel = stripInvisible(line)
+    // 不可視文字・書式文字を除去してキー名を正規化（漢字は除去しない）
+    const cleanLabel = normalizeLabel(line)
     if (SECTION_HEADERS.has(cleanLabel)) continue
     if (cleanLabel.length === 0) continue
     labels.push(cleanLabel)
@@ -143,7 +147,7 @@ function parsePayslipText(text: string): ParsedPayslip {
 
   return {
     paymentMonth,
-    netPay:              val["差引総支給額"]    ?? null,
+    netPay:              val["差引総支給額"] ?? null,
     grossPay,
     incomeTax:           val["所得税"]          ?? null,
     residentTax:         val["住民税"] ?? null,
