@@ -49,8 +49,9 @@ interface ParsedPayslip {
  */
 function normalizeLabel(s: string): string {
   return s
-    .replace(/\p{Cf}/gu, "")  // ZWS/BOM等の不可視書式文字を除去
-    .normalize("NFKC")         // CJK部首補助→標準漢字: ⺠(U+2EA0)→民(U+6C11) etc.
+    .replace(/\p{Cf}/gu, "")     // ZWS/BOM等の不可視書式文字を除去
+    .replace(/⺠/g, "民") // ⺠(CJK RADICAL CIVILIAN U+2EA0) → 民(U+6C11) 直接置換
+    .normalize("NFKC")            // 残りのCJK互換文字を標準化
     .trim()
 }
 
