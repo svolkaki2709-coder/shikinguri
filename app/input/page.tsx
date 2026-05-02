@@ -84,17 +84,26 @@ export default function InputPage() {
     return usageCards[0] ?? null
   }, [cards, selectedCardId, usageCards])
 
-  // 支出カテゴリ一覧
+  // カテゴリの実効符号（+1=収入, -1=支出, 0=振替）
+  function effSign(r: CategoryRow): number {
+    if (r.sign === "plus") return 1
+    if (r.sign === "minus") return -1
+    if (r.group_type === "収入") return 1
+    if (r.group_type === "振替") return 0
+    return -1
+  }
+
+  // 支出カテゴリ一覧（マイナス符号のみ）
   const filteredCategories = useMemo(() => {
     return allCategoryRows
-      .filter(r => r.card_type === usageType)
+      .filter(r => r.card_type === usageType && effSign(r) < 0)
       .map(r => r.name)
   }, [usageType, allCategoryRows])
 
-  // 収入カテゴリ一覧（DBから group_type=収入 のみ）
+  // 収入カテゴリ一覧（プラス符号のみ）
   const incomeCategories = useMemo(() => {
     return allCategoryRows
-      .filter(r => r.card_type === incomeCardType && r.group_type === "収入")
+      .filter(r => r.card_type === incomeCardType && effSign(r) > 0)
       .map(r => r.name)
   }, [incomeCardType, allCategoryRows])
 
