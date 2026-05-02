@@ -93,9 +93,10 @@ function HistoryContent() {
     setLoading(false)
   }
 
-  async function handleDelete(id: number) {
+  async function handleDelete(id: number, source: string) {
     if (!confirm("この明細を削除しますか？")) return
-    await fetch(`/api/transactions?id=${id}`, { method: "DELETE" })
+    const url = source === "income" ? `/api/income?id=${id}` : `/api/transactions?id=${id}`
+    await fetch(url, { method: "DELETE" })
     setTransactions(prev => prev.filter(t => t.id !== id))
   }
 
@@ -338,7 +339,9 @@ function HistoryContent() {
                           <span className={`text-xs px-1.5 py-0.5 rounded font-medium whitespace-nowrap ${t.card_type === "joint" ? "bg-amber-100 text-amber-700" : "bg-indigo-100 text-indigo-700"}`}>
                             {t.card_type === "joint" ? "共用" : "個人"}
                           </span>
-                          {t.card_name && (
+                          {t.source === "income" ? (
+                            <span className="text-xs px-1.5 py-0.5 rounded font-medium whitespace-nowrap bg-green-100 text-green-700">収入</span>
+                          ) : t.card_name && (
                             <span className="text-xs px-1.5 py-0.5 rounded text-white font-medium whitespace-nowrap"
                               style={{ backgroundColor: t.color ?? "#6366f1" }}>
                               {t.card_name}
@@ -357,7 +360,7 @@ function HistoryContent() {
                         <div className="flex items-center justify-center gap-2">
                           <button onClick={() => openEditModal(t)}
                             className="text-gray-300 hover:text-blue-500 text-sm leading-none" title="編集">✏</button>
-                          <button onClick={() => handleDelete(t.id)}
+                          <button onClick={() => handleDelete(t.id, t.source)}
                             className="text-gray-300 hover:text-red-400 text-lg leading-none">×</button>
                         </div>
                       </td>
@@ -385,7 +388,9 @@ function HistoryContent() {
                       <span className={`text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${t.card_type === "joint" ? "bg-amber-100 text-amber-700" : "bg-indigo-100 text-indigo-700"}`}>
                         {t.card_type === "joint" ? "共用" : "個人"}
                       </span>
-                      {t.card_name && (
+                      {t.source === "income" ? (
+                        <span className="text-xs px-1.5 py-0.5 rounded font-medium shrink-0 bg-green-100 text-green-700">収入</span>
+                      ) : t.card_name && (
                         <span className="text-xs px-1.5 py-0.5 rounded text-white font-medium shrink-0"
                           style={{ backgroundColor: t.color ?? "#6366f1" }}>
                           {t.card_name}
@@ -405,7 +410,7 @@ function HistoryContent() {
                     <span className="text-sm font-semibold text-gray-800">{toJPY(t.amount)}</span>
                     <button onClick={() => openEditModal(t)}
                       className="text-gray-300 hover:text-blue-500 transition-colors text-sm leading-none w-6 text-center" title="編集">✏</button>
-                    <button onClick={() => handleDelete(t.id)}
+                    <button onClick={() => handleDelete(t.id, t.source)}
                       className="text-gray-300 hover:text-red-400 transition-colors text-xl leading-none w-6 text-center">×</button>
                   </div>
                 </div>

@@ -33,7 +33,29 @@ export async function GET(req: NextRequest) {
       AND (${keywordLike}::text IS NULL
            OR t.memo ILIKE ${keywordLike}
            OR t.category ILIKE ${keywordLike})
-    ORDER BY t.date DESC, t.id DESC
+
+    UNION ALL
+
+    SELECT
+      i.id,
+      i.date::text,
+      i.category,
+      i.amount,
+      i.memo,
+      'income' AS source,
+      NULL::int AS card_id,
+      NULL AS card_name,
+      i.card_type,
+      NULL AS color
+    FROM incomes i
+    WHERE (${month}::text IS NULL OR TO_CHAR(i.date, 'YYYY-MM') = ${month})
+      AND (${category}::text IS NULL OR i.category = ${category})
+      AND (${cardId}::text IS NULL)
+      AND (${keywordLike}::text IS NULL
+           OR i.memo ILIKE ${keywordLike}
+           OR i.category ILIKE ${keywordLike})
+
+    ORDER BY date DESC, id DESC
     LIMIT 500
   `
   return NextResponse.json({ transactions: rows })
