@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { sql } from "@/lib/db"
 import { decode as iconvDecode } from "iconv-lite"
-import { CATEGORY_LIST } from "@/lib/categoryData"
-
 // CSVパース（簡易実装）
 function parseCSV(text: string): string[][] {
   const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n")
@@ -126,10 +124,6 @@ async function ensureImportLogsTable() {
   `
   // transactionsテーブルにsourceカラムがなければ追加
   await sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS source TEXT`
-  // カテゴリマスタをDBに同期（なければ追加）
-  for (const cat of CATEGORY_LIST) {
-    await sql`INSERT INTO categories (name) VALUES (${cat}) ON CONFLICT (name) DO NOTHING`
-  }
 }
 
 export async function GET(req: NextRequest) {
