@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
 
 interface Card { id: number; name: string; card_type: string; color: string; has_csv: boolean }
-interface CategoryRow { name: string; card_type: string }
+interface CategoryRow { name: string; card_type: string; group_type?: string | null }
 interface PendingRecurring {
   id: number
   day_of_month: number
@@ -73,10 +73,10 @@ export default function InputPage() {
       .then(d => setMonthIncomeRecords(d.incomes ?? []))
   }, [mainTab, incomeMonth, incomeCardType])
 
-  // 収入カテゴリ変更時のデフォルト
+  // 収入カテゴリ変更時のデフォルト（DBの先頭カテゴリ）
   useEffect(() => {
-    setIncomeCategory(incomeCardType === "self" ? "給与" : "振込")
-  }, [incomeCardType])
+    if (incomeCategories.length > 0) setIncomeCategory(incomeCategories[0])
+  }, [incomeCardType, incomeCategories])
 
   // usageType に対応するカード一覧（CSV管理カードは除外）
   const usageCards = useMemo(() => {
@@ -95,6 +95,13 @@ export default function InputPage() {
       .filter(r => r.card_type === usageType)
       .map(r => r.name)
   }, [usageType, allCategoryRows])
+
+  // 収入カテゴリ一覧（DBから group_type=収入 のみ）
+  const incomeCategories = useMemo(() => {
+    return allCategoryRows
+      .filter(r => r.card_type === incomeCardType && r.group_type === "収入")
+      .map(r => r.name)
+  }, [incomeCardType, allCategoryRows])
 
   // usageType が変わったらカテゴリ・支払方法をリセット
   useEffect(() => {
@@ -381,26 +388,30 @@ export default function InputPage() {
                 </div>
               </div>
 
-              {/* 種別 */}
+              {/* カテゴリ */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-2">種別</label>
-                <div className="flex gap-2">
-                  {(incomeCardType === "self"
-                    ? ["給与", "副収入", "その他"]
-                    : ["振込", "その他"]
-                  ).map(cat => (
-                    <button key={cat} type="button" onClick={() => setIncomeCategory(cat)}
-                      className={`flex-1 py-2 rounded-lg text-sm font-medium border-2 transition-colors ${
-                        incomeCategory === cat
-                          ? incomeCardType === "self"
-                            ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                            : "border-amber-500 bg-amber-50 text-amber-700"
-                          : "border-gray-200 text-gray-600"
-                      }`}>
-                      {cat}
-                    </button>
-                  ))}
-                </div>
+                <label className="block text-xs font-medium text-gray-700 mb-2">カテゴリ</label>
+                {incomeCategories.length > 0 ? (
+                  <div className="flex gap-2 flex-wrap">
+                    {incomeCategories.map(cat => (
+                      <button key={cat} type="button" onClick={() => setIncomeCategory(cat)}
+                        className={`flex-1 py-2 rounded-lg text-sm font-medium border-2 transition-colors ${
+                          incomeCategory === cat
+                            ? incomeCardType === "self"
+                              ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                              : "border-amber-500 bg-amber-50 text-amber-700"
+                            : "border-gray-200 text-gray-600"
+                        }`}>
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <select value={incomeCategory} onChange={e => setIncomeCategory(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500">
+                    <option value="">カテゴリを選択</option>
+                  </select>
+                )}
               </div>
 
               {/* 金額 */}
