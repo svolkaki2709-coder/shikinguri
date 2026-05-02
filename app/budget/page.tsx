@@ -846,8 +846,16 @@ export default function BudgetPage() {
                   <tbody>
                     {yearGroups.map(({ group, rows }) => {
                       const gc = GROUP_COLORS[group]
-                      const groupYearBudget = rows.reduce((s, r) => s + r.yearBudget, 0)
-                      const groupYearActual = rows.reduce((s, r) => s + r.yearActual, 0)
+                      // sign-aware 集計（月次と同じロジック）
+                      const signAwareSum = (getValue: (r: CategoryData) => number) =>
+                        group === "収入"
+                          ? rows.reduce((s, r) => s + getValue(r), 0)
+                          : rows.reduce((s, r) => {
+                              const sg = getCategorySign(r)
+                              return sg === -1 ? s + getValue(r) : sg === 1 ? s - getValue(r) : s
+                            }, 0)
+                      const groupYearBudget = signAwareSum(r => r.yearBudget)
+                      const groupYearActual = signAwareSum(r => r.yearActual)
                       const groupDiff = groupYearBudget - groupYearActual
 
                       return (
@@ -858,8 +866,8 @@ export default function BudgetPage() {
                               {group}
                             </td>
                             {months.map(m => {
-                              const mBudget = rows.reduce((s, r) => s + (r.byMonth[m]?.budget ?? 0), 0)
-                              const mActual = rows.reduce((s, r) => s + (r.byMonth[m]?.actual ?? 0), 0)
+                              const mBudget = signAwareSum(r => r.byMonth[m]?.budget ?? 0)
+                              const mActual = signAwareSum(r => r.byMonth[m]?.actual ?? 0)
                               const diff = mBudget - mActual
                               return (
                                 <td key={m} className="text-right px-2 py-1 font-semibold">
