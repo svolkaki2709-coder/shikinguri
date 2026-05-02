@@ -49,6 +49,24 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ income: result[0] })
 }
 
+export async function PUT(req: NextRequest) {
+  const session = await auth()
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const { id, amount, category } = await req.json()
+  if (!id) return NextResponse.json({ error: "idが必要です" }, { status: 400 })
+
+  const result = await sql`
+    UPDATE incomes
+    SET
+      amount   = COALESCE(${amount != null ? Number(amount) : null}, amount),
+      category = COALESCE(${category ?? null}, category)
+    WHERE id = ${Number(id)}
+    RETURNING *
+  `
+  return NextResponse.json({ income: result[0] })
+}
+
 export async function DELETE(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

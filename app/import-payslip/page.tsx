@@ -27,6 +27,11 @@ interface ImportHistoryGroup {
   records: { id: number; amount: number; category: string }[]
 }
 
+// 通勤・交通費項目の登録方法
+// exclude: 給与収入から除外するのみ（保存しない）
+// reimburse: 給与収入から除外 + 立替精算として別途保存
+type CommuteMode = "exclude" | "reimburse"
+
 interface AdjustmentRow {
   id: number
   label: string
@@ -55,12 +60,19 @@ export default function ImportPayslipPage() {
   // 支給追加（賞与・特別手当など）→ 別収入として個別保存
   const [incomeAdj, setIncomeAdj] = useState<AdjustmentRow[]>([])
   const [nextId, setNextId] = useState(1)
+  // 通勤・交通費の登録方法
+  const [travelMode, setTravelMode] = useState<CommuteMode>("exclude")
+  const [nonTaxCommuteMode, setNonTaxCommuteMode] = useState<CommuteMode>("exclude")
+  const [taxCommuteMode, setTaxCommuteMode] = useState<CommuteMode>("exclude")
   const [error, setError] = useState("")
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState("")
   const [savedIds, setSavedIds] = useState<number[]>([])
   const [history, setHistory] = useState<ImportHistoryGroup[]>([])
   const [deletingDate, setDeletingDate] = useState<string | null>(null)
+  // 履歴展開・インライン編集
+  const [expandedDate, setExpandedDate] = useState<string | null>(null)
+  const [editingRecord, setEditingRecord] = useState<{ id: number; field: "amount" | "category"; value: string } | null>(null)
 
   // ─── 計算値 ───────────────────────────────────────────────────────
   const deductionAdjTotal = useMemo(() =>
@@ -107,6 +119,9 @@ export default function ImportPayslipPage() {
       setResult(data)
       setDeductionAdj([])
       setIncomeAdj([])
+      setTravelMode("exclude")
+      setNonTaxCommuteMode("exclude")
+      setTaxCommuteMode("exclude")
       // 年末調整還付が検出されたら控除調整に自動セット
       if (data.yearEndAdjustment != null) {
         setDeductionAdj([{ id: 1, label: "年末調整還付", amount: String(data.yearEndAdjustment) }])
@@ -172,6 +187,24 @@ export default function ImportPayslipPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ date, amount: -deductionTotal, category: "給与源泉税", memo: "給与明細取込（控除合計）", card_type: "self" }),
+      }).then(r => r.json())
+      if (r.income?.id) ids.push(r.income.id)
+    }
+
+    // ②' 通勤・交通費を立替精算として保存（reimburse モード時）
+    const commuteSaves: { amount: number; category: string }[] = [
+      { amount: result.travelReimbursement ?? 0, category: "営業交通費" },
+      { amount: result.nonTaxableCommute ?? 0,   category: "非課税通勤手当" },
+      { amount: result.taxableCommute ?? 0,       category: "課税通勤手当" },
+    ].filter((c, i) => {
+      const modes = [travelMode, nonTaxCommuteMode, taxCommuteMode]
+      return modes[i] === "reimburse" && c.amount > 0
+    })
+    for (const c of commuteSaves) {
+      const r = await fetch("/api/income", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date, amount: c.amount, category: "立替精算", memo: `給与明細取込（${c.category}）`, card_type: "self" }),
       }).then(r => r.json())
       if (r.income?.id) ids.push(r.income.id)
     }
@@ -271,6 +304,18 @@ export default function ImportPayslipPage() {
     loadHistory()
   }
 
+  // ─── 履歴レコードの金額・カテゴリ更新 ────────────────────────────
+  async function commitRecordEdit() {
+    if (!editingRecord) return
+    const { id, field, value } = editingRecord
+    const body = field === "amount"
+      ? { id, amount: Number(value.replace(/,/g, "")) }
+      : { id, category: value }
+    await fetch("/api/income", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+    setEditingRecord(null)
+    loadHistory()
+  }
+
   // ─── 編集可能行コンポーネント ─────────────────────────────────────
   function EditableRow({ label, field, color, bold }: { label: string; field: PayslipKey; color: string; bold?: boolean }) {
     if (!result) return null
@@ -343,9 +388,33 @@ export default function ImportPayslipPage() {
               <div className="space-y-1.5">
                 <EditableRow label="支給合計（額面）" field="grossPay" color="text-gray-800" />
                 <EditableRow label="差引総支給額（手取り）" field="netPay" color="text-gray-800" />
-                <EditableRow label="営業交通費" field="travelReimbursement" color="text-orange-600" />
-                <EditableRow label="非課税通勤手当" field="nonTaxableCommute" color="text-orange-600" />
-                <EditableRow label="課税通勤手当" field="taxableCommute" color="text-orange-600" />
+                {/* 通勤・交通費: 立替精算切替トグル付き */}
+                {(
+                  [
+                    { label: "営業交通費",   field: "travelReimbursement" as PayslipKey, mode: travelMode,       setMode: setTravelMode },
+                    { label: "非課税通勤手当", field: "nonTaxableCommute"  as PayslipKey, mode: nonTaxCommuteMode, setMode: setNonTaxCommuteMode },
+                    { label: "課税通勤手当",  field: "taxableCommute"      as PayslipKey, mode: taxCommuteMode,    setMode: setTaxCommuteMode },
+                  ] as const
+                ).map(({ label, field, mode, setMode }) => (
+                  result && (result[field] as number | null) ? (
+                    <div key={field} className="flex items-center justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <EditableRow label={label} field={field} color="text-orange-600" />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setMode(mode === "exclude" ? "reimburse" : "exclude")}
+                        className={`text-[10px] px-2 py-0.5 rounded-full border shrink-0 transition-colors whitespace-nowrap ${
+                          mode === "reimburse"
+                            ? "border-blue-400 bg-blue-50 text-blue-600 font-semibold"
+                            : "border-gray-200 text-gray-400 hover:border-gray-300"
+                        }`}
+                      >
+                        {mode === "reimburse" ? "✓ 立替精算登録" : "立替精算登録"}
+                      </button>
+                    </div>
+                  ) : null
+                ))}
               </div>
 
               {/* 支給追加（賞与・特別手当など） */}
@@ -543,23 +612,99 @@ export default function ImportPayslipPage() {
         {history.length > 0 && (
           <div className="bg-white rounded-xl shadow-sm overflow-hidden">
             <p className="text-xs font-semibold text-gray-600 px-4 py-2.5 border-b bg-gray-50">取込履歴（直近6ヶ月）</p>
-            {history.map(group => (
-              <div key={group.date} className="flex items-center justify-between px-4 py-3 border-b last:border-0">
-                <div>
-                  <p className="text-sm font-medium text-gray-800">{group.month}支払分</p>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {group.records.map(r => `${r.category} ${toJPY(r.amount)}`).join(" / ")}
-                  </p>
+            {history.map(group => {
+              const isExpanded = expandedDate === group.date
+              return (
+                <div key={group.date} className="border-b last:border-0">
+                  {/* ヘッダー行（クリックで展開） */}
+                  <div
+                    className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={() => setExpandedDate(isExpanded ? null : group.date)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400">{isExpanded ? "▼" : "▶"}</span>
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">{group.month}支払分</p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {group.records.map(r => `${r.category} ${toJPY(r.amount)}`).join(" / ")}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={e => { e.stopPropagation(); handleDeleteHistoryGroup(group) }}
+                      disabled={deletingDate === group.date}
+                      className="text-xs text-red-400 hover:text-red-600 border border-red-200 hover:border-red-400 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-40 shrink-0 ml-3"
+                    >
+                      {deletingDate === group.date ? "削除中..." : "削除"}
+                    </button>
+                  </div>
+
+                  {/* 展開: 各レコードのインライン編集 */}
+                  {isExpanded && (
+                    <div className="px-4 pb-3 space-y-2 bg-gray-50 border-t border-gray-100">
+                      <p className="text-[10px] text-gray-400 pt-2">金額・カテゴリをタップして編集</p>
+                      {group.records.map(rec => {
+                        const isEditingAmt = editingRecord?.id === rec.id && editingRecord.field === "amount"
+                        const isEditingCat = editingRecord?.id === rec.id && editingRecord.field === "category"
+                        return (
+                          <div key={rec.id} className="flex items-center gap-2 bg-white rounded-lg px-3 py-2 shadow-sm">
+                            {/* カテゴリ */}
+                            {isEditingCat ? (
+                              <input
+                                autoFocus
+                                type="text"
+                                value={editingRecord.value}
+                                onChange={e => setEditingRecord(r => r ? { ...r, value: e.target.value } : r)}
+                                onBlur={commitRecordEdit}
+                                onKeyDown={e => { if (e.key === "Enter") commitRecordEdit(); if (e.key === "Escape") setEditingRecord(null) }}
+                                className="flex-1 border-b border-blue-400 text-xs text-gray-900 outline-none bg-transparent py-0.5"
+                              />
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setEditingRecord({ id: rec.id, field: "category", value: rec.category })}
+                                className="flex-1 text-left text-xs text-gray-700 hover:text-blue-600 transition-colors"
+                              >
+                                {rec.category}
+                                <span className="text-gray-300 ml-1 text-[10px]">✎</span>
+                              </button>
+                            )}
+                            {/* 金額 */}
+                            {isEditingAmt ? (
+                              <div className="flex items-center gap-1 shrink-0">
+                                <span className="text-xs text-gray-400">¥</span>
+                                <input
+                                  autoFocus
+                                  type="text" inputMode="numeric"
+                                  value={editingRecord.value}
+                                  onChange={e => {
+                                    const v = e.target.value.replace(/,/g, "")
+                                    if (v === "" || v === "-" || /^-?\d*$/.test(v))
+                                      setEditingRecord(r => r ? { ...r, value: v } : r)
+                                  }}
+                                  onBlur={commitRecordEdit}
+                                  onKeyDown={e => { if (e.key === "Enter") commitRecordEdit(); if (e.key === "Escape") setEditingRecord(null) }}
+                                  className="w-24 border-b border-blue-400 text-right text-xs font-medium outline-none bg-transparent py-0.5 text-gray-900"
+                                />
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setEditingRecord({ id: rec.id, field: "amount", value: String(rec.amount) })}
+                                className={`text-xs font-medium shrink-0 hover:opacity-70 transition-opacity ${rec.amount >= 0 ? "text-green-600" : "text-red-500"}`}
+                              >
+                                {toJPY(rec.amount)}
+                                <span className="text-gray-300 ml-1 text-[10px]">✎</span>
+                              </button>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
-                <button
-                  onClick={() => handleDeleteHistoryGroup(group)}
-                  disabled={deletingDate === group.date}
-                  className="text-xs text-red-400 hover:text-red-600 border border-red-200 hover:border-red-400 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-40 shrink-0 ml-3"
-                >
-                  {deletingDate === group.date ? "削除中..." : "削除"}
-                </button>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 
