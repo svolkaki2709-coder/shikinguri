@@ -2,11 +2,14 @@
 
 import { SessionProvider } from "next-auth/react"
 import { ViewModeProvider } from "@/components/ViewModeContext"
+import { QuickInputProvider } from "@/components/QuickInput"
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
-      <ViewModeProvider>{children}</ViewModeProvider>
+      <QuickInputProvider>
+        <ViewModeProvider>{children}</ViewModeProvider>
+      </QuickInputProvider>
     </SessionProvider>
   )
 }
