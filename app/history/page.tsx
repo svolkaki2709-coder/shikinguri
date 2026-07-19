@@ -196,9 +196,9 @@ function HistoryContent() {
                   <button key={c.id} onClick={() => setCardId(String(c.id))}
                     className="px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all"
                     style={{
-                      backgroundColor: cardId === String(c.id) ? c.color : "white",
-                      borderColor: cardId === String(c.id) ? c.color : "#e5e7eb",
-                      color: cardId === String(c.id) ? "white" : "#6b7280",
+                      backgroundColor: cardId === String(c.id) ? c.color : "#1e293b",
+                      borderColor: cardId === String(c.id) ? c.color : "#334155",
+                      color: cardId === String(c.id) ? "white" : "#94a3b8",
                     }}>
                     {c.name}
                   </button>
@@ -262,9 +262,9 @@ function HistoryContent() {
                   <button key={c.id} onClick={() => setCardId(String(c.id))}
                     className="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all"
                     style={{
-                      backgroundColor: cardId === String(c.id) ? c.color : "white",
-                      borderColor: cardId === String(c.id) ? c.color : "#e5e7eb",
-                      color: cardId === String(c.id) ? "white" : "#6b7280",
+                      backgroundColor: cardId === String(c.id) ? c.color : "#1e293b",
+                      borderColor: cardId === String(c.id) ? c.color : "#334155",
+                      color: cardId === String(c.id) ? "white" : "#94a3b8",
                     }}>
                     {c.name}
                   </button>

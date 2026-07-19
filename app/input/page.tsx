@@ -256,7 +256,7 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
                     className="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all"
                     style={{
                       backgroundColor: usageType === "self" ? selfColor + "22" : "transparent",
-                      color: usageType === "self" ? selfColor : "#6b7280",
+                      color: usageType === "self" ? selfColor : "#94a3b8",
                       boxShadow: usageType === "self" ? `0 0 0 2px ${selfColor}` : "none",
                     }}>
                     個人
@@ -265,7 +265,7 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
                     className="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all"
                     style={{
                       backgroundColor: usageType === "joint" ? jointColor + "22" : "transparent",
-                      color: usageType === "joint" ? jointColor : "#6b7280",
+                      color: usageType === "joint" ? jointColor : "#94a3b8",
                       boxShadow: usageType === "joint" ? `0 0 0 2px ${jointColor}` : "none",
                     }}>
                     共用
@@ -283,9 +283,9 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
                         onClick={() => setSelectedCardId(c.id)}
                         className="flex-1 py-2 rounded-lg text-sm font-medium border-2 transition-all"
                         style={{
-                          borderColor: selectedCard?.id === c.id ? c.color : "#e5e7eb",
-                          backgroundColor: selectedCard?.id === c.id ? c.color + "18" : "white",
-                          color: selectedCard?.id === c.id ? c.color : "#6b7280",
+                          borderColor: selectedCard?.id === c.id ? c.color : "#334155",
+                          backgroundColor: selectedCard?.id === c.id ? c.color + "18" : "#1e293b",
+                          color: selectedCard?.id === c.id ? c.color : "#94a3b8",
                         }}>
                         {c.name}
                       </button>

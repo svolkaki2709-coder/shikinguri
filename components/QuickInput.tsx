@@ -268,9 +268,9 @@ function QuickInputModal({ tab, setTab, onClose }: {
                       <button key={c.id} type="button" onClick={() => setSelectedCardId(c.id)}
                         className="flex-1 py-2 rounded-lg text-sm font-medium border-2 transition-all"
                         style={{
-                          borderColor: selectedCard?.id === c.id ? c.color : "#e5e7eb",
-                          backgroundColor: selectedCard?.id === c.id ? c.color + "18" : "white",
-                          color: selectedCard?.id === c.id ? c.color : "#6b7280",
+                          borderColor: selectedCard?.id === c.id ? c.color : "#334155",
+                          backgroundColor: selectedCard?.id === c.id ? c.color + "18" : "#1e293b",
+                          color: selectedCard?.id === c.id ? c.color : "#94a3b8",
                         }}>
                         {c.name}
                       </button>

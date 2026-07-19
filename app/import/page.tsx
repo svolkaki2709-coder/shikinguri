@@ -131,9 +131,9 @@ export default function ImportPage() {
                   onClick={() => setCardId(c.id)}
                   className="flex-1 min-w-[100px] py-2 rounded-xl text-sm font-medium border-2 transition-all"
                   style={{
-                    borderColor: cardId === c.id ? c.color : "#e5e7eb",
-                    backgroundColor: cardId === c.id ? c.color + "18" : "white",
-                    color: cardId === c.id ? c.color : "#6b7280",
+                    borderColor: cardId === c.id ? c.color : "#334155",
+                    backgroundColor: cardId === c.id ? c.color + "18" : "#1e293b",
+                    color: cardId === c.id ? c.color : "#94a3b8",
                   }}
                 >
                   {c.name}
