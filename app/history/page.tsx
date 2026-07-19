@@ -42,8 +42,10 @@ function HistoryContent() {
 
   const [cards, setCards] = useState<Card[]>([])
   const [categories, setCategories] = useState<string[]>([])
+  const [categoryRows, setCategoryRows] = useState<{ name: string; card_type: string }[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(false)
+  const [quickEditId, setQuickEditId] = useState<number | null>(null)
 
   const [month, setMonthState] = useState(searchParams.get("month") ?? defaultMonth)
   const [cardId, setCardId] = useState(searchParams.get("card_id") ?? "")
@@ -72,8 +74,17 @@ function HistoryContent() {
     ]).then(([cd, catd]) => {
       setCards(cd.cards ?? [])
       setCategories(catd.categories ?? [])
+      setCategoryRows(catd.rows ?? [])
     })
   }, [])
+
+  // カードの card_type に応じたカテゴリ候補（現在値・「未分類」は必ず含める）
+  function categoryOptionsFor(cardType: string, current: string) {
+    const list = categoryRows.filter(r => r.card_type === cardType).map(r => r.name)
+    if (current && !list.includes(current)) list.push(current)
+    if (!list.includes("未分類")) list.push("未分類")
+    return list
+  }
 
   useEffect(() => {
     fetchData()
@@ -91,6 +102,25 @@ function HistoryContent() {
     const data = await fetch(`/api/history?${params}`).then(r => r.json())
     setTransactions(data.transactions ?? [])
     setLoading(false)
+  }
+
+  async function handleQuickCategorySave(t: Transaction, newCategory: string) {
+    setQuickEditId(null)
+    if (newCategory === t.category) return
+    if (t.source === "income") {
+      await fetch("/api/income", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: t.id, amount: t.amount, category: newCategory, date: t.date, memo: t.memo }),
+      })
+    } else {
+      await fetch("/api/transactions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: t.id, category: newCategory, memo: t.memo, date: t.date, amount: t.amount, card_id: t.card_id }),
+      })
+    }
+    setTransactions(prev => prev.map(x => x.id === t.id ? { ...x, category: newCategory } : x))
   }
 
   async function handleDelete(id: number, source: string) {
@@ -360,10 +390,22 @@ function HistoryContent() {
                         </div>
                       </td>
                       <td className="px-3 py-1.5">
-                        <button onClick={() => openEditModal(t)} title="クリックしてカテゴリを変更"
-                          className={`text-xs rounded px-1.5 py-0.5 -mx-1.5 hover:bg-slate-700 hover:underline decoration-dotted transition-colors ${t.category === "未分類" ? "text-orange-400 font-semibold" : "text-slate-300"}`}>
-                          {t.category === "未分類" ? "⚠ 未分類" : t.category}
-                        </button>
+                        {quickEditId === t.id ? (
+                          <select
+                            autoFocus
+                            defaultValue={t.category}
+                            onChange={e => handleQuickCategorySave(t, e.target.value)}
+                            onBlur={() => setQuickEditId(null)}
+                            className="text-xs rounded px-1 py-0.5 bg-slate-800 border border-blue-500/50 text-slate-100 outline-none"
+                          >
+                            {categoryOptionsFor(t.card_type, t.category).map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                        ) : (
+                          <button onClick={() => setQuickEditId(t.id)} title="クリックしてカテゴリを変更"
+                            className={`text-xs rounded px-1.5 py-0.5 -mx-1.5 hover:bg-slate-700 hover:underline decoration-dotted transition-colors ${t.category === "未分類" ? "text-orange-400 font-semibold" : "text-slate-300"}`}>
+                            {t.category === "未分類" ? "⚠ 未分類" : t.category}
+                          </button>
+                        )}
                       </td>
                       <td className="px-3 py-1.5 text-slate-400 max-w-xs truncate">{t.memo}</td>
                       <td className="px-3 py-1.5 text-right font-semibold text-slate-100 whitespace-nowrap">{toJPY(t.amount)}</td>
@@ -407,12 +449,24 @@ function HistoryContent() {
                           {t.card_name}
                         </span>
                       )}
-                      <button onClick={() => openEditModal(t)} title="タップしてカテゴリを変更"
-                        className={`text-sm font-medium truncate rounded px-1 -mx-1 hover:bg-slate-700 hover:underline decoration-dotted transition-colors text-left ${
-                        t.category === "未分類" ? "text-orange-400 font-semibold" : "text-slate-100"
-                      }`}>
-                        {t.category === "未分類" ? "⚠ 未分類" : t.category}
-                      </button>
+                      {quickEditId === t.id ? (
+                        <select
+                          autoFocus
+                          defaultValue={t.category}
+                          onChange={e => handleQuickCategorySave(t, e.target.value)}
+                          onBlur={() => setQuickEditId(null)}
+                          className="text-sm rounded px-1 py-0.5 bg-slate-800 border border-blue-500/50 text-slate-100 outline-none max-w-[140px]"
+                        >
+                          {categoryOptionsFor(t.card_type, t.category).map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      ) : (
+                        <button onClick={() => setQuickEditId(t.id)} title="タップしてカテゴリを変更"
+                          className={`text-sm font-medium truncate rounded px-1 -mx-1 hover:bg-slate-700 hover:underline decoration-dotted transition-colors text-left ${
+                          t.category === "未分類" ? "text-orange-400 font-semibold" : "text-slate-100"
+                        }`}>
+                          {t.category === "未分類" ? "⚠ 未分類" : t.category}
+                        </button>
+                      )}
                       {t.source === "csv" && <span className="text-xs text-blue-400 shrink-0">CSV</span>}
                       {t.source === "recurring" && <span className="text-xs text-green-400 shrink-0">定期</span>}
                     </div>
@@ -471,7 +525,8 @@ function HistoryContent() {
               <select value={editForm.category}
                 onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}
                 className="w-full border rounded-lg px-3 py-2 text-sm text-slate-100 bg-slate-900 outline-none focus:ring-2 focus:ring-blue-400">
-                {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                {categoryOptionsFor(cards.find(c => c.id === Number(editForm.card_id))?.card_type ?? "self", editForm.category)
+                  .map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
 
