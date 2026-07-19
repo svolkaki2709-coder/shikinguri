@@ -350,9 +350,10 @@ function HistoryContent() {
                         </div>
                       </td>
                       <td className="px-3 py-1.5">
-                        <span className={`text-xs ${t.category === "未分類" ? "text-orange-400 font-semibold" : "text-slate-300"}`}>
+                        <button onClick={() => openEditModal(t)} title="クリックしてカテゴリを変更"
+                          className={`text-xs rounded px-1.5 py-0.5 -mx-1.5 hover:bg-slate-700 hover:underline decoration-dotted transition-colors ${t.category === "未分類" ? "text-orange-400 font-semibold" : "text-slate-300"}`}>
                           {t.category === "未分類" ? "⚠ 未分類" : t.category}
-                        </span>
+                        </button>
                       </td>
                       <td className="px-3 py-1.5 text-slate-400 max-w-xs truncate">{t.memo}</td>
                       <td className="px-3 py-1.5 text-right font-semibold text-slate-100 whitespace-nowrap">{toJPY(t.amount)}</td>
@@ -396,11 +397,12 @@ function HistoryContent() {
                           {t.card_name}
                         </span>
                       )}
-                      <span className={`text-sm font-medium truncate ${
+                      <button onClick={() => openEditModal(t)} title="タップしてカテゴリを変更"
+                        className={`text-sm font-medium truncate rounded px-1 -mx-1 hover:bg-slate-700 hover:underline decoration-dotted transition-colors text-left ${
                         t.category === "未分類" ? "text-orange-400 font-semibold" : "text-slate-100"
                       }`}>
                         {t.category === "未分類" ? "⚠ 未分類" : t.category}
-                      </span>
+                      </button>
                       {t.source === "csv" && <span className="text-xs text-blue-400 shrink-0">CSV</span>}
                       {t.source === "recurring" && <span className="text-xs text-green-400 shrink-0">定期</span>}
                     </div>
