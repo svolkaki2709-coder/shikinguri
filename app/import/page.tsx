@@ -113,16 +113,16 @@ export default function ImportPage() {
   const FormCard = (
     <div className="space-y-3">
       {/* 説明 */}
-      <div className="bg-blue-50 rounded-xl p-3 text-sm text-blue-700 space-y-1">
+      <div className="bg-blue-500/10 rounded-xl p-3 text-sm text-blue-300 space-y-1">
         <p className="font-medium">各カード会社のCSVをインポートできます</p>
-        <p className="text-xs text-blue-600">自動的に日付・金額・メモ列を検出します。カテゴリは「未分類」で取り込まれます。</p>
+        <p className="text-xs text-blue-400">自動的に日付・金額・メモ列を検出します。カテゴリは「未分類」で取り込まれます。</p>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
+      <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 space-y-3">
         {/* カード選択・ファイル選択（PCは横並び） */}
         <div className={isPC ? "grid grid-cols-2 gap-3" : "space-y-3"}>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-2">取り込み先カード</label>
+            <label className="block text-xs font-medium text-slate-400 mb-2">取り込み先カード</label>
             <div className="flex gap-2 flex-wrap">
               {cards.map(c => (
                 <button
@@ -143,19 +143,19 @@ export default function ImportPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-2">CSVファイル</label>
+            <label className="block text-xs font-medium text-slate-400 mb-2">CSVファイル</label>
             <div
-              className="border-2 border-dashed border-gray-200 rounded-xl px-4 py-2 cursor-pointer hover:border-blue-300 hover:bg-blue-50 transition-colors flex items-center gap-3 h-[38px]"
+              className="border-2 border-dashed border-slate-800 rounded-xl px-4 py-2 cursor-pointer hover:border-blue-500/40 hover:bg-blue-500/10 transition-colors flex items-center gap-3 h-[38px]"
               onClick={() => fileRef.current?.click()}
             >
               <span className="text-lg shrink-0">📂</span>
               {file ? (
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-blue-600 truncate">{file.name}</p>
-                  <p className="text-xs text-gray-700">{(file.size / 1024).toFixed(1)} KB</p>
+                  <p className="text-sm font-medium text-blue-400 truncate">{file.name}</p>
+                  <p className="text-xs text-slate-300">{(file.size / 1024).toFixed(1)} KB</p>
                 </div>
               ) : (
-                <p className="text-sm text-gray-700">タップしてCSVを選択</p>
+                <p className="text-sm text-slate-300">タップしてCSVを選択</p>
               )}
             </div>
             <input
@@ -170,18 +170,18 @@ export default function ImportPage() {
 
         {/* エラー・結果 */}
         {error && (
-          <div className="bg-red-50 text-red-600 rounded-lg px-3 py-2 text-sm">❌ {error}</div>
+          <div className="bg-red-500/10 text-red-400 rounded-lg px-3 py-2 text-sm">❌ {error}</div>
         )}
         {result && (
           <div className="space-y-2">
-            <div className="bg-green-50 text-green-700 rounded-lg px-3 py-2 text-sm">
+            <div className="bg-green-500/10 text-green-300 rounded-lg px-3 py-2 text-sm">
               ✅ {result.imported}件取り込み完了
-              {result.skipped > 0 && <span className="text-gray-600 ml-2">（{result.skipped}件スキップ）</span>}
+              {result.skipped > 0 && <span className="text-slate-400 ml-2">（{result.skipped}件スキップ）</span>}
             </div>
             {/* 請求合計との照合 */}
             {result.csvBillingTotal != null && (
               <div className={`rounded-lg px-3 py-2 text-sm border ${
-                result.verified ? "bg-blue-50 border-blue-200 text-blue-800" : "bg-red-50 border-red-300 text-red-700"
+                result.verified ? "bg-blue-500/10 border-blue-500/30 text-blue-300" : "bg-red-500/10 border-red-500/40 text-red-300"
               }`}>
                 {result.verified ? "✅" : "⚠️"} 請求合計照合：
                 <span className="font-semibold ml-1">
@@ -193,7 +193,7 @@ export default function ImportPage() {
               </div>
             )}
             {result.csvBillingTotal == null && result.importedTotal != null && (
-              <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-600">
+              <div className="bg-slate-800 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-400">
                 取込合計：¥{(result.importedTotal).toLocaleString()}
                 <span className="text-xs ml-2">（このCSVは請求合計額が自動検出できませんでした）</span>
               </div>
@@ -203,14 +203,14 @@ export default function ImportPage() {
 
         {/* 重複警告 */}
         {warning && (
-          <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-3 space-y-2">
-            <p className="text-sm font-medium text-yellow-800">⚠️ 重複インポートの可能性</p>
-            <p className="text-xs text-yellow-700">{warning.message}</p>
-            <p className="text-xs text-yellow-700">今回のファイル: {warning.newRange.startDate} ～ {warning.newRange.endDate}</p>
+          <div className="bg-yellow-500/10 border border-yellow-500/40 rounded-lg p-3 space-y-2">
+            <p className="text-sm font-medium text-yellow-300">⚠️ 重複インポートの可能性</p>
+            <p className="text-xs text-yellow-300">{warning.message}</p>
+            <p className="text-xs text-yellow-300">今回のファイル: {warning.newRange.startDate} ～ {warning.newRange.endDate}</p>
             <div className="flex gap-2">
               <button
                 onClick={() => setWarning(null)}
-                className="flex-1 border border-gray-300 text-gray-600 rounded-lg py-1.5 text-sm"
+                className="flex-1 border border-slate-700 text-slate-400 rounded-lg py-1.5 text-sm"
               >
                 キャンセル
               </button>
@@ -237,23 +237,23 @@ export default function ImportPage() {
       </div>
 
       {/* ヒント */}
-      <div className="bg-white rounded-xl shadow-sm p-3">
-        <h3 className="text-sm font-semibold text-gray-700 mb-2">対応フォーマット</h3>
-        <div className={`gap-1.5 text-xs text-gray-700 ${isPC ? "grid grid-cols-2" : "space-y-1.5"}`}>
+      <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3">
+        <h3 className="text-sm font-semibold text-slate-300 mb-2">対応フォーマット</h3>
+        <div className={`gap-1.5 text-xs text-slate-300 ${isPC ? "grid grid-cols-2" : "space-y-1.5"}`}>
           <div className="flex items-start gap-2">
-            <span className="text-blue-500 shrink-0">•</span>
+            <span className="text-blue-400 shrink-0">•</span>
             <span>日付列：「利用日」「取引日」「date」などを自動検出</span>
           </div>
           <div className="flex items-start gap-2">
-            <span className="text-blue-500 shrink-0">•</span>
+            <span className="text-blue-400 shrink-0">•</span>
             <span>金額列：「利用金額」「出金」「amount」などを自動検出</span>
           </div>
           <div className="flex items-start gap-2">
-            <span className="text-blue-500 shrink-0">•</span>
+            <span className="text-blue-400 shrink-0">•</span>
             <span>メモ列：「店名」「摘要」「内容」などを自動検出</span>
           </div>
           <div className="flex items-start gap-2">
-            <span className="text-yellow-500 shrink-0">•</span>
+            <span className="text-yellow-400 shrink-0">•</span>
             <span>取り込み後、明細履歴からカテゴリを変更できます</span>
           </div>
         </div>
@@ -265,19 +265,19 @@ export default function ImportPage() {
   const HistoryCard = groupedLogs.length > 0 && (
     <div className="space-y-3">
       {groupedLogs.map(group => (
-        <div key={group.cardId} className="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div key={group.cardId} className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 overflow-hidden">
           <div className="px-3 py-2 border-b flex items-center gap-2" style={{ backgroundColor: group.color + "14" }}>
             <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: group.color }} />
-            <h3 className="text-sm font-semibold text-gray-700">{group.cardName}</h3>
-            <span className="text-xs text-gray-400 ml-auto">{group.logs.length}件</span>
+            <h3 className="text-sm font-semibold text-slate-300">{group.cardName}</h3>
+            <span className="text-xs text-slate-500 ml-auto">{group.logs.length}件</span>
           </div>
           {group.logs.slice(0, 10).map(log => (
             <div key={log.id} className="flex items-center px-3 py-2 border-b last:border-0 gap-2">
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-gray-700">{log.start_date} ～ {log.end_date}</p>
-                <p className="text-xs text-gray-500 truncate">{log.file_name} · {log.row_count}件</p>
+                <p className="text-xs text-slate-300">{log.start_date} ～ {log.end_date}</p>
+                <p className="text-xs text-slate-400 truncate">{log.file_name} · {log.row_count}件</p>
               </div>
-              <span className="text-xs text-gray-400 shrink-0">{String(log.imported_at).slice(0, 10)}</span>
+              <span className="text-xs text-slate-500 shrink-0">{String(log.imported_at).slice(0, 10)}</span>
               <button
                 onClick={async () => {
                   if (!confirm(`「${log.card_name}」${log.start_date}〜${log.end_date} のインポートを取り消しますか？\n（この期間のCSV取り込み分が全て削除されます）`)) return
@@ -290,7 +290,7 @@ export default function ImportPage() {
                     alert("取り消しに失敗しました: " + d.error)
                   }
                 }}
-                className="text-xs text-red-400 hover:text-red-600 border border-red-200 rounded px-2 py-0.5 shrink-0"
+                className="text-xs text-red-400 hover:text-red-400 border border-red-500/30 rounded px-2 py-0.5 shrink-0"
               >
                 取り消し
               </button>
@@ -306,10 +306,10 @@ export default function ImportPage() {
       <PageHeader title="CSVインポート" />
       <div className={isPC ? "px-6 py-4" : "max-w-md mx-auto px-4 py-2"}>
         {isPC ? (
-          <div className="grid grid-cols-2 gap-4 items-start max-w-4xl">
+          <div className="grid grid-cols-[420px_1fr] gap-4 items-start">
             {FormCard}
             {HistoryCard || (
-              <div className="bg-white rounded-xl shadow-sm p-6 text-center text-sm text-gray-400">
+              <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-6 text-center text-sm text-slate-500">
                 インポート履歴はまだありません
               </div>
             )}

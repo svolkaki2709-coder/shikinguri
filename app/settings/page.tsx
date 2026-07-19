@@ -14,12 +14,12 @@ interface StoreRule { id: number; keyword: string; category: string }
 
 const GROUP_ORDER = ["収入", "支出", "振替", "投資", "貯蓄", "立替"]
 const GROUP_COLORS: Record<string, { bg: string; text: string; border: string; light: string }> = {
-  収入: { bg: "bg-green-500", text: "text-green-700", border: "border-l-green-400", light: "bg-green-50" },
-  支出: { bg: "bg-blue-500",  text: "text-blue-700",  border: "border-l-blue-400",  light: "bg-blue-50"  },
-  振替: { bg: "bg-gray-400",  text: "text-gray-600",  border: "border-l-gray-400",  light: "bg-gray-50"  },
-  投資: { bg: "bg-purple-500",text: "text-purple-700",border: "border-l-purple-400",light: "bg-purple-50"},
-  貯蓄: { bg: "bg-teal-500",  text: "text-teal-700",  border: "border-l-teal-400",  light: "bg-teal-50"  },
-  立替: { bg: "bg-orange-400",text: "text-orange-700",border: "border-l-orange-400",light: "bg-orange-50"},
+  収入: { bg: "bg-green-500", text: "text-green-300", border: "border-l-green-400", light: "bg-green-500/10" },
+  支出: { bg: "bg-blue-500",  text: "text-blue-300",  border: "border-l-blue-400",  light: "bg-blue-500/10"  },
+  振替: { bg: "bg-gray-400",  text: "text-slate-400",  border: "border-l-gray-400",  light: "bg-slate-800"  },
+  投資: { bg: "bg-purple-500",text: "text-purple-300",border: "border-l-purple-400",light: "bg-purple-500/10"},
+  貯蓄: { bg: "bg-teal-500",  text: "text-teal-300",  border: "border-l-teal-400",  light: "bg-teal-500/10"  },
+  立替: { bg: "bg-orange-400",text: "text-orange-300",border: "border-l-orange-400",light: "bg-orange-500/10"},
 }
 
 function toJPY(n: number) {
@@ -30,7 +30,7 @@ type Tab = "recurring" | "plan" | "category"
 
 export default function SettingsPage() {
   return (
-    <Suspense fallback={<div className="pb-20"><PageHeader title="設定" /><div className="text-center py-8 text-gray-500">読み込み中...</div><BottomNav /></div>}>
+    <Suspense fallback={<div className="pb-20"><PageHeader title="設定" /><div className="text-center py-8 text-slate-400">読み込み中...</div><BottomNav /></div>}>
       <SettingsContent />
     </Suspense>
   )
@@ -465,10 +465,10 @@ function SettingsContent() {
       <PageHeader title="設定" />
       <div className={isPC ? "px-6 py-4 space-y-4" : "max-w-md mx-auto px-4 py-2 space-y-3"}>
         {/* タブ */}
-        <div className="flex rounded-xl bg-gray-100 p-1">
+        <div className="flex rounded-xl bg-slate-800 p-1">
           {tabs.map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${tab === t.key ? "bg-white shadow-sm text-blue-600" : "text-gray-700"}`}>
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${tab === t.key ? "bg-slate-900 shadow-sm text-blue-400" : "text-slate-300"}`}>
               {t.label}
             </button>
           ))}
@@ -479,38 +479,38 @@ function SettingsContent() {
           <div className={isPC ? "grid grid-cols-2 gap-4 items-start" : "space-y-3"}>
 
             {/* 登録フォーム */}
-            <div className="bg-white rounded-xl shadow-sm p-4 space-y-3">
-              <h2 className="text-sm font-semibold text-gray-700">定期を追加</h2>
+            <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-4 space-y-3">
+              <h2 className="text-sm font-semibold text-slate-300">定期を追加</h2>
 
               {/* 支出 / 入金 */}
-              <div className="flex rounded-xl bg-gray-100 p-1 gap-1">
+              <div className="flex rounded-xl bg-slate-800 p-1 gap-1">
                 <button type="button" onClick={() => setREntryType("expense")}
-                  className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${rEntryType === "expense" ? "bg-blue-600 text-white shadow-sm" : "text-gray-600"}`}>
+                  className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${rEntryType === "expense" ? "bg-blue-600 text-white shadow-sm" : "text-slate-400"}`}>
                   💸 支出
                 </button>
                 <button type="button" onClick={() => setREntryType("income")}
-                  className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${rEntryType === "income" ? "bg-green-600 text-white shadow-sm" : "text-gray-600"}`}>
+                  className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${rEntryType === "income" ? "bg-green-600 text-white shadow-sm" : "text-slate-400"}`}>
                   💰 入金
                 </button>
               </div>
 
               {/* 個人 / 共用 */}
-              <div className="flex rounded-xl bg-gray-100 p-1 gap-1">
+              <div className="flex rounded-xl bg-slate-800 p-1 gap-1">
                 <button type="button" onClick={() => setRUsageType("self")}
-                  className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${rUsageType === "self" ? "bg-indigo-600 text-white shadow-sm" : "text-gray-600"}`}>
+                  className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${rUsageType === "self" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-400"}`}>
                   個人
                 </button>
                 <button type="button" onClick={() => setRUsageType("joint")}
-                  className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${rUsageType === "joint" ? "bg-amber-500 text-white shadow-sm" : "text-gray-600"}`}>
+                  className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${rUsageType === "joint" ? "bg-amber-500 text-white shadow-sm" : "text-slate-400"}`}>
                   共用
                 </button>
               </div>
 
               {/* 引き落とし日 */}
               <div>
-                <label className="text-xs text-gray-600 mb-1 block">引き落とし日</label>
+                <label className="text-xs text-slate-400 mb-1 block">引き落とし日</label>
                 <select value={rDay} onChange={e => setRDay(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 text-sm bg-white text-gray-800">
+                  className="w-full border rounded-lg px-3 py-2 text-sm bg-slate-900 text-slate-100">
                   {Array.from({ length: 28 }, (_, i) => i + 1).map(d => (
                     <option key={d} value={d}>{d}日</option>
                   ))}
@@ -519,13 +519,13 @@ function SettingsContent() {
 
               {/* カテゴリ */}
               <div>
-                <label className="text-xs text-gray-600 mb-1 block">カテゴリ</label>
+                <label className="text-xs text-slate-400 mb-1 block">カテゴリ</label>
                 {rEntryType === "income" ? (
                   <div className="flex gap-2">
                     {(rUsageType === "self" ? ["給与", "副収入", "その他"] : ["振込", "その他"]).map(c => (
                       <button key={c} type="button" onClick={() => setRCategory(c)}
                         className={`flex-1 py-2 rounded-lg text-sm border-2 transition-colors font-medium ${
-                          rCategory === c ? "border-green-500 bg-green-50 text-green-700" : "border-gray-200 text-gray-600"
+                          rCategory === c ? "border-green-500 bg-green-500/10 text-green-300" : "border-slate-800 text-slate-400"
                         }`}>
                         {c}
                       </button>
@@ -533,7 +533,7 @@ function SettingsContent() {
                   </div>
                 ) : (
                   <select value={rCategory} onChange={e => setRCategory(e.target.value)}
-                    className="w-full border rounded-lg px-3 py-2 text-sm bg-white text-gray-800">
+                    className="w-full border rounded-lg px-3 py-2 text-sm bg-slate-900 text-slate-100">
                     {categories.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 )}
@@ -541,9 +541,9 @@ function SettingsContent() {
 
               {/* 金額 */}
               <div>
-                <label className="text-xs text-gray-600 mb-1 block">金額（円）</label>
+                <label className="text-xs text-slate-400 mb-1 block">金額（円）</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">¥</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">¥</span>
                   <input type="text" inputMode="numeric"
                     value={rAmount}
                     onChange={e => {
@@ -551,16 +551,16 @@ function SettingsContent() {
                       if (raw === "" || /^\d+$/.test(raw)) setRAmount(raw === "" ? "" : Number(raw).toLocaleString("ja-JP"))
                     }}
                     placeholder="0"
-                    className="w-full border rounded-lg pl-7 pr-3 py-2 text-sm text-gray-800" />
+                    className="w-full border rounded-lg pl-7 pr-3 py-2 text-sm text-slate-100" />
                 </div>
               </div>
 
               {/* メモ */}
               <div>
-                <label className="text-xs text-gray-600 mb-1 block">メモ（任意）</label>
+                <label className="text-xs text-slate-400 mb-1 block">メモ（任意）</label>
                 <input type="text" value={rMemo} onChange={e => setRMemo(e.target.value)}
                   placeholder="例：Netflix サブスク"
-                  className="w-full border rounded-lg px-3 py-2 text-sm text-gray-800" />
+                  className="w-full border rounded-lg px-3 py-2 text-sm text-slate-100" />
               </div>
 
               <button onClick={handleAddRecurring} disabled={rSaving || !rCategory || !rAmount}
@@ -570,12 +570,12 @@ function SettingsContent() {
             </div>
 
             {/* 登録済み一覧 */}
-            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-              <div className="px-4 py-3 bg-gray-50 border-b">
-                <h2 className="text-sm font-semibold text-gray-700">登録済み定期</h2>
+            <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 overflow-hidden">
+              <div className="px-4 py-3 bg-slate-800 border-b">
+                <h2 className="text-sm font-semibold text-slate-300">登録済み定期</h2>
               </div>
               {recurring.length === 0 ? (
-                <p className="text-center text-xs text-gray-400 py-6">登録されていません</p>
+                <p className="text-center text-xs text-slate-500 py-6">登録されていません</p>
               ) : (
                 recurring.map(r => {
                   const isIncome = r.entry_type === "income"
@@ -585,21 +585,21 @@ function SettingsContent() {
                     <div key={r.id} className="flex items-center px-4 py-2.5 border-b last:border-0">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
-                          <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${isIncome ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>
+                          <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${isIncome ? "bg-green-500/15 text-green-300" : "bg-blue-500/15 text-blue-300"}`}>
                             {isIncome ? "入金" : "支出"}
                           </span>
                           <span className="text-xs px-1.5 py-0.5 rounded text-white font-medium"
                             style={{ backgroundColor: usageColor }}>
                             {usageLabel}
                           </span>
-                          <span className="text-sm font-medium text-gray-800">{r.category}</span>
+                          <span className="text-sm font-medium text-slate-100">{r.category}</span>
                         </div>
-                        <p className="text-xs text-gray-500">{r.day_of_month}日{r.memo && ` / ${r.memo}`}</p>
+                        <p className="text-xs text-slate-400">{r.day_of_month}日{r.memo && ` / ${r.memo}`}</p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-sm font-semibold text-gray-700">{toJPY(r.amount)}</span>
+                        <span className="text-sm font-semibold text-slate-300">{toJPY(r.amount)}</span>
                         <button onClick={() => handleDeleteRecurring(r.id)}
-                          className="text-gray-300 hover:text-red-400 text-xl leading-none w-6">×</button>
+                          className="text-slate-600 hover:text-red-400 text-xl leading-none w-6">×</button>
                       </div>
                     </div>
                   )
@@ -613,38 +613,38 @@ function SettingsContent() {
         {tab === "plan" && (
           <div className={isPC ? "grid grid-cols-2 gap-4 items-start" : "space-y-3"}>
             {/* 入力フォーム */}
-            <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
-              <h2 className="text-sm font-semibold text-gray-700">貯蓄・投資計画</h2>
+            <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 space-y-3">
+              <h2 className="text-sm font-semibold text-slate-300">貯蓄・投資計画</h2>
               <div>
-                <label className="text-xs text-gray-700 mb-1 block">月</label>
+                <label className="text-xs text-slate-300 mb-1 block">月</label>
                 <div className="flex items-center gap-1 border rounded-lg px-2 py-1">
                   <button onClick={() => setPlanMonth(m => { const [y,mo] = m.split("-").map(Number); const d = new Date(y, mo-2, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` })}
-                    className="text-gray-600 hover:text-blue-600 px-1 font-bold text-base">‹</button>
+                    className="text-slate-400 hover:text-blue-400 px-1 font-bold text-base">‹</button>
                   <input type="month" value={planMonth} onChange={e => setPlanMonth(e.target.value)}
-                    className="flex-1 text-center text-sm font-semibold text-gray-800 border-0 outline-none bg-transparent min-w-0" />
+                    className="flex-1 text-center text-sm font-semibold text-slate-100 border-0 outline-none bg-transparent min-w-0" />
                   <button onClick={() => setPlanMonth(m => { const [y,mo] = m.split("-").map(Number); const d = new Date(y, mo, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` })}
-                    className="text-gray-600 hover:text-blue-600 px-1 font-bold text-base">›</button>
+                    className="text-slate-400 hover:text-blue-400 px-1 font-bold text-base">›</button>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-gray-700 mb-1 block">🏦 貯金目標（円）</label>
+                  <label className="text-xs text-slate-300 mb-1 block">🏦 貯金目標（円）</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs">¥</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">¥</span>
                     <input type="number" value={planSavingsTarget} onChange={e => setPlanSavingsTarget(e.target.value)}
-                      placeholder="0" className="w-full border rounded-lg pl-6 pr-3 py-2 text-sm text-gray-800" />
+                      placeholder="0" className="w-full border rounded-lg pl-6 pr-3 py-2 text-sm text-slate-100" />
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-700 mb-1 block">📈 NISA積立目標（円）</label>
+                  <label className="text-xs text-slate-300 mb-1 block">📈 NISA積立目標（円）</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs">¥</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">¥</span>
                     <input type="number" value={planNisaTarget} onChange={e => setPlanNisaTarget(e.target.value)}
-                      placeholder="0" className="w-full border rounded-lg pl-6 pr-3 py-2 text-sm text-gray-800" />
+                      placeholder="0" className="w-full border rounded-lg pl-6 pr-3 py-2 text-sm text-slate-100" />
                   </div>
                 </div>
               </div>
-              {planMsg && <p className="text-xs text-green-600">✅ {planMsg}</p>}
+              {planMsg && <p className="text-xs text-green-400">✅ {planMsg}</p>}
               <button onClick={handleSavePlan} disabled={planSaving}
                 className="w-full bg-blue-600 text-white rounded-lg py-2.5 text-sm font-semibold disabled:opacity-50">
                 {planSaving ? "保存中..." : "計画を保存"}
@@ -652,30 +652,30 @@ function SettingsContent() {
             </div>
 
             {/* 収支サマリー */}
-            <div className="bg-white rounded-xl shadow-sm p-3 space-y-3">
-              <h2 className="text-sm font-semibold text-gray-700">{planMonth} 収支サマリー</h2>
+            <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 space-y-3">
+              <h2 className="text-sm font-semibold text-slate-300">{planMonth} 収支サマリー</h2>
               <div className="space-y-1.5 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">収入</span>
-                  <span className="font-medium text-green-600">+{toJPY(planIncomeTotal)}</span>
+                  <span className="text-slate-400">収入</span>
+                  <span className="font-medium text-green-400">+{toJPY(planIncomeTotal)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500 pl-3 text-xs">個人支出（予算）</span>
+                  <span className="text-slate-400 pl-3 text-xs">個人支出（予算）</span>
                   <span className="text-xs text-red-400">-{toJPY(planSelfBudget)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500 pl-3 text-xs">共用支出（予算）</span>
+                  <span className="text-slate-400 pl-3 text-xs">共用支出（予算）</span>
                   <span className="text-xs text-red-400">-{toJPY(planJointBudget)}</span>
                 </div>
                 {Number(planSavingsTarget) > 0 && (
                   <div className="flex justify-between">
-                    <span className="text-gray-500 pl-3 text-xs">貯金目標</span>
+                    <span className="text-slate-400 pl-3 text-xs">貯金目標</span>
                     <span className="text-xs text-blue-400">-{toJPY(Number(planSavingsTarget))}</span>
                   </div>
                 )}
                 {Number(planNisaTarget) > 0 && (
                   <div className="flex justify-between">
-                    <span className="text-gray-500 pl-3 text-xs">NISA積立目標</span>
+                    <span className="text-slate-400 pl-3 text-xs">NISA積立目標</span>
                     <span className="text-xs text-purple-400">-{toJPY(Number(planNisaTarget))}</span>
                   </div>
                 )}
@@ -683,9 +683,9 @@ function SettingsContent() {
               {(() => {
                 const freeBalance = planIncomeTotal - planSelfBudget - planJointBudget - (Number(planSavingsTarget) || 0) - (Number(planNisaTarget) || 0)
                 return (
-                  <div className={`rounded-xl p-3 text-center ${freeBalance >= 0 ? "bg-blue-50" : "bg-red-50"}`}>
-                    <p className="text-xs text-gray-500 mb-0.5">余力資金（計画ベース）</p>
-                    <p className={`text-xl font-bold ${freeBalance >= 0 ? "text-blue-600" : "text-red-500"}`}>
+                  <div className={`rounded-xl p-3 text-center ${freeBalance >= 0 ? "bg-blue-500/10" : "bg-red-500/10"}`}>
+                    <p className="text-xs text-slate-400 mb-0.5">余力資金（計画ベース）</p>
+                    <p className={`text-xl font-bold ${freeBalance >= 0 ? "text-blue-400" : "text-red-400"}`}>
                       {freeBalance >= 0 ? "+" : ""}{toJPY(freeBalance)}
                     </p>
                   </div>
@@ -694,18 +694,18 @@ function SettingsContent() {
               {/* 貯金・NISA実績 */}
               {(planActual.savingsActual > 0 || planActual.nisaActual > 0) && (
                 <div className="border-t pt-2 space-y-2">
-                  <p className="text-xs text-gray-500 font-medium">実績（資産の前月比）</p>
+                  <p className="text-xs text-slate-400 font-medium">実績（資産の前月比）</p>
                   {[
                     { label: "🏦 貯金", target: Number(planSavingsTarget) || 0, actual: planActual.savingsActual, color: "#10b981" },
                     { label: "📈 NISA", target: Number(planNisaTarget) || 0, actual: planActual.nisaActual, color: "#8b5cf6" },
                   ].map(row => (
                     <div key={row.label}>
                       <div className="flex justify-between text-xs mb-1">
-                        <span className="text-gray-700">{row.label}</span>
-                        <span className="text-gray-700">{toJPY(row.actual)}{row.target > 0 ? ` / ${toJPY(row.target)}` : ""}</span>
+                        <span className="text-slate-300">{row.label}</span>
+                        <span className="text-slate-300">{toJPY(row.actual)}{row.target > 0 ? ` / ${toJPY(row.target)}` : ""}</span>
                       </div>
                       {row.target > 0 && (
-                        <div className="w-full bg-gray-100 rounded-full h-1.5">
+                        <div className="w-full bg-slate-800 rounded-full h-1.5">
                           <div className="h-1.5 rounded-full transition-all"
                             style={{ width: `${Math.min((row.actual / row.target) * 100, 100)}%`, backgroundColor: row.color }} />
                         </div>
@@ -722,17 +722,17 @@ function SettingsContent() {
         {tab === "category" && (() => {
           // 共通: カテゴリリストブロック
           const CategoryBlock = () => (
-            <div className="bg-white rounded-xl shadow-sm p-3 space-y-2">
-              <h2 className="text-xs font-semibold text-gray-700">カテゴリ一覧</h2>
+            <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 space-y-2">
+              <h2 className="text-xs font-semibold text-slate-300">カテゴリ一覧</h2>
               <div className="flex gap-1.5">
                 <button type="button"
                   onClick={() => { setCatViewType("self"); setNewCatCardType("self") }}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${catViewType === "self" ? "bg-indigo-600 text-white border-indigo-600" : "border-gray-300 text-gray-600"}`}>
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${catViewType === "self" ? "bg-indigo-600 text-white border-indigo-600" : "border-slate-700 text-slate-400"}`}>
                   個人
                 </button>
                 <button type="button"
                   onClick={() => { setCatViewType("joint"); setNewCatCardType("joint") }}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${catViewType === "joint" ? "bg-amber-500 text-white border-amber-500" : "border-gray-300 text-gray-600"}`}>
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${catViewType === "joint" ? "bg-amber-500 text-white border-amber-500" : "border-slate-700 text-slate-400"}`}>
                   共用
                 </button>
               </div>
@@ -742,10 +742,10 @@ function SettingsContent() {
                   const visibleRows = categoryRows
                     .filter(r => catViewType === "joint" ? r.card_type === "joint" : r.card_type !== "joint")
                     .sort((a, b) => (a.sort_order ?? 9999) - (b.sort_order ?? 9999))
-                  if (visibleRows.length === 0) return <p className="text-xs text-gray-400 px-3 py-3">なし</p>
+                  if (visibleRows.length === 0) return <p className="text-xs text-slate-500 px-3 py-3">なし</p>
                   return (
                     <>
-                      <div className="grid grid-cols-[18px_1fr_auto_auto_auto] bg-gray-50 border-b text-xs text-gray-500 font-medium">
+                      <div className="grid grid-cols-[18px_1fr_auto_auto_auto] bg-slate-800 border-b text-xs text-slate-400 font-medium">
                         <div></div>
                         <div className="px-2 py-1">カテゴリ名</div>
                         <div className="px-2 py-1">グループ</div>
@@ -771,12 +771,12 @@ function SettingsContent() {
                               }}
                               className={`grid grid-cols-[18px_1fr_auto_auto_auto] items-center border-b last:border-b-0 border-l-2 transition-all
                                 ${gc ? gc.border : "border-l-transparent"}
-                                ${isDragging ? "opacity-40 bg-blue-50" : gc ? gc.light : "hover:bg-gray-50"}
+                                ${isDragging ? "opacity-40 bg-blue-500/10" : gc ? gc.light : "hover:bg-slate-800"}
                                 ${isDragOver ? "border-t-2 border-t-blue-400" : ""}
                               `}
                             >
                               {/* ドラッグハンドル */}
-                              <span className="flex items-center justify-center text-gray-300 cursor-grab active:cursor-grabbing select-none text-sm h-full">
+                              <span className="flex items-center justify-center text-slate-600 cursor-grab active:cursor-grabbing select-none text-sm h-full">
                                 ⠿
                               </span>
                               <div className="flex items-center gap-1.5 px-2 py-1.5">
@@ -785,12 +785,12 @@ function SettingsContent() {
                                     {r.group_type}
                                   </span>
                                 )}
-                                <span className="text-xs text-gray-800">{r.name}</span>
+                                <span className="text-xs text-slate-100">{r.name}</span>
                               </div>
                               <select
                                 value={r.group_type ?? ""}
                                 onChange={e => handleSetGroupType(r.name, r.card_type, e.target.value || null)}
-                                className={`text-xs border-0 border-l bg-transparent py-1 px-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400 ${gc ? gc.text : "text-gray-700"}`}
+                                className={`text-xs border-0 border-l bg-transparent py-1 px-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400 ${gc ? gc.text : "text-slate-300"}`}
                               >
                                 <option value="">—</option>
                                 {GROUP_ORDER.map(g => <option key={g} value={g}>{g}</option>)}
@@ -808,10 +808,10 @@ function SettingsContent() {
                                     title={isAuto ? `自動判定: ${effSign === "plus" ? "＋収入" : effSign === "minus" ? "－支出" : "〜中立"}（クリックで手動設定）` : "クリックで変更"}
                                     className={`w-8 py-1 text-xs font-bold leading-none border-l text-center transition-colors ${
                                       effSign === "plus"
-                                        ? isAuto ? "text-green-400 bg-transparent" : "text-green-600 bg-green-50"
+                                        ? isAuto ? "text-green-400 bg-transparent" : "text-green-400 bg-green-500/10"
                                         : effSign === "minus"
-                                        ? isAuto ? "text-red-300 bg-transparent" : "text-red-500 bg-red-50"
-                                        : isAuto ? "text-gray-300 bg-transparent" : "text-gray-500 bg-gray-50"
+                                        ? isAuto ? "text-red-300 bg-transparent" : "text-red-400 bg-red-500/10"
+                                        : isAuto ? "text-slate-600 bg-transparent" : "text-slate-400 bg-slate-800"
                                     }`}
                                   >
                                     {effSign === "plus" ? "＋" : effSign === "minus" ? "－" : "〜"}
@@ -819,7 +819,7 @@ function SettingsContent() {
                                 )
                               })()}
                               <button onClick={() => handleDeleteCategory(r.name)}
-                                className="w-7 py-1 text-gray-300 hover:text-red-500 text-base leading-none border-l text-center">×</button>
+                                className="w-7 py-1 text-slate-600 hover:text-red-400 text-base leading-none border-l text-center">×</button>
                             </div>
                           )
                         })}
@@ -832,7 +832,7 @@ function SettingsContent() {
                 <input type="text" value={newCatName} onChange={e => setNewCatName(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && handleAddCategory()}
                   placeholder={`新しい${catViewType === "joint" ? "共用" : "個人"}カテゴリ名`}
-                  className="flex-1 border rounded-lg px-2 py-1.5 text-xs text-gray-800"
+                  className="flex-1 border rounded-lg px-2 py-1.5 text-xs text-slate-100"
                 />
                 <button onClick={handleAddCategory} disabled={catSaving || !newCatName.trim()}
                   className="bg-blue-600 text-white rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50">
@@ -844,11 +844,11 @@ function SettingsContent() {
 
           // 共通: 振り分けルールブロック
           const RulesBlock = () => (
-            <div className="bg-white rounded-xl shadow-sm p-3 space-y-2">
-              <h2 className="text-xs font-semibold text-gray-700">自動振り分けルール</h2>
-              <p className="text-xs text-gray-400">CSVインポート時、メモのキーワードからカテゴリを自動設定</p>
-              <div className={`border rounded-lg p-2 space-y-2 ${editingRule ? "border-blue-400 bg-blue-50" : "border-gray-200"}`}>
-                <p className="text-xs font-medium text-gray-600">{editingRule ? "ルールを編集" : "ルールを追加"}</p>
+            <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 space-y-2">
+              <h2 className="text-xs font-semibold text-slate-300">自動振り分けルール</h2>
+              <p className="text-xs text-slate-500">CSVインポート時、メモのキーワードからカテゴリを自動設定</p>
+              <div className={`border rounded-lg p-2 space-y-2 ${editingRule ? "border-blue-400 bg-blue-500/10" : "border-slate-800"}`}>
+                <p className="text-xs font-medium text-slate-400">{editingRule ? "ルールを編集" : "ルールを追加"}</p>
                 <div className="flex gap-2">
                   <input
                     id="rule-keyword-input"
@@ -856,12 +856,12 @@ function SettingsContent() {
                     value={newRuleKeyword}
                     onChange={e => setNewRuleKeyword(e.target.value)}
                     placeholder="キーワード（店舗名など）"
-                    className="flex-1 border rounded px-2 py-1.5 text-xs text-gray-800 min-w-0"
+                    className="flex-1 border rounded px-2 py-1.5 text-xs text-slate-100 min-w-0"
                   />
                   <select
                     value={newRuleCategory}
                     onChange={e => setNewRuleCategory(e.target.value)}
-                    className="border rounded px-2 py-1.5 text-xs text-gray-800 bg-white"
+                    className="border rounded px-2 py-1.5 text-xs text-slate-100 bg-slate-900"
                   >
                     <option value="">カテゴリ選択</option>
                     {categoryRows
@@ -872,7 +872,7 @@ function SettingsContent() {
                 <div className="flex gap-2">
                   {editingRule && (
                     <button onClick={() => { setEditingRule(null); setNewRuleKeyword(""); setNewRuleCategory("") }}
-                      className="flex-1 border border-gray-300 text-gray-600 rounded py-1.5 text-xs">
+                      className="flex-1 border border-slate-700 text-slate-400 rounded py-1.5 text-xs">
                       キャンセル
                     </button>
                   )}
@@ -890,28 +890,28 @@ function SettingsContent() {
                 value={ruleSearch}
                 onChange={e => { setRuleSearch(e.target.value); fetchStoreRules(e.target.value) }}
                 placeholder="検索..."
-                className="w-full border rounded px-2 py-1.5 text-xs text-gray-800"
+                className="w-full border rounded px-2 py-1.5 text-xs text-slate-100"
               />
               <div className="border rounded-lg overflow-hidden max-h-80 overflow-y-auto">
                 {storeRules.length === 0 ? (
-                  <p className="text-center py-4 text-xs text-gray-400">ルールがありません</p>
+                  <p className="text-center py-4 text-xs text-slate-500">ルールがありません</p>
                 ) : (
                   storeRules.map(r => (
-                    <div key={r.id} className="flex items-center gap-2 px-2 py-1.5 border-b last:border-0 hover:bg-gray-50">
-                      <span className="flex-1 text-xs text-gray-800 truncate">{r.keyword}</span>
-                      <span className="text-xs text-gray-400">→</span>
-                      <span className="text-xs font-medium text-blue-600 w-20 truncate text-right">{r.category}</span>
+                    <div key={r.id} className="flex items-center gap-2 px-2 py-1.5 border-b last:border-0 hover:bg-slate-800">
+                      <span className="flex-1 text-xs text-slate-100 truncate">{r.keyword}</span>
+                      <span className="text-xs text-slate-500">→</span>
+                      <span className="text-xs font-medium text-blue-400 w-20 truncate text-right">{r.category}</span>
                       <button
                         onClick={() => { setEditingRule(r); setNewRuleKeyword(r.keyword); setNewRuleCategory(r.category) }}
-                        className="text-xs text-gray-400 hover:text-blue-500 px-1">
+                        className="text-xs text-slate-500 hover:text-blue-400 px-1">
                         編集
                       </button>
-                      <button onClick={() => handleDeleteRule(r.id)} className="text-gray-300 hover:text-red-400 text-lg leading-none w-5">×</button>
+                      <button onClick={() => handleDeleteRule(r.id)} className="text-slate-600 hover:text-red-400 text-lg leading-none w-5">×</button>
                     </div>
                   ))
                 )}
               </div>
-              <p className="text-xs text-gray-400 text-right">{storeRules.length}件</p>
+              <p className="text-xs text-slate-500 text-right">{storeRules.length}件</p>
             </div>
           )
 
@@ -920,31 +920,31 @@ function SettingsContent() {
             catViewType === "joint" ? m.card_type === "joint" : m.card_type !== "joint"
           )
           const UncategorizedBlock = () => filtered.length === 0 ? (
-            <div className="bg-white rounded-xl shadow-sm p-3">
-              <h2 className="text-xs font-semibold text-gray-700 mb-2">未分類の明細</h2>
-              <p className="text-xs text-gray-400 text-center py-4">未分類の明細はありません ✅</p>
+            <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3">
+              <h2 className="text-xs font-semibold text-slate-300 mb-2">未分類の明細</h2>
+              <p className="text-xs text-slate-500 text-center py-4">未分類の明細はありません ✅</p>
             </div>
           ) : (
-            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-              <div className="px-3 py-2 bg-orange-50 border-b border-orange-100 flex items-center justify-between">
-                <h2 className="text-xs font-semibold text-orange-700">⚠ 未分類の明細（{filtered.length}件）</h2>
+            <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 overflow-hidden">
+              <div className="px-3 py-2 bg-orange-500/10 border-b border-orange-500/20 flex items-center justify-between">
+                <h2 className="text-xs font-semibold text-orange-300">⚠ 未分類の明細（{filtered.length}件）</h2>
                 <span className="text-xs text-orange-400">クリックしてルール追加</span>
               </div>
               <div className="max-h-80 overflow-y-auto">
                 {filtered.map(m => (
                   <div key={`${m.memo}-${m.card_type}`}
-                    className="flex items-center gap-2 px-3 py-1.5 border-b last:border-0 hover:bg-orange-50 cursor-pointer"
+                    className="flex items-center gap-2 px-3 py-1.5 border-b last:border-0 hover:bg-orange-500/10 cursor-pointer"
                     onClick={() => {
                       setNewRuleKeyword(m.memo)
                       setNewRuleCategory("")
                       setEditingRule(null)
                       setTimeout(() => { document.getElementById("rule-keyword-input")?.focus() }, 100)
                     }}>
-                    <span className={`text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${m.card_type === "joint" ? "bg-amber-100 text-amber-700" : "bg-indigo-100 text-indigo-700"}`}>
+                    <span className={`text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${m.card_type === "joint" ? "bg-amber-500/15 text-amber-300" : "bg-indigo-500/15 text-indigo-300"}`}>
                       {m.card_type === "joint" ? "共" : "個"}
                     </span>
-                    <span className="flex-1 text-xs text-gray-800 truncate">{m.memo}</span>
-                    <span className="text-xs text-gray-400 shrink-0">{m.count}件</span>
+                    <span className="flex-1 text-xs text-slate-100 truncate">{m.memo}</span>
+                    <span className="text-xs text-slate-500 shrink-0">{m.count}件</span>
                     <span className="text-xs text-blue-400 shrink-0">+ルール</span>
                   </div>
                 ))}
@@ -953,16 +953,16 @@ function SettingsContent() {
           )
 
           const CardBlock = () => (
-            <div className="bg-white rounded-xl shadow-sm p-3 space-y-2">
-              <h2 className="text-xs font-semibold text-gray-700">支払方法管理</h2>
+            <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 space-y-2">
+              <h2 className="text-xs font-semibold text-slate-300">支払方法管理</h2>
               {/* 個人/共用トグル */}
-              <div className="flex rounded-lg bg-gray-100 p-0.5">
+              <div className="flex rounded-lg bg-slate-800 p-0.5">
                 {([["self", "個人"] as const, ["joint", "共用"] as const]).map(([k, label]) => (
                   <button key={k} type="button" onClick={() => setCardViewType(k)}
                     className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors ${
                       cardViewType === k
-                        ? k === "self" ? "bg-white text-indigo-600 shadow-sm" : "bg-white text-amber-600 shadow-sm"
-                        : "text-gray-500"
+                        ? k === "self" ? "bg-slate-900 text-indigo-400 shadow-sm" : "bg-slate-900 text-amber-400 shadow-sm"
+                        : "text-slate-400"
                     }`}>
                     {label}
                   </button>
@@ -976,7 +976,7 @@ function SettingsContent() {
                   onChange={e => setNewCardName(e.target.value)}
                   onKeyDown={e => { if (e.key === "Enter") handleAddCard() }}
                   placeholder="新しい支払方法名"
-                  className="flex-1 text-xs border rounded-lg px-3 py-1.5 text-gray-800 outline-none focus:ring-1 focus:ring-blue-400"
+                  className="flex-1 text-xs border rounded-lg px-3 py-1.5 text-slate-100 outline-none focus:ring-1 focus:ring-blue-400"
                 />
                 <button
                   onClick={handleAddCard}
@@ -1000,12 +1000,12 @@ function SettingsContent() {
                           if (e.key === "Enter") handleRenameCard(c.id, editingCardName)
                           if (e.key === "Escape") setEditingCardId(null)
                         }}
-                        className="text-xs font-medium text-gray-800 flex-1 border border-blue-400 rounded px-2 py-0.5 outline-none focus:ring-1 focus:ring-blue-400 bg-white min-w-0"
+                        className="text-xs font-medium text-slate-100 flex-1 border border-blue-400 rounded px-2 py-0.5 outline-none focus:ring-1 focus:ring-blue-400 bg-slate-900 min-w-0"
                       />
                     ) : (
                       <span
                         onClick={() => { setEditingCardId(c.id); setEditingCardName(c.name) }}
-                        className="text-xs font-medium text-gray-800 flex-1 cursor-pointer hover:text-blue-600 hover:underline"
+                        className="text-xs font-medium text-slate-100 flex-1 cursor-pointer hover:text-blue-400 hover:underline"
                         title="クリックして名前を編集"
                       >
                         {c.name}
@@ -1016,12 +1016,12 @@ function SettingsContent() {
                       title={c.has_csv ? "CSV対応ON（クリックでOFF）" : "CSV対応OFF（クリックでON）"}
                       className={`text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0 border transition-colors ${
                         c.has_csv
-                          ? "bg-blue-100 text-blue-600 border-blue-300"
-                          : "bg-gray-100 text-gray-400 border-gray-200"
+                          ? "bg-blue-500/15 text-blue-400 border-blue-500/40"
+                          : "bg-slate-800 text-slate-500 border-slate-800"
                       }`}
                     >CSV</button>
                     <button onClick={() => handleDeleteCard(c)}
-                      className="text-gray-300 hover:text-red-400 text-lg leading-none w-5 shrink-0">×</button>
+                      className="text-slate-600 hover:text-red-400 text-lg leading-none w-5 shrink-0">×</button>
                   </div>
                 ))}
               </div>

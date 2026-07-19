@@ -41,7 +41,7 @@ export function ViewModeProvider({ children }: { children: ReactNode }) {
   return (
     <ViewModeContext.Provider value={{ mode, toggle }}>
       {mode === "pc" && !isLoginPage ? (
-        <div className="pc-layout flex min-h-screen bg-gray-50">
+        <div className="pc-layout flex min-h-screen bg-slate-950">
           <SideNav />
           <div className="flex-1 ml-44 min-h-screen overflow-auto">
             {children}

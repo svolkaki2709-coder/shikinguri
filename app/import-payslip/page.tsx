@@ -323,24 +323,24 @@ export default function ImportPayslipPage() {
     const isEditing = editingKey === field
     return (
       <div className="flex justify-between items-center group">
-        <span className="text-xs text-gray-600">{label}</span>
+        <span className="text-xs text-slate-400">{label}</span>
         {isEditing ? (
           <div className="flex items-center gap-1">
-            <span className="text-xs text-gray-400">¥</span>
+            <span className="text-xs text-slate-500">¥</span>
             <input
               type="text" inputMode="numeric" autoFocus
               value={editingValue}
               onChange={e => { const r = e.target.value.replace(/,/g, ""); if (r === "" || /^\d+$/.test(r)) setEditingValue(r) }}
               onBlur={commitEdit}
               onKeyDown={e => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditingKey(null) }}
-              className="w-28 border-b border-blue-400 text-right text-xs font-medium outline-none bg-transparent py-0.5 text-gray-900"
+              className="w-28 border-b border-blue-400 text-right text-xs font-medium outline-none bg-transparent py-0.5 text-slate-100"
             />
           </div>
         ) : (
           <button type="button" onClick={() => startEdit(field, value)}
             className={`text-xs ${color} ${bold ? "font-bold" : "font-medium"} flex items-center gap-1 hover:opacity-70 transition-opacity`}>
             {toJPY(value)}
-            <span className="text-gray-300 group-hover:text-gray-400 text-[10px]">✎</span>
+            <span className="text-slate-600 group-hover:text-slate-500 text-[10px]">✎</span>
           </button>
         )}
       </div>
@@ -352,42 +352,42 @@ export default function ImportPayslipPage() {
       <PageHeader title="給与明細取込" />
       <div className="max-w-lg mx-auto px-4 py-3 space-y-4">
 
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-700">
+        <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 text-xs text-blue-300">
           <p className="font-semibold">アイドマ・ホールディングス給与明細PDF対応</p>
-          <p className="text-blue-500 mt-0.5">金額をタップして修正できます</p>
+          <p className="text-blue-400 mt-0.5">金額をタップして修正できます</p>
         </div>
 
         <div
-          className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors"
+          className="border-2 border-dashed border-slate-700 rounded-xl p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-500/10 transition-colors"
           onClick={() => fileRef.current?.click()}
           onDragOver={e => e.preventDefault()}
           onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.type === "application/pdf") { setFile(f); doParse(f) } }}
         >
           <div className="text-4xl mb-2">📄</div>
-          <p className="text-sm font-medium text-gray-600">{file ? file.name : "タップしてPDFを選択"}</p>
-          <p className="text-xs text-gray-400 mt-1">.pdf ファイル</p>
+          <p className="text-sm font-medium text-slate-400">{file ? file.name : "タップしてPDFを選択"}</p>
+          <p className="text-xs text-slate-500 mt-1">.pdf ファイル</p>
           <input ref={fileRef} type="file" accept=".pdf" className="hidden"
             onChange={e => { const f = e.target.files?.[0]; if (f) { setFile(f); doParse(f) } }} />
         </div>
 
-        {loading && <div className="text-center py-6 text-gray-400 text-sm">解析中...</div>}
-        {error && <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-xs text-red-600">{error}</div>}
+        {loading && <div className="text-center py-6 text-slate-500 text-sm">解析中...</div>}
+        {error && <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 text-xs text-red-400">{error}</div>}
 
         {result && (
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-            <div className="bg-gray-800 text-white px-4 py-2 flex items-center justify-between">
+          <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 overflow-hidden">
+            <div className="bg-slate-800 text-white px-4 py-2 flex items-center justify-between">
               <span className="text-sm font-bold">
                 {result.paymentMonth ? `${result.paymentMonth.replace("-", "年")}月支払分` : "支払月不明"}
               </span>
-              <span className="text-[10px] text-gray-400">金額をタップして修正</span>
+              <span className="text-[10px] text-slate-500">金額をタップして修正</span>
             </div>
 
             {/* 支給 */}
-            <div className="px-4 py-3 border-b border-gray-100">
-              <p className="text-[10px] font-semibold text-gray-400 mb-2">支給</p>
+            <div className="px-4 py-3 border-b border-slate-800">
+              <p className="text-[10px] font-semibold text-slate-500 mb-2">支給</p>
               <div className="space-y-1.5">
-                <EditableRow label="支給合計（額面）" field="grossPay" color="text-gray-800" />
-                <EditableRow label="差引総支給額（手取り）" field="netPay" color="text-gray-800" />
+                <EditableRow label="支給合計（額面）" field="grossPay" color="text-slate-100" />
+                <EditableRow label="差引総支給額（手取り）" field="netPay" color="text-slate-100" />
                 {/* 通勤・交通費: 立替精算切替トグル付き */}
                 {(
                   [
@@ -399,15 +399,15 @@ export default function ImportPayslipPage() {
                   result && (result[field] as number | null) ? (
                     <div key={field} className="flex items-center justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <EditableRow label={label} field={field} color="text-orange-600" />
+                        <EditableRow label={label} field={field} color="text-orange-400" />
                       </div>
                       <button
                         type="button"
                         onClick={() => setMode(mode === "exclude" ? "reimburse" : "exclude")}
                         className={`text-[10px] px-2 py-0.5 rounded-full border shrink-0 transition-colors whitespace-nowrap ${
                           mode === "reimburse"
-                            ? "border-blue-400 bg-blue-50 text-blue-600 font-semibold"
-                            : "border-gray-200 text-gray-400 hover:border-gray-300"
+                            ? "border-blue-400 bg-blue-500/10 text-blue-400 font-semibold"
+                            : "border-slate-800 text-slate-500 hover:border-slate-700"
                         }`}
                       >
                         {mode === "reimburse" ? "✓ 立替精算登録" : "立替精算登録"}
@@ -426,10 +426,10 @@ export default function ImportPayslipPage() {
                       type="text" placeholder="項目名（例: 賞与）"
                       value={adj.label}
                       onChange={e => updateAdj(setIncomeAdj, adj.id, "label", e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-xs text-gray-900 outline-none focus:ring-1 focus:ring-blue-400 min-w-0"
+                      className="flex-1 border border-slate-800 rounded-lg px-2 py-1 text-xs text-slate-100 outline-none focus:ring-1 focus:ring-blue-400 min-w-0"
                     />
                     <div className="relative shrink-0">
-                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">¥</span>
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-500">¥</span>
                       <input
                         type="text" inputMode="numeric" placeholder="0"
                         value={adj.amount}
@@ -437,46 +437,46 @@ export default function ImportPayslipPage() {
                           const v = e.target.value
                           if (v === "" || /^\d*$/.test(v.replace(/,/g, ""))) updateAdj(setIncomeAdj, adj.id, "amount", v)
                         }}
-                        className={`w-28 border rounded-lg pl-5 pr-2 py-1 text-right text-xs font-medium outline-none focus:ring-1 focus:ring-blue-400 text-gray-900 ${
-                          !isNaN(amt) && amt > 0 ? "border-green-300 bg-green-50" : "border-gray-200"
+                        className={`w-28 border rounded-lg pl-5 pr-2 py-1 text-right text-xs font-medium outline-none focus:ring-1 focus:ring-blue-400 text-slate-100 ${
+                          !isNaN(amt) && amt > 0 ? "border-green-500/40 bg-green-500/10" : "border-slate-800"
                         }`}
                       />
                     </div>
                     <button type="button" onClick={() => removeAdj(setIncomeAdj, adj.id)}
-                      className="text-gray-300 hover:text-red-400 text-lg leading-none shrink-0">×</button>
+                      className="text-slate-600 hover:text-red-400 text-lg leading-none shrink-0">×</button>
                   </div>
                 )
               })}
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {INCOME_PRESETS.map(p => (
                   <button key={p} type="button" onClick={() => addAdj(setIncomeAdj, p)}
-                    className="text-[10px] px-2 py-0.5 rounded-full border border-gray-200 text-gray-500 hover:border-green-300 hover:text-green-600 hover:bg-green-50 transition-colors">
+                    className="text-[10px] px-2 py-0.5 rounded-full border border-slate-800 text-slate-400 hover:border-green-500/40 hover:text-green-400 hover:bg-green-500/10 transition-colors">
                     ＋{p}
                   </button>
                 ))}
                 <button type="button" onClick={() => addAdj(setIncomeAdj)}
-                  className="text-[10px] px-2 py-0.5 rounded-full border border-dashed border-gray-300 text-gray-400 hover:border-green-300 hover:text-green-500 transition-colors">
+                  className="text-[10px] px-2 py-0.5 rounded-full border border-dashed border-slate-700 text-slate-500 hover:border-green-500/40 hover:text-green-400 transition-colors">
                   ＋支給追加
                 </button>
               </div>
 
               {/* 登録される給与額 */}
-              <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between items-center bg-green-50 -mx-4 px-4 py-1.5">
-                <span className="text-xs text-green-700 font-semibold">登録する給与収入</span>
-                <span className="text-xs text-green-700 font-bold">{toJPY(salaryIncome)}</span>
+              <div className="mt-2 pt-2 border-t border-slate-800 flex justify-between items-center bg-green-500/10 -mx-4 px-4 py-1.5">
+                <span className="text-xs text-green-300 font-semibold">登録する給与収入</span>
+                <span className="text-xs text-green-300 font-bold">{toJPY(salaryIncome)}</span>
               </div>
-              <p className="text-[10px] text-gray-400 mt-1">支給合計（額面）− 営業交通費・通勤手当</p>
+              <p className="text-[10px] text-slate-500 mt-1">支給合計（額面）− 営業交通費・通勤手当</p>
             </div>
 
             {/* 控除＋調整 */}
-            <div className="px-4 py-3 border-b border-gray-100">
-              <p className="text-[10px] font-semibold text-gray-400 mb-2">控除・調整</p>
+            <div className="px-4 py-3 border-b border-slate-800">
+              <p className="text-[10px] font-semibold text-slate-500 mb-2">控除・調整</p>
               <div className="space-y-1.5">
-                <EditableRow label="所得税" field="incomeTax" color="text-red-500" />
-                <EditableRow label="住民税" field="residentTax" color="text-red-500" />
-                <EditableRow label="健康保険料" field="healthInsurance" color="text-red-500" />
-                <EditableRow label="厚生年金保険料" field="pension" color="text-red-500" />
-                <EditableRow label="雇用保険料" field="employmentInsurance" color="text-red-500" />
+                <EditableRow label="所得税" field="incomeTax" color="text-red-400" />
+                <EditableRow label="住民税" field="residentTax" color="text-red-400" />
+                <EditableRow label="健康保険料" field="healthInsurance" color="text-red-400" />
+                <EditableRow label="厚生年金保険料" field="pension" color="text-red-400" />
+                <EditableRow label="雇用保険料" field="employmentInsurance" color="text-red-400" />
 
                 {/* 控除調整項目（年末調整還付など） */}
                 {deductionAdj.map(adj => {
@@ -489,10 +489,10 @@ export default function ImportPayslipPage() {
                         type="text" placeholder="項目名（例: 年末調整還付）"
                         value={adj.label}
                         onChange={e => updateAdj(setDeductionAdj, adj.id, "label", e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-xs text-gray-900 outline-none focus:ring-1 focus:ring-blue-400 min-w-0"
+                        className="flex-1 border border-slate-800 rounded-lg px-2 py-1 text-xs text-slate-100 outline-none focus:ring-1 focus:ring-blue-400 min-w-0"
                       />
                       <div className="relative shrink-0">
-                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">¥</span>
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-500">¥</span>
                         <input
                           type="text" inputMode="numeric" placeholder="0"
                           value={adj.amount}
@@ -500,13 +500,13 @@ export default function ImportPayslipPage() {
                             const v = e.target.value
                             if (v === "" || v === "-" || /^-?\d*$/.test(v.replace(/,/g, ""))) updateAdj(setDeductionAdj, adj.id, "amount", v)
                           }}
-                          className={`w-28 border rounded-lg pl-5 pr-2 py-1 text-right text-xs font-medium outline-none focus:ring-1 focus:ring-blue-400 text-gray-900 ${
-                            isNeg ? "border-green-300 bg-green-50" : isPos ? "border-red-300 bg-red-50" : "border-gray-200"
+                          className={`w-28 border rounded-lg pl-5 pr-2 py-1 text-right text-xs font-medium outline-none focus:ring-1 focus:ring-blue-400 text-slate-100 ${
+                            isNeg ? "border-green-500/40 bg-green-500/10" : isPos ? "border-red-500/40 bg-red-500/10" : "border-slate-800"
                           }`}
                         />
                       </div>
                       <button type="button" onClick={() => removeAdj(setDeductionAdj, adj.id)}
-                        className="text-gray-300 hover:text-red-400 text-lg leading-none shrink-0">×</button>
+                        className="text-slate-600 hover:text-red-400 text-lg leading-none shrink-0">×</button>
                     </div>
                   )
                 })}
@@ -515,56 +515,56 @@ export default function ImportPayslipPage() {
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   {DEDUCTION_PRESETS.map(p => (
                     <button key={p} type="button" onClick={() => addAdj(setDeductionAdj, p)}
-                      className="text-[10px] px-2 py-0.5 rounded-full border border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors">
+                      className="text-[10px] px-2 py-0.5 rounded-full border border-slate-800 text-slate-400 hover:border-blue-500/40 hover:text-blue-400 hover:bg-blue-500/10 transition-colors">
                       ＋{p}
                     </button>
                   ))}
                   <button type="button" onClick={() => addAdj(setDeductionAdj)}
-                    className="text-[10px] px-2 py-0.5 rounded-full border border-dashed border-gray-300 text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-colors">
+                    className="text-[10px] px-2 py-0.5 rounded-full border border-dashed border-slate-700 text-slate-500 hover:border-blue-500/40 hover:text-blue-400 transition-colors">
                     ＋控除追加
                   </button>
                 </div>
-                <p className="text-[10px] text-gray-400">マイナス入力（例: -37042）＝還付（控除を減らす）</p>
+                <p className="text-[10px] text-slate-500">マイナス入力（例: -37042）＝還付（控除を減らす）</p>
               </div>
 
               {/* 控除合計 */}
-              <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between items-center bg-red-50 -mx-4 px-4 py-1.5">
-                <span className="text-xs text-red-700 font-semibold">登録する控除合計（給与源泉税）</span>
-                <span className="text-xs text-red-700 font-bold">{toJPY(deductionTotal)}</span>
+              <div className="mt-2 pt-2 border-t border-slate-800 flex justify-between items-center bg-red-500/10 -mx-4 px-4 py-1.5">
+                <span className="text-xs text-red-300 font-semibold">登録する控除合計（給与源泉税）</span>
+                <span className="text-xs text-red-300 font-bold">{toJPY(deductionTotal)}</span>
               </div>
             </div>
 
             {/* 保存 */}
             <div className="px-4 py-3 space-y-2">
-              <div className="bg-gray-50 rounded-lg px-3 py-2 space-y-1">
-                <p className="text-[10px] font-semibold text-gray-500">
+              <div className="bg-slate-800 rounded-lg px-3 py-2 space-y-1">
+                <p className="text-[10px] font-semibold text-slate-400">
                   登録内容（{2 + incomeAdj.filter(a => a.label && Number(a.amount.replace(/,/g, "")) !== 0).length}件）
                 </p>
                 <div className="flex justify-between text-xs">
-                  <span className="text-gray-600">収入: 給与</span>
-                  <span className="text-green-600 font-medium">{toJPY(salaryIncome)}</span>
+                  <span className="text-slate-400">収入: 給与</span>
+                  <span className="text-green-400 font-medium">{toJPY(salaryIncome)}</span>
                 </div>
                 {incomeAdj.filter(a => a.label).map(a => {
                   const amt = Number(a.amount.replace(/,/g, ""))
                   return (
                     <div key={a.id} className="flex justify-between text-xs">
-                      <span className="text-gray-600">収入: {a.label}</span>
-                      <span className="text-green-600 font-medium">{toJPY(isNaN(amt) ? 0 : amt)}</span>
+                      <span className="text-slate-400">収入: {a.label}</span>
+                      <span className="text-green-400 font-medium">{toJPY(isNaN(amt) ? 0 : amt)}</span>
                     </div>
                   )
                 })}
                 <div className="flex justify-between text-xs">
-                  <span className="text-gray-600">控除: 給与源泉税</span>
-                  <span className="text-red-500 font-medium">−{toJPY(deductionTotal)}</span>
+                  <span className="text-slate-400">控除: 給与源泉税</span>
+                  <span className="text-red-400 font-medium">−{toJPY(deductionTotal)}</span>
                 </div>
               </div>
 
               {saveMsg && (
-                <div className={`text-xs rounded-lg px-3 py-2 flex items-center justify-between ${savedIds.length > 0 ? "bg-green-50 text-green-700" : "bg-gray-50 text-gray-500"}`}>
+                <div className={`text-xs rounded-lg px-3 py-2 flex items-center justify-between ${savedIds.length > 0 ? "bg-green-500/10 text-green-300" : "bg-slate-800 text-slate-400"}`}>
                   <span>{saveMsg}</span>
                   {savedIds.length > 0 && (
                     <button onClick={handleUndo}
-                      className="text-[10px] text-red-500 hover:text-red-600 font-semibold ml-3 shrink-0">
+                      className="text-[10px] text-red-400 hover:text-red-400 font-semibold ml-3 shrink-0">
                       取り消す
                     </button>
                   )}
@@ -580,28 +580,28 @@ export default function ImportPayslipPage() {
         )}
         {/* デバッグ: ラベル↔数値対応確認 */}
         {result?._debug && (
-          <details className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs">
-            <summary className="font-semibold text-gray-500 cursor-pointer">🔍 解析デバッグ（ズレ確認用）</summary>
+          <details className="bg-slate-800 border border-slate-800 rounded-xl p-3 text-xs">
+            <summary className="font-semibold text-slate-400 cursor-pointer">🔍 解析デバッグ（ズレ確認用）</summary>
             <div className="mt-2 space-y-2">
               <div>
-                <p className="font-semibold text-gray-600 mb-1">数値リスト（順番）:</p>
-                <p className="text-gray-700">{result._debug.nums.map((n, i) => `[${i}] ${n.toLocaleString()}`).join(" / ")}</p>
+                <p className="font-semibold text-slate-400 mb-1">数値リスト（順番）:</p>
+                <p className="text-slate-300">{result._debug.nums.map((n, i) => `[${i}] ${n.toLocaleString()}`).join(" / ")}</p>
               </div>
               <div>
-                <p className="font-semibold text-gray-600 mb-1">ラベルリスト（順番）:</p>
-                <p className="text-gray-700">{result._debug.labels.map((l, i) => `[${i}] ${l}`).join(" / ")}</p>
+                <p className="font-semibold text-slate-400 mb-1">ラベルリスト（順番）:</p>
+                <p className="text-slate-300">{result._debug.labels.map((l, i) => `[${i}] ${l}`).join(" / ")}</p>
               </div>
               <div>
-                <p className="font-semibold text-gray-600 mb-1">対応結果（val）:</p>
+                <p className="font-semibold text-slate-400 mb-1">対応結果（val）:</p>
                 {Object.entries(result._debug.val).map(([k, v]) => (
-                  <span key={k} className="inline-block mr-2 text-gray-700">{k}: {v.toLocaleString()}</span>
+                  <span key={k} className="inline-block mr-2 text-slate-300">{k}: {v.toLocaleString()}</span>
                 ))}
               </div>
-              <div className="bg-yellow-50 border border-yellow-200 rounded p-2">
-                <p className="font-semibold text-yellow-700 mb-1">APIレスポンス（直接確認用）:</p>
-                <p className="text-gray-700">grossPay: {JSON.stringify(result.grossPay)} / incomeTax: {JSON.stringify(result.incomeTax)} / <strong>residentTax: {JSON.stringify(result.residentTax)}</strong> / healthInsurance: {JSON.stringify(result.healthInsurance)} / pension: {JSON.stringify(result.pension)}</p>
+              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded p-2">
+                <p className="font-semibold text-yellow-300 mb-1">APIレスポンス（直接確認用）:</p>
+                <p className="text-slate-300">grossPay: {JSON.stringify(result.grossPay)} / incomeTax: {JSON.stringify(result.incomeTax)} / <strong>residentTax: {JSON.stringify(result.residentTax)}</strong> / healthInsurance: {JSON.stringify(result.healthInsurance)} / pension: {JSON.stringify(result.pension)}</p>
                 {result._debug?.住民税KeyHex && (
-                  <p className="text-orange-600 mt-1 font-mono text-[10px]">住民税キー文字コード: {result._debug.住民税KeyHex}</p>
+                  <p className="text-orange-400 mt-1 font-mono text-[10px]">住民税キー文字コード: {result._debug.住民税KeyHex}</p>
                 )}
               </div>
             </div>
@@ -610,22 +610,22 @@ export default function ImportPayslipPage() {
 
         {/* 取込履歴 */}
         {history.length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-            <p className="text-xs font-semibold text-gray-600 px-4 py-2.5 border-b bg-gray-50">取込履歴（直近6ヶ月）</p>
+          <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 overflow-hidden">
+            <p className="text-xs font-semibold text-slate-400 px-4 py-2.5 border-b bg-slate-800">取込履歴（直近6ヶ月）</p>
             {history.map(group => {
               const isExpanded = expandedDate === group.date
               return (
                 <div key={group.date} className="border-b last:border-0">
                   {/* ヘッダー行（クリックで展開） */}
                   <div
-                    className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors"
+                    className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-slate-800 transition-colors"
                     onClick={() => setExpandedDate(isExpanded ? null : group.date)}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-400">{isExpanded ? "▼" : "▶"}</span>
+                      <span className="text-xs text-slate-500">{isExpanded ? "▼" : "▶"}</span>
                       <div>
-                        <p className="text-sm font-medium text-gray-800">{group.month}支払分</p>
-                        <p className="text-xs text-gray-400 mt-0.5">
+                        <p className="text-sm font-medium text-slate-100">{group.month}支払分</p>
+                        <p className="text-xs text-slate-500 mt-0.5">
                           {group.records.map(r => `${r.category} ${toJPY(r.amount)}`).join(" / ")}
                         </p>
                       </div>
@@ -633,7 +633,7 @@ export default function ImportPayslipPage() {
                     <button
                       onClick={e => { e.stopPropagation(); handleDeleteHistoryGroup(group) }}
                       disabled={deletingDate === group.date}
-                      className="text-xs text-red-400 hover:text-red-600 border border-red-200 hover:border-red-400 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-40 shrink-0 ml-3"
+                      className="text-xs text-red-400 hover:text-red-400 border border-red-500/30 hover:border-red-400 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-40 shrink-0 ml-3"
                     >
                       {deletingDate === group.date ? "削除中..." : "削除"}
                     </button>
@@ -641,13 +641,13 @@ export default function ImportPayslipPage() {
 
                   {/* 展開: 各レコードのインライン編集 */}
                   {isExpanded && (
-                    <div className="px-4 pb-3 space-y-2 bg-gray-50 border-t border-gray-100">
-                      <p className="text-[10px] text-gray-400 pt-2">金額・カテゴリをタップして編集</p>
+                    <div className="px-4 pb-3 space-y-2 bg-slate-800 border-t border-slate-800">
+                      <p className="text-[10px] text-slate-500 pt-2">金額・カテゴリをタップして編集</p>
                       {group.records.map(rec => {
                         const isEditingAmt = editingRecord?.id === rec.id && editingRecord.field === "amount"
                         const isEditingCat = editingRecord?.id === rec.id && editingRecord.field === "category"
                         return (
-                          <div key={rec.id} className="flex items-center gap-2 bg-white rounded-lg px-3 py-2 shadow-sm">
+                          <div key={rec.id} className="flex items-center gap-2 bg-slate-900 rounded-lg px-3 py-2 shadow-sm">
                             {/* カテゴリ */}
                             {isEditingCat ? (
                               <input
@@ -657,22 +657,22 @@ export default function ImportPayslipPage() {
                                 onChange={e => setEditingRecord(r => r ? { ...r, value: e.target.value } : r)}
                                 onBlur={commitRecordEdit}
                                 onKeyDown={e => { if (e.key === "Enter") commitRecordEdit(); if (e.key === "Escape") setEditingRecord(null) }}
-                                className="flex-1 border-b border-blue-400 text-xs text-gray-900 outline-none bg-transparent py-0.5"
+                                className="flex-1 border-b border-blue-400 text-xs text-slate-100 outline-none bg-transparent py-0.5"
                               />
                             ) : (
                               <button
                                 type="button"
                                 onClick={() => setEditingRecord({ id: rec.id, field: "category", value: rec.category })}
-                                className="flex-1 text-left text-xs text-gray-700 hover:text-blue-600 transition-colors"
+                                className="flex-1 text-left text-xs text-slate-300 hover:text-blue-400 transition-colors"
                               >
                                 {rec.category}
-                                <span className="text-gray-300 ml-1 text-[10px]">✎</span>
+                                <span className="text-slate-600 ml-1 text-[10px]">✎</span>
                               </button>
                             )}
                             {/* 金額 */}
                             {isEditingAmt ? (
                               <div className="flex items-center gap-1 shrink-0">
-                                <span className="text-xs text-gray-400">¥</span>
+                                <span className="text-xs text-slate-500">¥</span>
                                 <input
                                   autoFocus
                                   type="text" inputMode="numeric"
@@ -684,17 +684,17 @@ export default function ImportPayslipPage() {
                                   }}
                                   onBlur={commitRecordEdit}
                                   onKeyDown={e => { if (e.key === "Enter") commitRecordEdit(); if (e.key === "Escape") setEditingRecord(null) }}
-                                  className="w-24 border-b border-blue-400 text-right text-xs font-medium outline-none bg-transparent py-0.5 text-gray-900"
+                                  className="w-24 border-b border-blue-400 text-right text-xs font-medium outline-none bg-transparent py-0.5 text-slate-100"
                                 />
                               </div>
                             ) : (
                               <button
                                 type="button"
                                 onClick={() => setEditingRecord({ id: rec.id, field: "amount", value: String(rec.amount) })}
-                                className={`text-xs font-medium shrink-0 hover:opacity-70 transition-opacity ${rec.amount >= 0 ? "text-green-600" : "text-red-500"}`}
+                                className={`text-xs font-medium shrink-0 hover:opacity-70 transition-opacity ${rec.amount >= 0 ? "text-green-400" : "text-red-400"}`}
                               >
                                 {toJPY(rec.amount)}
-                                <span className="text-gray-300 ml-1 text-[10px]">✎</span>
+                                <span className="text-slate-600 ml-1 text-[10px]">✎</span>
                               </button>
                             )}
                           </div>

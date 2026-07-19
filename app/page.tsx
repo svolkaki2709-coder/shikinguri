@@ -4,16 +4,16 @@ import { signIn } from "next-auth/react"
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-blue-50 to-white px-4">
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-lg p-8 flex flex-col items-center gap-6">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-slate-950 to-slate-900 px-4">
+      <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl shadow-lg p-8 flex flex-col items-center gap-6">
         <div className="text-5xl">📒</div>
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-800">家計簿</h1>
-          <p className="text-sm text-gray-500 mt-1">柿岡家計管理アプリ</p>
+          <h1 className="text-2xl font-bold text-slate-100">家計簿</h1>
+          <p className="text-sm text-slate-400 mt-1">柿岡家計管理アプリ</p>
         </div>
         <button
           onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
-          className="w-full flex items-center justify-center gap-3 bg-white border border-gray-300 rounded-lg px-4 py-3 text-gray-700 font-medium shadow-sm hover:bg-gray-50 transition-colors"
+          className="w-full flex items-center justify-center gap-3 bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-slate-300 font-medium shadow-sm hover:bg-slate-800 transition-colors"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path
@@ -35,7 +35,7 @@ export default function LoginPage() {
           </svg>
           Googleでログイン
         </button>
-        <p className="text-xs text-gray-400 text-center">
+        <p className="text-xs text-slate-500 text-center">
           s.vol.kaki2709@gmail.com のみアクセス可能
         </p>
       </div>

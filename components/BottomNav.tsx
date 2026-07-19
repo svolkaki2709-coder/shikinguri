@@ -42,14 +42,14 @@ export function BottomNav() {
         <div className="fixed inset-0 z-[90]" onClick={() => setMoreOpen(false)}>
           <div className="absolute inset-0 bg-black/30" />
           <div
-            className="absolute bottom-16 left-0 right-0 bg-white rounded-t-2xl shadow-xl max-w-md mx-auto overflow-hidden"
+            className="absolute bottom-16 left-0 right-0 bg-slate-900 rounded-t-2xl shadow-xl max-w-md mx-auto overflow-hidden"
             onClick={e => e.stopPropagation()}
           >
             <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mt-2.5 mb-1" />
             {moreItems.map(item => (
               <Link key={item.href} href={item.href} onClick={() => setMoreOpen(false)}
-                className={`flex items-center gap-3 px-5 py-3 text-sm border-b border-gray-50 transition-colors ${
-                  pathname === item.href ? "text-blue-600 font-semibold bg-blue-50" : "text-gray-700 hover:bg-gray-50"
+                className={`flex items-center gap-3 px-5 py-3 text-sm border-b border-slate-800 transition-colors ${
+                  pathname === item.href ? "text-blue-400 font-semibold bg-blue-500/10" : "text-slate-300 hover:bg-slate-800"
                 }`}>
                 <span className="text-base">{item.icon}</span>
                 <span>{item.label}</span>
@@ -57,7 +57,7 @@ export function BottomNav() {
             ))}
             <button
               onClick={() => signOut({ callbackUrl: "/" })}
-              className="flex items-center gap-3 px-5 py-3 text-sm text-gray-400 w-full hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-3 px-5 py-3 text-sm text-slate-500 w-full hover:bg-slate-800 transition-colors"
             >
               <span className="text-base">🚪</span>
               <span>ログアウト</span>
@@ -66,7 +66,7 @@ export function BottomNav() {
         </div>
       )}
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 pb-safe">
+      <nav className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 z-50 pb-safe">
         <div className="flex items-center max-w-md mx-auto">
           {/* ホーム・予実 */}
           {mainItems.slice(0, 2).map(item => {
@@ -74,7 +74,7 @@ export function BottomNav() {
             return (
               <Link key={item.href} href={item.href}
                 className={`flex-1 flex flex-col items-center py-2 text-xs transition-colors ${
-                  active ? "text-blue-600 font-semibold" : "text-gray-500 hover:text-gray-700"
+                  active ? "text-blue-400 font-semibold" : "text-slate-400 hover:text-slate-300"
                 }`}>
                 <span className="text-lg mb-0.5">{item.icon}</span>
                 <span className="text-[10px]">{item.label}</span>
@@ -99,7 +99,7 @@ export function BottomNav() {
             return (
               <Link key={item.href} href={item.href}
                 className={`flex-1 flex flex-col items-center py-2 text-xs transition-colors ${
-                  active ? "text-blue-600 font-semibold" : "text-gray-500 hover:text-gray-700"
+                  active ? "text-blue-400 font-semibold" : "text-slate-400 hover:text-slate-300"
                 }`}>
                 <span className="text-lg mb-0.5">{item.icon}</span>
                 <span className="text-[10px]">{item.label}</span>
@@ -111,7 +111,7 @@ export function BottomNav() {
           <button
             onClick={() => setMoreOpen(v => !v)}
             className={`flex-1 flex flex-col items-center py-2 text-xs transition-colors ${
-              isMoreActive || moreOpen ? "text-blue-600 font-semibold" : "text-gray-500 hover:text-gray-700"
+              isMoreActive || moreOpen ? "text-blue-400 font-semibold" : "text-slate-400 hover:text-slate-300"
             }`}
           >
             <span className="text-lg mb-0.5">☰</span>

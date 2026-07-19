@@ -183,12 +183,12 @@ function QuickInputModal({ tab, setTab, onClose }: {
 
   const amountInput = (value: string, onChange: (v: string) => void, ring: string) => (
     <div className="relative">
-      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-base">¥</span>
+      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base">¥</span>
       <input
         type="text" inputMode="numeric" placeholder="0" autoComplete="off"
         value={value ? Number(value).toLocaleString("ja-JP") : ""}
         onChange={e => { const raw = e.target.value.replace(/,/g, ""); if (raw === "" || /^\d+$/.test(raw)) onChange(raw) }}
-        className={`w-full border border-gray-300 rounded-xl pl-8 pr-3 py-3 text-lg font-semibold text-gray-800 focus:outline-none focus:ring-2 ${ring}`}
+        className={`w-full border border-slate-700 rounded-xl pl-8 pr-3 py-3 text-lg font-semibold text-slate-100 focus:outline-none focus:ring-2 ${ring}`}
       />
     </div>
   )
@@ -199,36 +199,36 @@ function QuickInputModal({ tab, setTab, onClose }: {
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
       {/* シート */}
-      <div className="relative w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
+      <div className="relative w-full sm:max-w-md bg-slate-900 rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
         {/* ヘッダー */}
-        <div className="sticky top-0 bg-white border-b border-gray-100 px-4 pt-3 pb-2 rounded-t-2xl">
+        <div className="sticky top-0 bg-slate-900 border-b border-slate-800 px-4 pt-3 pb-2 rounded-t-2xl">
           <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-2 sm:hidden" />
           <div className="flex items-center justify-between">
-            <div className="flex rounded-lg bg-gray-100 p-0.5">
+            <div className="flex rounded-lg bg-slate-800 p-0.5">
               <button onClick={() => { setTab("expense"); setMessage(null) }}
-                className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-colors ${tab === "expense" ? "bg-white shadow-sm text-blue-600" : "text-gray-500"}`}>
+                className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-colors ${tab === "expense" ? "bg-slate-900 shadow-sm text-blue-400" : "text-slate-400"}`}>
                 💸 支出
               </button>
               <button onClick={() => { setTab("income"); setMessage(null) }}
-                className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-colors ${tab === "income" ? "bg-white shadow-sm text-green-600" : "text-gray-500"}`}>
+                className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-colors ${tab === "income" ? "bg-slate-900 shadow-sm text-green-400" : "text-slate-400"}`}>
                 💰 入金
               </button>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none px-2">×</button>
+            <button onClick={onClose} className="text-slate-500 hover:text-slate-400 text-2xl leading-none px-2">×</button>
           </div>
         </div>
 
         <div className="px-4 py-4 space-y-4">
-          {!loaded && <p className="text-center text-sm text-gray-400 py-8">読み込み中...</p>}
+          {!loaded && <p className="text-center text-sm text-slate-500 py-8">読み込み中...</p>}
 
           {/* ═══ 支出 ═══ */}
           {loaded && tab === "expense" && (
             <>
               {/* 個人/共用 */}
-              <div className="flex rounded-xl bg-gray-100 p-1 gap-1">
-                {([["self", "個人", "text-indigo-600"], ["joint", "共用", "text-amber-600"]] as const).map(([k, label, color]) => (
+              <div className="flex rounded-xl bg-slate-800 p-1 gap-1">
+                {([["self", "個人", "text-indigo-400"], ["joint", "共用", "text-amber-400"]] as const).map(([k, label, color]) => (
                   <button key={k} type="button" onClick={() => setUsageType(k)}
-                    className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${usageType === k ? `bg-white shadow-sm ${color}` : "text-gray-500"}`}>
+                    className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${usageType === k ? `bg-slate-900 shadow-sm ${color}` : "text-slate-400"}`}>
                     {label}
                   </button>
                 ))}
@@ -236,21 +236,21 @@ function QuickInputModal({ tab, setTab, onClose }: {
 
               {/* 金額（最初に・大きく） */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">金額</label>
+                <label className="block text-xs font-medium text-slate-300 mb-1">金額</label>
                 {amountInput(amount, setAmount, "focus:ring-blue-500")}
               </div>
 
               {/* カテゴリ */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">カテゴリ</label>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">カテゴリ</label>
                 {expenseCategories.length === 0 ? (
-                  <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">カテゴリ未設定です。設定から追加してください。</p>
+                  <p className="text-xs text-amber-400 bg-amber-500/10 rounded-lg px-3 py-2">カテゴリ未設定です。設定から追加してください。</p>
                 ) : (
                   <div className="flex gap-1.5 flex-wrap">
                     {expenseCategories.map(c => (
                       <button key={c} type="button" onClick={() => setCategory(c)}
                         className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                          category === c ? "border-blue-500 bg-blue-50 text-blue-700" : "border-gray-200 text-gray-600 hover:border-gray-300"
+                          category === c ? "border-blue-500 bg-blue-500/10 text-blue-300" : "border-slate-800 text-slate-400 hover:border-slate-700"
                         }`}>
                         {c}
                       </button>
@@ -262,7 +262,7 @@ function QuickInputModal({ tab, setTab, onClose }: {
               {/* 支払方法 */}
               {usageCards.length > 1 && (
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">支払方法</label>
+                  <label className="block text-xs font-medium text-slate-300 mb-1.5">支払方法</label>
                   <div className="flex gap-2 flex-wrap">
                     {usageCards.map(c => (
                       <button key={c.id} type="button" onClick={() => setSelectedCardId(c.id)}
@@ -282,19 +282,19 @@ function QuickInputModal({ tab, setTab, onClose }: {
               {/* 日付・メモ */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">日付</label>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">日付</label>
                   <input type="date" value={date} onChange={e => setDate(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    className="w-full border border-slate-700 rounded-lg px-2 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">メモ（任意）</label>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">メモ（任意）</label>
                   <input type="text" value={memo} onChange={e => setMemo(e.target.value)} placeholder="例：スーパー"
-                    className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    className="w-full border border-slate-700 rounded-lg px-2 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
               </div>
 
               {message && (
-                <div className={`text-sm rounded-lg px-3 py-2 ${message.type === "success" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+                <div className={`text-sm rounded-lg px-3 py-2 ${message.type === "success" ? "bg-green-500/10 text-green-300" : "bg-red-500/10 text-red-300"}`}>
                   {message.type === "success" ? "✅ " : "❌ "}{message.text}
                 </div>
               )}
@@ -310,30 +310,30 @@ function QuickInputModal({ tab, setTab, onClose }: {
           {/* ═══ 入金 ═══ */}
           {loaded && tab === "income" && (
             <>
-              <div className="flex rounded-xl bg-gray-100 p-1 gap-1">
-                {([["self", "個人", "text-indigo-600"], ["joint", "共用", "text-amber-600"]] as const).map(([k, label, color]) => (
+              <div className="flex rounded-xl bg-slate-800 p-1 gap-1">
+                {([["self", "個人", "text-indigo-400"], ["joint", "共用", "text-amber-400"]] as const).map(([k, label, color]) => (
                   <button key={k} type="button" onClick={() => setIncomeCardType(k)}
-                    className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${incomeCardType === k ? `bg-white shadow-sm ${color}` : "text-gray-500"}`}>
+                    className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${incomeCardType === k ? `bg-slate-900 shadow-sm ${color}` : "text-slate-400"}`}>
                     {label}
                   </button>
                 ))}
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">金額</label>
+                <label className="block text-xs font-medium text-slate-300 mb-1">金額</label>
                 {amountInput(incomeAmount, setIncomeAmount, "focus:ring-green-500")}
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">カテゴリ</label>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">カテゴリ</label>
                 {incomeCategories.length === 0 ? (
-                  <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">入金カテゴリ未設定です。設定から追加してください。</p>
+                  <p className="text-xs text-amber-400 bg-amber-500/10 rounded-lg px-3 py-2">入金カテゴリ未設定です。設定から追加してください。</p>
                 ) : (
                   <div className="flex gap-1.5 flex-wrap">
                     {incomeCategories.map(c => (
                       <button key={c} type="button" onClick={() => setIncomeCategory(c)}
                         className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                          incomeCategory === c ? "border-green-500 bg-green-50 text-green-700" : "border-gray-200 text-gray-600 hover:border-gray-300"
+                          incomeCategory === c ? "border-green-500 bg-green-500/10 text-green-300" : "border-slate-800 text-slate-400 hover:border-slate-700"
                         }`}>
                         {c}
                       </button>
@@ -344,19 +344,19 @@ function QuickInputModal({ tab, setTab, onClose }: {
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">日付</label>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">日付</label>
                   <input type="date" value={incomeDate} onChange={e => setIncomeDate(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500" />
+                    className="w-full border border-slate-700 rounded-lg px-2 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-green-500" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">メモ（任意）</label>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">メモ（任意）</label>
                   <input type="text" value={incomeMemo} onChange={e => setIncomeMemo(e.target.value)} placeholder="例：7月分給与"
-                    className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500" />
+                    className="w-full border border-slate-700 rounded-lg px-2 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-green-500" />
                 </div>
               </div>
 
               {message && (
-                <div className={`text-sm rounded-lg px-3 py-2 ${message.type === "success" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+                <div className={`text-sm rounded-lg px-3 py-2 ${message.type === "success" ? "bg-green-500/10 text-green-300" : "bg-red-500/10 text-red-300"}`}>
                   {message.type === "success" ? "✅ " : "❌ "}{message.text}
                 </div>
               )}

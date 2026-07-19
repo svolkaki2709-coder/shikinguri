@@ -43,27 +43,27 @@ function MonthLabel({ ym }: { ym: string }) {
 const TAX_NOTES = [
   {
     label: "所得税",
-    color: "text-red-600",
+    color: "text-red-400",
     note: "月次は源泉徴収（概算）。12月の年末調整で過不足を精算。課税所得（支給額−社会保険料控除−給与所得控除）に税率を掛けた額。",
   },
   {
     label: "住民税",
-    color: "text-orange-600",
+    color: "text-orange-400",
     note: "前年の所得に基づき、6月〜翌5月の12回均等徴収。所得割（所得×10%）＋均等割（約5,000円/年）の合計。",
   },
   {
     label: "健康保険料",
-    color: "text-blue-600",
+    color: "text-blue-400",
     note: "標準報酬月額×保険料率（協会けんぽは約10%、会社と折半）。傷病・出産給付の財源。",
   },
   {
     label: "厚生年金保険料",
-    color: "text-blue-600",
+    color: "text-blue-400",
     note: "標準報酬月額×18.3%を会社と折半（個人負担9.15%）。将来の老齢・障害・遺族年金の財源。",
   },
   {
     label: "雇用保険料",
-    color: "text-blue-600",
+    color: "text-blue-400",
     note: "賃金総額×0.6%（労働者負担分）。失業給付・育児休業給付などの財源。",
   },
 ]
@@ -155,23 +155,23 @@ function FormulaModal({ target, onClose }: { target: FormulaTarget; onClose: () 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+      <div className="bg-slate-900 rounded-2xl shadow-xl w-full max-w-md">
         <div className="flex items-center justify-between px-5 py-3 border-b">
-          <p className="text-sm font-bold text-gray-800">{title}</p>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+          <p className="text-sm font-bold text-slate-100">{title}</p>
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-400 text-2xl leading-none">×</button>
         </div>
         <div className="px-5 py-4 space-y-2.5">
           {steps.map((s, i) => (
-            <div key={i} className={`rounded-lg px-3 py-2 ${s.highlight ? "bg-indigo-50 border border-indigo-200" : "bg-gray-50"}`}>
-              <p className="text-[10px] text-gray-500 font-medium mb-0.5">{s.label}</p>
-              {s.formula && <p className="text-xs text-gray-600 font-mono leading-relaxed">{s.formula}</p>}
-              {s.value && <p className={`text-sm font-bold ${s.highlight ? "text-indigo-700" : "text-gray-800"}`}>{s.value}</p>}
-              {s.note && <p className="text-[10px] text-gray-400 mt-0.5">{s.note}</p>}
+            <div key={i} className={`rounded-lg px-3 py-2 ${s.highlight ? "bg-indigo-500/10 border border-indigo-500/30" : "bg-slate-800"}`}>
+              <p className="text-[10px] text-slate-400 font-medium mb-0.5">{s.label}</p>
+              {s.formula && <p className="text-xs text-slate-400 font-mono leading-relaxed">{s.formula}</p>}
+              {s.value && <p className={`text-sm font-bold ${s.highlight ? "text-indigo-300" : "text-slate-100"}`}>{s.value}</p>}
+              {s.note && <p className="text-[10px] text-slate-500 mt-0.5">{s.note}</p>}
             </div>
           ))}
         </div>
         <div className="px-5 pb-4">
-          <p className="text-[10px] text-gray-400">※ 計算式は目安です。実際の金額は標準報酬月額・保険料率・税額表により決定されます。</p>
+          <p className="text-[10px] text-slate-500">※ 計算式は目安です。実際の金額は標準報酬月額・保険料率・税額表により決定されます。</p>
         </div>
       </div>
     </div>
@@ -226,18 +226,18 @@ export default function PayslipDetailsPage() {
       <div className="max-w-4xl mx-auto px-4 py-3 space-y-4">
 
         {/* ヘッダー説明 */}
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-700 flex items-start justify-between gap-3">
+        <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 text-xs text-blue-300 flex items-start justify-between gap-3">
           <div>
             <p className="font-semibold">給与明細取込データから自動反映</p>
-            <p className="text-blue-500 mt-0.5">
+            <p className="text-blue-400 mt-0.5">
               月次の税・社会保険料内訳を一覧管理。
-              <Link href="/import-payslip" className="underline ml-1 hover:text-blue-700">給与明細取込</Link>
+              <Link href="/import-payslip" className="underline ml-1 hover:text-blue-300">給与明細取込</Link>
               で保存すると自動登録されます。
             </p>
           </div>
           <button
             onClick={() => setShowNotes(n => !n)}
-            className="text-blue-600 border border-blue-300 rounded-lg px-2.5 py-1 text-[10px] font-semibold whitespace-nowrap hover:bg-blue-100 transition-colors shrink-0"
+            className="text-blue-400 border border-blue-500/40 rounded-lg px-2.5 py-1 text-[10px] font-semibold whitespace-nowrap hover:bg-blue-500/15 transition-colors shrink-0"
           >
             {showNotes ? "解説を閉じる" : "税金の仕組みを見る"}
           </button>
@@ -245,33 +245,33 @@ export default function PayslipDetailsPage() {
 
         {/* 税金の仕組み解説 */}
         {showNotes && (
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-            <div className="bg-gray-700 text-white px-4 py-2.5">
+          <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 overflow-hidden">
+            <div className="bg-slate-700 text-white px-4 py-2.5">
               <p className="text-sm font-bold">給与から引かれる税・社会保険料の仕組み</p>
             </div>
             <div className="divide-y divide-gray-100">
               {TAX_NOTES.map(item => (
                 <div key={item.label} className="px-4 py-3 flex gap-3">
                   <span className={`text-xs font-bold ${item.color} w-24 shrink-0 pt-0.5`}>{item.label}</span>
-                  <p className="text-xs text-gray-600 leading-relaxed">{item.note}</p>
+                  <p className="text-xs text-slate-400 leading-relaxed">{item.note}</p>
                 </div>
               ))}
-              <div className="px-4 py-3 bg-gray-50">
-                <p className="text-[10px] text-gray-500">
+              <div className="px-4 py-3 bg-slate-800">
+                <p className="text-[10px] text-slate-400">
                   <span className="font-semibold">参考：負担率の目安</span>
                   所得税：0〜45%（累進）　住民税：10%固定　健康保険：約5%（折半後）　厚生年金：約9.15%　雇用保険：0.6%
                 </p>
-                <p className="text-[10px] text-gray-400 mt-1">※税率・保険料率は法改正・会社・所得水準によって異なります</p>
+                <p className="text-[10px] text-slate-500 mt-1">※税率・保険料率は法改正・会社・所得水準によって異なります</p>
               </div>
             </div>
           </div>
         )}
 
-        {loading && <div className="text-center py-10 text-gray-400 text-sm">読み込み中...</div>}
+        {loading && <div className="text-center py-10 text-slate-500 text-sm">読み込み中...</div>}
 
         {!loading && details.length === 0 && (
           <div className="text-center py-10 space-y-3">
-            <p className="text-gray-400 text-sm">まだデータがありません</p>
+            <p className="text-slate-500 text-sm">まだデータがありません</p>
             <Link href="/import-payslip"
               className="inline-block bg-blue-600 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-blue-700 transition-colors">
               給与明細を取り込む
@@ -294,27 +294,27 @@ export default function PayslipDetailsPage() {
           const totalYEA = yearSum(rows, "year_end_adjustment")
 
           return (
-            <div key={year} className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div key={year} className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 overflow-hidden">
               {/* 年ヘッダー */}
-              <div className="bg-gray-800 text-white px-4 py-2.5 flex items-center justify-between">
+              <div className="bg-slate-800 text-white px-4 py-2.5 flex items-center justify-between">
                 <span className="text-sm font-bold">{year}年</span>
-                <span className="text-xs text-gray-400">{rows.length}ヶ月分</span>
+                <span className="text-xs text-slate-500">{rows.length}ヶ月分</span>
               </div>
 
               {/* PC: 横スクロールテーブル */}
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="bg-gray-50 text-gray-500 border-b border-gray-200">
+                    <tr className="bg-slate-800 text-slate-400 border-b border-slate-800">
                       <th className="text-left px-3 py-2 font-semibold whitespace-nowrap">支払月</th>
-                      <th className="text-right px-3 py-2 font-semibold whitespace-nowrap text-gray-700">支給合計</th>
-                      <th className="text-right px-3 py-2 font-semibold whitespace-nowrap text-red-500">所得税</th>
-                      <th className="text-right px-3 py-2 font-semibold whitespace-nowrap text-orange-500">住民税</th>
-                      <th className="text-right px-3 py-2 font-semibold whitespace-nowrap text-blue-500">健康保険</th>
-                      <th className="text-right px-3 py-2 font-semibold whitespace-nowrap text-blue-500">厚生年金</th>
-                      <th className="text-right px-3 py-2 font-semibold whitespace-nowrap text-blue-500">雇用保険</th>
-                      <th className="text-right px-3 py-2 font-semibold whitespace-nowrap text-gray-600">控除合計</th>
-                      <th className="text-right px-3 py-2 font-semibold whitespace-nowrap text-green-600">手取り</th>
+                      <th className="text-right px-3 py-2 font-semibold whitespace-nowrap text-slate-300">支給合計</th>
+                      <th className="text-right px-3 py-2 font-semibold whitespace-nowrap text-red-400">所得税</th>
+                      <th className="text-right px-3 py-2 font-semibold whitespace-nowrap text-orange-400">住民税</th>
+                      <th className="text-right px-3 py-2 font-semibold whitespace-nowrap text-blue-400">健康保険</th>
+                      <th className="text-right px-3 py-2 font-semibold whitespace-nowrap text-blue-400">厚生年金</th>
+                      <th className="text-right px-3 py-2 font-semibold whitespace-nowrap text-blue-400">雇用保険</th>
+                      <th className="text-right px-3 py-2 font-semibold whitespace-nowrap text-slate-400">控除合計</th>
+                      <th className="text-right px-3 py-2 font-semibold whitespace-nowrap text-green-400">手取り</th>
                       <th className="px-2 py-2"></th>
                     </tr>
                   </thead>
@@ -329,48 +329,48 @@ export default function PayslipDetailsPage() {
                         - (row.nontaxable_commute ?? 0)
                         - (row.travel_reimbursement ?? 0)
                       return (
-                        <tr key={row.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap">
+                        <tr key={row.id} className="hover:bg-slate-800 transition-colors">
+                          <td className="px-3 py-2.5 font-medium text-slate-100 whitespace-nowrap">
                             <MonthLabel ym={row.payment_month} />
                             {row.year_end_adjustment != null && row.year_end_adjustment !== 0 && (
-                              <span className="ml-1.5 text-[9px] bg-yellow-100 text-yellow-700 px-1 py-0.5 rounded font-semibold">年調</span>
+                              <span className="ml-1.5 text-[9px] bg-yellow-500/15 text-yellow-300 px-1 py-0.5 rounded font-semibold">年調</span>
                             )}
                           </td>
-                          <td className="px-3 py-2.5 text-right text-gray-700 font-medium whitespace-nowrap">{fmt(row.gross_pay)}</td>
-                          <td className="px-3 py-2.5 text-right text-red-600 whitespace-nowrap cursor-pointer hover:bg-red-50 rounded"
+                          <td className="px-3 py-2.5 text-right text-slate-300 font-medium whitespace-nowrap">{fmt(row.gross_pay)}</td>
+                          <td className="px-3 py-2.5 text-right text-red-400 whitespace-nowrap cursor-pointer hover:bg-red-500/10 rounded"
                             onClick={() => setFormulaTarget({ type: "income_tax", row })}>
                             <div className="hover:underline">{fmt(row.income_tax)}</div>
-                            <div className="text-[10px] text-gray-400">{pct(row.income_tax, taxableBase)}</div>
+                            <div className="text-[10px] text-slate-500">{pct(row.income_tax, taxableBase)}</div>
                           </td>
-                          <td className="px-3 py-2.5 text-right text-orange-600 whitespace-nowrap cursor-pointer hover:bg-orange-50 rounded"
+                          <td className="px-3 py-2.5 text-right text-orange-400 whitespace-nowrap cursor-pointer hover:bg-orange-500/10 rounded"
                             onClick={() => setFormulaTarget({ type: "resident_tax", row })}>
                             <div className="hover:underline">{fmt(row.resident_tax)}</div>
-                            <div className="text-[10px] text-gray-400">{pct(row.resident_tax, taxableBase)}</div>
+                            <div className="text-[10px] text-slate-500">{pct(row.resident_tax, taxableBase)}</div>
                           </td>
-                          <td className="px-3 py-2.5 text-right text-blue-600 whitespace-nowrap cursor-pointer hover:bg-blue-50 rounded"
+                          <td className="px-3 py-2.5 text-right text-blue-400 whitespace-nowrap cursor-pointer hover:bg-blue-500/10 rounded"
                             onClick={() => setFormulaTarget({ type: "health_insurance", row })}>
                             <div className="hover:underline">{fmt(row.health_insurance)}</div>
-                            <div className="text-[10px] text-gray-400">{pct(row.health_insurance, taxableBase)}</div>
+                            <div className="text-[10px] text-slate-500">{pct(row.health_insurance, taxableBase)}</div>
                           </td>
-                          <td className="px-3 py-2.5 text-right text-blue-600 whitespace-nowrap cursor-pointer hover:bg-blue-50 rounded"
+                          <td className="px-3 py-2.5 text-right text-blue-400 whitespace-nowrap cursor-pointer hover:bg-blue-500/10 rounded"
                             onClick={() => setFormulaTarget({ type: "pension", row })}>
                             <div className="hover:underline">{fmt(row.pension)}</div>
-                            <div className="text-[10px] text-gray-400">{pct(row.pension, taxableBase)}</div>
+                            <div className="text-[10px] text-slate-500">{pct(row.pension, taxableBase)}</div>
                           </td>
-                          <td className="px-3 py-2.5 text-right text-blue-600 whitespace-nowrap cursor-pointer hover:bg-blue-50 rounded"
+                          <td className="px-3 py-2.5 text-right text-blue-400 whitespace-nowrap cursor-pointer hover:bg-blue-500/10 rounded"
                             onClick={() => setFormulaTarget({ type: "employment_insurance", row })}>
                             <div className="hover:underline">{fmt(row.employment_insurance)}</div>
                           </td>
-                          <td className="px-3 py-2.5 text-right font-semibold text-gray-700 whitespace-nowrap cursor-pointer hover:bg-gray-100 rounded"
+                          <td className="px-3 py-2.5 text-right font-semibold text-slate-300 whitespace-nowrap cursor-pointer hover:bg-slate-800 rounded"
                             onClick={() => setFormulaTarget({ type: "total_deduction", row })}>
                             <div className="hover:underline">{fmt(calcDeduction)}</div>
                           </td>
-                          <td className="px-3 py-2.5 text-right font-semibold text-green-600 whitespace-nowrap">{fmt(row.net_pay)}</td>
+                          <td className="px-3 py-2.5 text-right font-semibold text-green-400 whitespace-nowrap">{fmt(row.net_pay)}</td>
                           <td className="px-2 py-2.5 text-center">
                             <button
                               onClick={() => handleDelete(row.payment_month)}
                               disabled={deletingMonth === row.payment_month}
-                              className="text-gray-300 hover:text-red-400 transition-colors text-base leading-none disabled:opacity-40"
+                              className="text-slate-600 hover:text-red-400 transition-colors text-base leading-none disabled:opacity-40"
                               title="削除"
                             >
                               ×
@@ -383,33 +383,33 @@ export default function PayslipDetailsPage() {
 
                   {/* 年次合計行 */}
                   <tfoot>
-                    <tr className="bg-gray-50 border-t-2 border-gray-300 font-bold">
-                      <td className="px-3 py-2.5 text-gray-700">合計</td>
-                      <td className="px-3 py-2.5 text-right text-gray-800">{fmt(totalGross)}</td>
-                      <td className="px-3 py-2.5 text-right text-red-600">
+                    <tr className="bg-slate-800 border-t-2 border-slate-700 font-bold">
+                      <td className="px-3 py-2.5 text-slate-300">合計</td>
+                      <td className="px-3 py-2.5 text-right text-slate-100">{fmt(totalGross)}</td>
+                      <td className="px-3 py-2.5 text-right text-red-400">
                         <div>{fmt(totalIncomeTax)}</div>
-                        <div className="text-[10px] text-gray-400 font-normal">{pct(totalIncomeTax, totalTaxableBase)}</div>
+                        <div className="text-[10px] text-slate-500 font-normal">{pct(totalIncomeTax, totalTaxableBase)}</div>
                       </td>
-                      <td className="px-3 py-2.5 text-right text-orange-600">
+                      <td className="px-3 py-2.5 text-right text-orange-400">
                         <div>{fmt(totalResidentTax)}</div>
-                        <div className="text-[10px] text-gray-400 font-normal">{pct(totalResidentTax, totalTaxableBase)}</div>
+                        <div className="text-[10px] text-slate-500 font-normal">{pct(totalResidentTax, totalTaxableBase)}</div>
                       </td>
-                      <td className="px-3 py-2.5 text-right text-blue-600">
+                      <td className="px-3 py-2.5 text-right text-blue-400">
                         <div>{fmt(totalHealthIns)}</div>
-                        <div className="text-[10px] text-gray-400 font-normal">{pct(totalHealthIns, totalTaxableBase)}</div>
+                        <div className="text-[10px] text-slate-500 font-normal">{pct(totalHealthIns, totalTaxableBase)}</div>
                       </td>
-                      <td className="px-3 py-2.5 text-right text-blue-600">
+                      <td className="px-3 py-2.5 text-right text-blue-400">
                         <div>{fmt(totalPension)}</div>
-                        <div className="text-[10px] text-gray-400 font-normal">{pct(totalPension, totalTaxableBase)}</div>
+                        <div className="text-[10px] text-slate-500 font-normal">{pct(totalPension, totalTaxableBase)}</div>
                       </td>
-                      <td className="px-3 py-2.5 text-right text-blue-600">{fmt(totalEmployment)}</td>
-                      <td className="px-3 py-2.5 text-right text-gray-800">
+                      <td className="px-3 py-2.5 text-right text-blue-400">{fmt(totalEmployment)}</td>
+                      <td className="px-3 py-2.5 text-right text-slate-100">
                         <div>{fmt(totalDeduction)}</div>
-                        <div className="text-[10px] text-gray-400 font-normal">{pct(totalDeduction, totalTaxableBase)}</div>
+                        <div className="text-[10px] text-slate-500 font-normal">{pct(totalDeduction, totalTaxableBase)}</div>
                       </td>
-                      <td className="px-3 py-2.5 text-right text-green-600" colSpan={2}>
+                      <td className="px-3 py-2.5 text-right text-green-400" colSpan={2}>
                         {totalYEA !== 0 && (
-                          <div className="text-[10px] text-yellow-600 font-normal">年調還付: {fmt(totalYEA)}</div>
+                          <div className="text-[10px] text-yellow-400 font-normal">年調還付: {fmt(totalYEA)}</div>
                         )}
                       </td>
                     </tr>
@@ -418,15 +418,15 @@ export default function PayslipDetailsPage() {
               </div>
 
               {/* サマリーカード（モバイル向け補足） */}
-              <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 grid grid-cols-2 gap-2 md:hidden">
+              <div className="px-4 py-3 bg-slate-800 border-t border-slate-800 grid grid-cols-2 gap-2 md:hidden">
                 <div className="text-center">
-                  <p className="text-[10px] text-gray-400">年間支給合計</p>
-                  <p className="text-sm font-bold text-gray-800">{fmtJPY(totalGross)}</p>
+                  <p className="text-[10px] text-slate-500">年間支給合計</p>
+                  <p className="text-sm font-bold text-slate-100">{fmtJPY(totalGross)}</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-[10px] text-gray-400">年間控除合計（税＋社保）</p>
-                  <p className="text-sm font-bold text-red-600">{fmtJPY(totalDeduction)}</p>
-                  <p className="text-[10px] text-gray-400">{pct(totalDeduction, totalTaxableBase)}</p>
+                  <p className="text-[10px] text-slate-500">年間控除合計（税＋社保）</p>
+                  <p className="text-sm font-bold text-red-400">{fmtJPY(totalDeduction)}</p>
+                  <p className="text-[10px] text-slate-500">{pct(totalDeduction, totalTaxableBase)}</p>
                 </div>
               </div>
             </div>

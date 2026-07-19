@@ -39,12 +39,12 @@ function nextMonth(m: string) {
 
 // ─── 定数 ───────────────────────────────────────────────────────
 const GROUP_COLORS: Record<string, { header: string; row: string; text: string; border: string; progress: string }> = {
-  収入: { header: "bg-green-600 text-white",  row: "bg-green-50",  text: "text-green-700",  border: "border-l-green-400",  progress: "bg-green-500"  },
-  支出: { header: "bg-blue-600 text-white",   row: "bg-blue-50",   text: "text-blue-700",   border: "border-l-blue-400",   progress: "bg-blue-500"   },
-  振替: { header: "bg-gray-500 text-white",   row: "bg-gray-50",   text: "text-gray-600",   border: "border-l-gray-400",   progress: "bg-gray-400"   },
-  投資: { header: "bg-purple-600 text-white", row: "bg-purple-50", text: "text-purple-700", border: "border-l-purple-400", progress: "bg-purple-500" },
-  貯蓄: { header: "bg-teal-600 text-white",   row: "bg-teal-50",   text: "text-teal-700",   border: "border-l-teal-400",   progress: "bg-teal-500"   },
-  立替: { header: "bg-orange-500 text-white", row: "bg-orange-50", text: "text-orange-700", border: "border-l-orange-400", progress: "bg-orange-400" },
+  収入: { header: "bg-green-600 text-white",  row: "bg-green-500/10",  text: "text-green-300",  border: "border-l-green-400",  progress: "bg-green-500"  },
+  支出: { header: "bg-blue-600 text-white",   row: "bg-blue-500/10",   text: "text-blue-300",   border: "border-l-blue-400",   progress: "bg-blue-500"   },
+  振替: { header: "bg-gray-500 text-white",   row: "bg-slate-800",   text: "text-slate-400",   border: "border-l-gray-400",   progress: "bg-gray-400"   },
+  投資: { header: "bg-purple-600 text-white", row: "bg-purple-500/10", text: "text-purple-300", border: "border-l-purple-400", progress: "bg-purple-500" },
+  貯蓄: { header: "bg-teal-600 text-white",   row: "bg-teal-500/10",   text: "text-teal-300",   border: "border-l-teal-400",   progress: "bg-teal-500"   },
+  立替: { header: "bg-orange-500 text-white", row: "bg-orange-500/10", text: "text-orange-300", border: "border-l-orange-400", progress: "bg-orange-400" },
 }
 
 const GROUP_ORDER = ["収入", "支出", "振替", "投資", "貯蓄", "立替"]
@@ -101,7 +101,7 @@ type DisplayMode = "table" | "chart"
 // ─── メインページ ────────────────────────────────────────────────
 export default function BudgetPage() {
   return (
-    <Suspense fallback={<div className="pb-20"><PageHeader title="予算管理" /><div className="text-center py-8 text-gray-400">読み込み中...</div><BottomNav /></div>}>
+    <Suspense fallback={<div className="pb-20"><PageHeader title="予算管理" /><div className="text-center py-8 text-slate-500">読み込み中...</div><BottomNav /></div>}>
       <BudgetContent />
     </Suspense>
   )
@@ -538,9 +538,9 @@ function BudgetContent() {
     const gDiff = gBudget - gActual
 
     return (
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+      <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 overflow-hidden">
         {/* グループヘッダー */}
-        <div className={`px-3 py-2 flex items-center justify-between ${gc?.header ?? "bg-gray-700 text-white"}`}>
+        <div className={`px-3 py-2 flex items-center justify-between ${gc?.header ?? "bg-slate-700 text-white"}`}>
           <span className="text-xs font-bold">{group}</span>
           <div className="flex gap-3 text-xs font-semibold">
             <span>予算 {toJPY(gBudget)}</span>
@@ -579,57 +579,57 @@ function BudgetContent() {
                 onDrop={() => handleReorderDrop(group, rowIdx)}
                 className={`px-3 py-2.5 border-l-4 cursor-grab active:cursor-grabbing transition-opacity ${
                   gc?.border ?? "border-l-gray-300"
-                } ${gc?.row ?? "bg-white"} ${isDragging ? "opacity-40" : "opacity-100"} ${
+                } ${gc?.row ?? "bg-slate-900"} ${isDragging ? "opacity-40" : "opacity-100"} ${
                   isDraggingOver ? "border-t-2 border-t-blue-400" : ""
                 }`}
               >
                 <div className="flex justify-between items-center mb-1">
                   <div className="flex items-center gap-1.5 min-w-0">
                     {/* ドラッグハンドル */}
-                    <span className="text-gray-400 text-xs cursor-grab shrink-0 select-none font-bold tracking-tighter">⋮⋮</span>
-                    <span className={`text-xs font-medium truncate ${gc?.text ?? "text-gray-700"}`}>{b.category}</span>
+                    <span className="text-slate-500 text-xs cursor-grab shrink-0 select-none font-bold tracking-tighter">⋮⋮</span>
+                    <span className={`text-xs font-medium truncate ${gc?.text ?? "text-slate-300"}`}>{b.category}</span>
                     {/* グループ変更ドロップダウン */}
                     <select
                       value={b.groupType ?? ""}
                       onChange={e => handleSetGroupType(b.category, b.cardType, e.target.value || null)}
                       onClick={e => e.stopPropagation()}
                       onDragStart={e => e.stopPropagation()}
-                      className="text-[10px] border border-gray-200 rounded px-1 py-0.5 bg-white text-gray-400 hover:text-gray-700 hover:border-gray-400 cursor-pointer outline-none focus:ring-1 focus:ring-blue-300 transition-colors shrink-0"
+                      className="text-[10px] border border-slate-800 rounded px-1 py-0.5 bg-slate-900 text-slate-500 hover:text-slate-300 hover:border-slate-600 cursor-pointer outline-none focus:ring-1 focus:ring-blue-300 transition-colors shrink-0"
                     >
                       <option value="">グループ未設定</option>
                       {GROUP_ORDER.map(g => <option key={g} value={g}>{g}</option>)}
                     </select>
                   </div>
                   {sign !== 0 && hasBudget && (
-                    <span className={`text-xs font-semibold shrink-0 ml-2 ${isBad ? "text-red-500" : "text-green-600"}`}>
+                    <span className={`text-xs font-semibold shrink-0 ml-2 ${isBad ? "text-red-400" : "text-green-400"}`}>
                       {diffLabel}{toJPY(Math.abs(effectiveDiff))}
                     </span>
                   )}
                 </div>
-                <div className="w-full bg-gray-100 rounded-full h-1.5 mb-1">
+                <div className="w-full bg-slate-800 rounded-full h-1.5 mb-1">
                   <div
                     className={`h-1.5 rounded-full ${isBad ? "bg-red-400" : (gc?.progress ?? "bg-blue-500")}`}
                     style={{ width: `${pct}%` }}
                   />
                 </div>
-                <div className="flex justify-between items-center text-[11px] text-gray-500">
+                <div className="flex justify-between items-center text-[11px] text-slate-400">
                   <span
-                    className={b.actual !== 0 ? "cursor-pointer underline decoration-dotted hover:text-blue-600 transition-colors" : ""}
+                    className={b.actual !== 0 ? "cursor-pointer underline decoration-dotted hover:text-blue-400 transition-colors" : ""}
                     onClick={e => { if (b.actual !== 0) { e.stopPropagation(); openDrillDown(b.category, b.cardType, month) } }}
                   >実績 {toJPY(b.actual)}</span>
                   {editingBudget?.category === b.category && editingBudget?.cardType === b.cardType ? (
                     <div className="flex items-center gap-1" onClick={e => e.stopPropagation()} onDragStart={e => e.stopPropagation()}>
                       {/* 毎月 / 今月 トグル */}
-                      <div className="flex rounded overflow-hidden border border-gray-200 text-[10px]">
+                      <div className="flex rounded overflow-hidden border border-slate-800 text-[10px]">
                         <button
                           type="button"
                           onClick={() => setEditingBudget({ ...editingBudget, periodType: "monthly" })}
-                          className={`px-1.5 py-0.5 transition-colors ${editingBudget.periodType === "monthly" ? "bg-blue-500 text-white" : "bg-white text-gray-500"}`}
+                          className={`px-1.5 py-0.5 transition-colors ${editingBudget.periodType === "monthly" ? "bg-blue-500 text-white" : "bg-slate-900 text-slate-400"}`}
                         >毎月</button>
                         <button
                           type="button"
                           onClick={() => setEditingBudget({ ...editingBudget, periodType: "this_month" })}
-                          className={`px-1.5 py-0.5 transition-colors border-l border-gray-200 ${editingBudget.periodType === "this_month" ? "bg-purple-500 text-white" : "bg-white text-gray-500"}`}
+                          className={`px-1.5 py-0.5 transition-colors border-l border-slate-800 ${editingBudget.periodType === "this_month" ? "bg-purple-500 text-white" : "bg-slate-900 text-slate-400"}`}
                         >今月</button>
                       </div>
                       <input
@@ -642,13 +642,13 @@ function BudgetContent() {
                           if (e.key === "Enter") handleBudgetSave(b.category, b.cardType, editingBudget.value, editingBudget.periodType)
                           if (e.key === "Escape") setEditingBudget(null)
                         }}
-                        className="w-20 text-right text-xs border border-blue-400 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-blue-400 bg-white"
+                        className="w-20 text-right text-xs border border-blue-400 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-blue-400 bg-slate-900"
                       />
                     </div>
                   ) : (
                     <span
                       onClick={e => { e.stopPropagation(); setEditingBudget({ category: b.category, cardType: b.cardType, value: b.budget > 0 ? String(b.budget) : "", periodType: "monthly" }) }}
-                      className="cursor-pointer hover:text-blue-600 hover:underline"
+                      className="cursor-pointer hover:text-blue-400 hover:underline"
                       title="クリックして予算を編集"
                     >
                       予算 {b.budget > 0 ? toJPY(b.budget) : "—"}
@@ -670,11 +670,11 @@ function BudgetContent() {
       <div className={isPC ? "px-6 py-4" : "px-3 py-2"}>
 
         {/* メインタブ切替 */}
-        <div className="flex rounded-xl bg-gray-100 p-1 mb-3">
+        <div className="flex rounded-xl bg-slate-800 p-1 mb-3">
           {([["monthly", "月次"], ["yearly", "年次"]] as const).map(([k, label]) => (
             <button key={k} onClick={() => setMainTab(k)}
               className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                mainTab === k ? "bg-white shadow-sm text-blue-600" : "text-gray-600"
+                mainTab === k ? "bg-slate-900 shadow-sm text-blue-400" : "text-slate-400"
               }`}>
               {label}
             </button>
@@ -687,58 +687,58 @@ function BudgetContent() {
         {mainTab === "monthly" && (
           <div className="space-y-3">
             {/* 月選択 */}
-            <div className="flex items-center gap-2 bg-white rounded-xl shadow-sm px-3 py-2">
+            <div className="flex items-center gap-2 bg-slate-900 rounded-xl shadow-sm border border-slate-800 px-3 py-2">
               <button onClick={() => setMonth(prevMonth(month))}
-                className="text-gray-600 hover:text-blue-600 px-2 py-1 rounded hover:bg-gray-100 text-lg font-bold">‹</button>
+                className="text-slate-400 hover:text-blue-400 px-2 py-1 rounded hover:bg-slate-800 text-lg font-bold">‹</button>
               <input type="month" value={month} onChange={e => setMonth(e.target.value)}
-                className="flex-1 text-center text-sm font-semibold text-gray-800 border-0 outline-none bg-transparent" />
+                className="flex-1 text-center text-sm font-semibold text-slate-100 border-0 outline-none bg-transparent" />
               <button onClick={() => setMonth(nextMonth(month))}
-                className="text-gray-600 hover:text-blue-600 px-2 py-1 rounded hover:bg-gray-100 text-lg font-bold">›</button>
+                className="text-slate-400 hover:text-blue-400 px-2 py-1 rounded hover:bg-slate-800 text-lg font-bold">›</button>
             </div>
 
             {/* 収支サマリーカード（個人/共用で切替） */}
             {cardTypeFilter === "self" ? (
               <div className={`grid ${isPC ? "grid-cols-4" : "grid-cols-2"} gap-2`}>
-                <div className="bg-white rounded-xl shadow-sm p-3 text-center">
-                  <p className="text-[11px] text-gray-500 mb-1">収入</p>
-                  <p className="text-sm font-bold text-green-600">{toJPY(incomeTotal)}</p>
+                <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 text-center">
+                  <p className="text-[11px] text-slate-400 mb-1">収入</p>
+                  <p className="text-sm font-bold text-green-400">{toJPY(incomeTotal)}</p>
                 </div>
-                <div className="bg-white rounded-xl shadow-sm p-3 text-center">
-                  <p className="text-[11px] text-gray-500 mb-1">支出実績</p>
-                  <p className={`text-sm font-bold ${selfActual > selfBudget && selfBudget > 0 ? "text-red-500" : "text-gray-800"}`}>
+                <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 text-center">
+                  <p className="text-[11px] text-slate-400 mb-1">支出実績</p>
+                  <p className={`text-sm font-bold ${selfActual > selfBudget && selfBudget > 0 ? "text-red-400" : "text-slate-100"}`}>
                     {toJPY(selfActual)}
                   </p>
                 </div>
-                <div className="bg-white rounded-xl shadow-sm p-3 text-center">
-                  <p className="text-[11px] text-gray-500 mb-1">予算合計</p>
-                  <p className="text-sm font-bold text-gray-700">{toJPY(selfBudget)}</p>
+                <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 text-center">
+                  <p className="text-[11px] text-slate-400 mb-1">予算合計</p>
+                  <p className="text-sm font-bold text-slate-300">{toJPY(selfBudget)}</p>
                 </div>
-                <div className={`rounded-xl shadow-sm p-3 text-center ${selfBalance >= 0 ? "bg-blue-50" : "bg-red-50"}`}>
-                  <p className="text-[11px] text-gray-500 mb-1">収支差額</p>
-                  <p className={`text-sm font-bold ${selfBalance >= 0 ? "text-blue-600" : "text-red-500"}`}>
+                <div className={`rounded-xl shadow-sm p-3 text-center ${selfBalance >= 0 ? "bg-blue-500/10" : "bg-red-500/10"}`}>
+                  <p className="text-[11px] text-slate-400 mb-1">収支差額</p>
+                  <p className={`text-sm font-bold ${selfBalance >= 0 ? "text-blue-400" : "text-red-400"}`}>
                     {selfBalance >= 0 ? "+" : ""}{toJPY(selfBalance)}
                   </p>
                 </div>
               </div>
             ) : (
               <div className={`grid ${isPC ? "grid-cols-4" : "grid-cols-2"} gap-2`}>
-                <div className="bg-white rounded-xl shadow-sm p-3 text-center">
-                  <p className="text-[11px] text-gray-500 mb-1">入金</p>
-                  <p className="text-sm font-bold text-green-600">{toJPY(jointIncomeTotal)}</p>
+                <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 text-center">
+                  <p className="text-[11px] text-slate-400 mb-1">入金</p>
+                  <p className="text-sm font-bold text-green-400">{toJPY(jointIncomeTotal)}</p>
                 </div>
-                <div className="bg-white rounded-xl shadow-sm p-3 text-center">
-                  <p className="text-[11px] text-gray-500 mb-1">支出実績</p>
-                  <p className={`text-sm font-bold ${jointActual > jointBudget && jointBudget > 0 ? "text-red-500" : "text-gray-800"}`}>
+                <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 text-center">
+                  <p className="text-[11px] text-slate-400 mb-1">支出実績</p>
+                  <p className={`text-sm font-bold ${jointActual > jointBudget && jointBudget > 0 ? "text-red-400" : "text-slate-100"}`}>
                     {toJPY(jointActual)}
                   </p>
                 </div>
-                <div className="bg-white rounded-xl shadow-sm p-3 text-center">
-                  <p className="text-[11px] text-gray-500 mb-1">予算合計</p>
-                  <p className="text-sm font-bold text-gray-700">{toJPY(jointBudget)}</p>
+                <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 text-center">
+                  <p className="text-[11px] text-slate-400 mb-1">予算合計</p>
+                  <p className="text-sm font-bold text-slate-300">{toJPY(jointBudget)}</p>
                 </div>
-                <div className={`rounded-xl shadow-sm p-3 text-center ${jointBalance >= 0 ? "bg-amber-50" : "bg-red-50"}`}>
-                  <p className="text-[11px] text-gray-500 mb-1">収支差額</p>
-                  <p className={`text-sm font-bold ${jointBalance >= 0 ? "text-amber-600" : "text-red-500"}`}>
+                <div className={`rounded-xl shadow-sm p-3 text-center ${jointBalance >= 0 ? "bg-amber-500/10" : "bg-red-500/10"}`}>
+                  <p className="text-[11px] text-slate-400 mb-1">収支差額</p>
+                  <p className={`text-sm font-bold ${jointBalance >= 0 ? "text-amber-400" : "text-red-400"}`}>
                     {jointBalance >= 0 ? "+" : ""}{toJPY(jointBalance)}
                   </p>
                 </div>
@@ -746,13 +746,13 @@ function BudgetContent() {
             )}
 
             {/* 個人/共用トグル */}
-            <div className="flex rounded-lg bg-gray-100 p-0.5">
+            <div className="flex rounded-lg bg-slate-800 p-0.5">
               {([["self", "個人"] as const, ["joint", "共用"] as const]).map(([k, label]) => (
                 <button key={k} onClick={() => setCardTypeFilter(k)}
                   className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-colors ${
                     cardTypeFilter === k
-                      ? k === "self" ? "bg-white text-indigo-600 shadow-sm" : "bg-white text-amber-600 shadow-sm"
-                      : "text-gray-500"
+                      ? k === "self" ? "bg-slate-900 text-indigo-400 shadow-sm" : "bg-slate-900 text-amber-400 shadow-sm"
+                      : "text-slate-400"
                   }`}>
                   {label}
                 </button>
@@ -760,12 +760,12 @@ function BudgetContent() {
             </div>
 
             {monthlyLoading && (
-              <div className="text-center py-8 text-gray-400 text-sm">読み込み中...</div>
+              <div className="text-center py-8 text-slate-500 text-sm">読み込み中...</div>
             )}
 
             {!monthlyLoading && filteredBudgets.length === 0 && (
-              <div className="bg-white rounded-xl shadow-sm p-6 text-center space-y-3">
-                <p className="text-gray-600 text-sm">予算が設定されていません</p>
+              <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-6 text-center space-y-3">
+                <p className="text-slate-400 text-sm">予算が設定されていません</p>
                 <Link href="/settings"
                   className="inline-block bg-blue-600 text-white text-sm px-4 py-2 rounded-lg">
                   設定から予算を追加する
@@ -802,22 +802,22 @@ function BudgetContent() {
             {/* コントロールバー */}
             <div className="flex flex-wrap items-center gap-2">
               {/* 年選択 */}
-              <div className="flex items-center gap-1 bg-white border rounded-lg px-2 py-1.5">
+              <div className="flex items-center gap-1 bg-slate-900 border rounded-lg px-2 py-1.5">
                 <button onClick={() => setYear(year - 1)}
-                  className="text-gray-600 hover:text-blue-600 px-1 font-bold text-sm">‹</button>
-                <span className="text-sm font-semibold text-gray-800 w-16 text-center">{year}年</span>
+                  className="text-slate-400 hover:text-blue-400 px-1 font-bold text-sm">‹</button>
+                <span className="text-sm font-semibold text-slate-100 w-16 text-center">{year}年</span>
                 <button onClick={() => setYear(year + 1)}
-                  className="text-gray-600 hover:text-blue-600 px-1 font-bold text-sm">›</button>
+                  className="text-slate-400 hover:text-blue-400 px-1 font-bold text-sm">›</button>
               </div>
 
               {/* 個人/共用 */}
-              <div className="flex rounded-lg bg-gray-100 p-0.5">
+              <div className="flex rounded-lg bg-slate-800 p-0.5">
                 {([["self", "個人"] as const, ["joint", "共用"] as const]).map(([k, label]) => (
                   <button key={k} onClick={() => setYearCardTypeFilter(k)}
                     className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
                       yearCardTypeFilter === k
-                        ? k === "self" ? "bg-white text-indigo-600 shadow-sm" : "bg-white text-amber-600 shadow-sm"
-                        : "text-gray-500"
+                        ? k === "self" ? "bg-slate-900 text-indigo-400 shadow-sm" : "bg-slate-900 text-amber-400 shadow-sm"
+                        : "text-slate-400"
                     }`}>
                     {label}
                   </button>
@@ -825,11 +825,11 @@ function BudgetContent() {
               </div>
 
               {/* テーブル/グラフ切替 */}
-              <div className="flex rounded-lg bg-gray-100 p-0.5">
+              <div className="flex rounded-lg bg-slate-800 p-0.5">
                 {([["table", "テーブル"], ["chart", "グラフ"]] as const).map(([k, label]) => (
                   <button key={k} onClick={() => setDisplayMode(k)}
                     className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                      displayMode === k ? "bg-white text-blue-600 shadow-sm" : "text-gray-500"
+                      displayMode === k ? "bg-slate-900 text-blue-400 shadow-sm" : "text-slate-400"
                     }`}>
                     {label}
                   </button>
@@ -838,11 +838,11 @@ function BudgetContent() {
 
               {/* 表示モード（テーブル時のみ） */}
               {displayMode === "table" && (
-                <div className="flex rounded-lg bg-gray-100 p-0.5">
+                <div className="flex rounded-lg bg-slate-800 p-0.5">
                   {([["budget", "予算"], ["actual", "実績"], ["diff", "差額"], ["both", "両方"]] as const).map(([k, label]) => (
                     <button key={k} onClick={() => setViewMode(k)}
                       className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                        viewMode === k ? "bg-white text-blue-600 shadow-sm" : "text-gray-500"
+                        viewMode === k ? "bg-slate-900 text-blue-400 shadow-sm" : "text-slate-400"
                       }`}>
                       {label}
                     </button>
@@ -852,17 +852,17 @@ function BudgetContent() {
 
               {/* 期間計セレクター（テーブル時のみ） */}
               {displayMode === "table" && (
-                <div className="flex items-center gap-1 bg-white border rounded-lg px-2 py-1.5 text-xs text-gray-700">
-                  <span className="text-gray-400 shrink-0">期間</span>
+                <div className="flex items-center gap-1 bg-slate-900 border rounded-lg px-2 py-1.5 text-xs text-slate-300">
+                  <span className="text-slate-500 shrink-0">期間</span>
                   <select value={rangeFrom} onChange={e => setRangeFrom(e.target.value)}
-                    className="border-0 outline-none bg-transparent text-xs text-gray-800 cursor-pointer">
+                    className="border-0 outline-none bg-transparent text-xs text-slate-100 cursor-pointer">
                     {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")).map(m => (
                       <option key={m} value={m}>{Number(m)}月</option>
                     ))}
                   </select>
-                  <span className="text-gray-400">〜</span>
+                  <span className="text-slate-500">〜</span>
                   <select value={rangeTo} onChange={e => setRangeTo(e.target.value)}
-                    className="border-0 outline-none bg-transparent text-xs text-gray-800 cursor-pointer">
+                    className="border-0 outline-none bg-transparent text-xs text-slate-100 cursor-pointer">
                     {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")).map(m => (
                       <option key={m} value={m}>{Number(m)}月</option>
                     ))}
@@ -870,34 +870,34 @@ function BudgetContent() {
                 </div>
               )}
 
-              <span className="text-xs text-gray-400 ml-auto">{months.length}ヶ月</span>
+              <span className="text-xs text-slate-500 ml-auto">{months.length}ヶ月</span>
             </div>
 
             {yearlyLoading && (
-              <div className="text-center py-12 text-gray-400 text-sm">読み込み中...</div>
+              <div className="text-center py-12 text-slate-500 text-sm">読み込み中...</div>
             )}
 
             {/* ── グラフ表示 ── */}
             {!yearlyLoading && displayMode === "chart" && (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-4">
+              <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 border border-slate-800 p-4 space-y-4">
                 {/* 月次 実績 vs 予算 積み上げバーチャート */}
                 <div>
-                  <h3 className="text-xs font-semibold text-gray-600 mb-3">月次支出: グループ別実績 vs 予算</h3>
+                  <h3 className="text-xs font-semibold text-slate-400 mb-3">月次支出: グループ別実績 vs 予算</h3>
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }} barCategoryGap="25%">
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                      <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94a3b8" }} />
                       <YAxis
-                        tick={{ fontSize: 10 }}
+                        tick={{ fontSize: 10, fill: "#94a3b8" }}
                         tickFormatter={v => v >= 10000 ? `${(v / 10000).toFixed(0)}万` : String(v)}
                         width={44}
                       />
                       <Tooltip
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         formatter={(v: any) => v != null ? [`¥${Number(v).toLocaleString()}`] : ["—"]}
-                        contentStyle={{ fontSize: 11 }}
+                        contentStyle={{ fontSize: 11, backgroundColor: "#1e293b", border: "1px solid #334155", color: "#e2e8f0" }}
                       />
-                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      <Legend wrapperStyle={{ fontSize: 11, color: "#94a3b8" }} />
                       <Bar dataKey="予算" fill="#94a3b8" opacity={0.35} radius={[3, 3, 0, 0]} />
                       {chartGroups.map(({ group }) => {
                         const colorMap: Record<string, string> = {
@@ -920,7 +920,7 @@ function BudgetContent() {
                 {/* 月次収支バランス（個人のみ） */}
                 {yearCardTypeFilter === "self" && (
                   <div>
-                    <h3 className="text-xs font-semibold text-gray-600 mb-3">月次収支バランス（収入 − 支出実績）</h3>
+                    <h3 className="text-xs font-semibold text-slate-400 mb-3">月次収支バランス（収入 − 支出実績）</h3>
                     <ResponsiveContainer width="100%" height={160}>
                       <BarChart
                         data={chartData.map(d => {
@@ -928,17 +928,17 @@ function BudgetContent() {
                           return { month: d.month, 収支: (Number(d["収入"]) || 0) - expense }
                         })}
                         margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                        <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                        <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94a3b8" }} />
                         <YAxis
-                          tick={{ fontSize: 10 }}
+                          tick={{ fontSize: 10, fill: "#94a3b8" }}
                           tickFormatter={v => v >= 10000 ? `${(v / 10000).toFixed(0)}万` : v < -10000 ? `-${(Math.abs(v) / 10000).toFixed(0)}万` : String(v)}
                           width={44}
                         />
                         <Tooltip
                           // eslint-disable-next-line @typescript-eslint/no-explicit-any
                           formatter={(v: any) => v != null ? [`¥${Number(v).toLocaleString()}`] : ["—"]}
-                          contentStyle={{ fontSize: 11 }}
+                          contentStyle={{ fontSize: 11, backgroundColor: "#1e293b", border: "1px solid #334155", color: "#e2e8f0" }}
                         />
                         <ReferenceLine y={0} stroke="#9ca3af" strokeWidth={1.5} />
                         <Bar dataKey="収支" fill="#22c55e" radius={[3, 3, 0, 0]} />
@@ -948,19 +948,19 @@ function BudgetContent() {
                 )}
 
                 {/* 年間サマリー */}
-                <div className="grid grid-cols-3 gap-3 pt-2 border-t border-gray-100">
+                <div className="grid grid-cols-3 gap-3 pt-2 border-t border-slate-800">
                   {chartGroups.map(({ group, rows }) => {
                     const actual = rows.reduce((s, r) => s + r.yearActual, 0)
                     const budget = rows.reduce((s, r) => s + r.yearBudget, 0)
                     const over = actual > budget && budget > 0
                     return (
-                      <div key={group} className={`rounded-lg p-2.5 ${GROUP_COLORS[group]?.row ?? "bg-gray-50"}`}>
-                        <p className={`text-[10px] font-semibold ${GROUP_COLORS[group]?.text ?? "text-gray-600"}`}>{group}</p>
-                        <p className={`text-sm font-bold mt-0.5 ${over ? "text-red-500" : "text-gray-800"}`}>
+                      <div key={group} className={`rounded-lg p-2.5 ${GROUP_COLORS[group]?.row ?? "bg-slate-800"}`}>
+                        <p className={`text-[10px] font-semibold ${GROUP_COLORS[group]?.text ?? "text-slate-400"}`}>{group}</p>
+                        <p className={`text-sm font-bold mt-0.5 ${over ? "text-red-400" : "text-slate-100"}`}>
                           {actual.toLocaleString()}
                         </p>
                         {budget > 0 && (
-                          <p className="text-[10px] text-gray-400">予算 {budget.toLocaleString()}</p>
+                          <p className="text-[10px] text-slate-500">予算 {budget.toLocaleString()}</p>
                         )}
                       </div>
                     )
@@ -971,11 +971,11 @@ function BudgetContent() {
 
             {/* ── テーブル表示 ── */}
             {!yearlyLoading && displayMode === "table" && (
-              <div className="overflow-auto rounded-xl shadow-sm border border-gray-200 bg-white" style={{ maxHeight: "calc(100vh - 170px)" }}>
+              <div className="overflow-auto rounded-xl shadow-sm border border-slate-800 bg-slate-900" style={{ maxHeight: "calc(100vh - 170px)" }}>
                 <table className="text-xs border-collapse w-full" style={{ minWidth: `${140 + months.length * 90 + 100 + 110}px` }}>
                   <thead>
-                    <tr className="bg-gray-800 text-white sticky top-0 z-10">
-                      <th className="text-left px-3 py-2 font-semibold sticky left-0 bg-gray-800 z-20 min-w-[140px]">
+                    <tr className="bg-slate-800 text-white sticky top-0 z-10">
+                      <th className="text-left px-3 py-2 font-semibold sticky left-0 bg-slate-800 z-20 min-w-[140px]">
                         カテゴリ
                       </th>
                       {months.map(m => (
@@ -985,7 +985,7 @@ function BudgetContent() {
                           {m.replace(/^\d{4}-/, "")}月
                         </th>
                       ))}
-                      <th className="text-right px-3 py-2 font-semibold min-w-[100px] bg-gray-700">年計</th>
+                      <th className="text-right px-3 py-2 font-semibold min-w-[100px] bg-slate-700">年計</th>
                       <th className="text-right px-3 py-2 font-semibold min-w-[110px] bg-indigo-800 whitespace-nowrap">{rangeLabel}</th>
                     </tr>
 
@@ -1014,8 +1014,8 @@ function BudgetContent() {
                       return (
                         <>
                           {/* グループヘッダー行 */}
-                          <tr key={`grp-${group}`} className={`border-b ${gc?.header ?? "bg-gray-700 text-white"}`}>
-                            <td className={`sticky left-0 px-3 py-1 font-bold text-xs ${gc?.header ?? "bg-gray-700 text-white"}`}>
+                          <tr key={`grp-${group}`} className={`border-b ${gc?.header ?? "bg-slate-700 text-white"}`}>
+                            <td className={`sticky left-0 px-3 py-1 font-bold text-xs ${gc?.header ?? "bg-slate-700 text-white"}`}>
                               {group}
                             </td>
                             {months.map(m => {
@@ -1092,9 +1092,9 @@ function BudgetContent() {
                               : row.yearBudget - row.yearActual
                             return (
                               <tr key={`${row.name}-${row.cardType}`}
-                                className={`border-b border-gray-100 hover:bg-yellow-50 transition-colors ${gc?.row ?? "bg-white"}`}>
-                                <td className={`sticky left-0 px-3 py-1.5 ${gc?.row ?? "bg-white"} border-r border-gray-100`}>
-                                  <span className={`font-medium ${gc?.text ?? "text-gray-700"}`}>{row.name}</span>
+                                className={`border-b border-slate-800 hover:bg-yellow-500/10 transition-colors ${gc?.row ?? "bg-slate-900"}`}>
+                                <td className={`sticky left-0 px-3 py-1.5 ${gc?.row ?? "bg-slate-900"} border-r border-slate-800`}>
+                                  <span className={`font-medium ${gc?.text ?? "text-slate-300"}`}>{row.name}</span>
                                 </td>
                                 {months.map(m => {
                                   const { budget: mb, actual: ma } = row.byMonth[m] ?? { budget: 0, actual: 0 }
@@ -1102,18 +1102,18 @@ function BudgetContent() {
                                   const isOver = mb > 0 && (rowSign === 1 ? ma < mb : ma > mb)
                                   const isEditingCell = editingMonthBudget?.category === row.name && editingMonthBudget?.cardType === row.cardType && editingMonthBudget?.month === m
                                   return (
-                                    <td key={m} className={`text-right px-2 py-1 group/cell ${isOver && viewMode === "actual" ? "bg-red-50" : ""}`}>
+                                    <td key={m} className={`text-right px-2 py-1 group/cell ${isOver && viewMode === "actual" ? "bg-red-500/10" : ""}`}>
                                       {viewMode === "budget" && (
                                         isEditingCell ? (
                                           <div className="flex flex-col gap-0.5 items-end" onClick={e => e.stopPropagation()}>
-                                            <div className="flex rounded overflow-hidden border border-gray-200 text-[9px]">
+                                            <div className="flex rounded overflow-hidden border border-slate-800 text-[9px]">
                                               {(["this", "from", "all"] as const).map((md, i) => (
                                                 <button key={md} type="button"
                                                   onMouseDown={e => { e.preventDefault(); setEditingMonthBudget({ ...editingMonthBudget, mode: md }) }}
-                                                  className={`px-1.5 py-0.5 ${i > 0 ? "border-l border-gray-200" : ""} transition-colors ${
+                                                  className={`px-1.5 py-0.5 ${i > 0 ? "border-l border-slate-800" : ""} transition-colors ${
                                                     editingMonthBudget.mode === md
                                                       ? md === "this" ? "bg-blue-500 text-white" : md === "from" ? "bg-purple-500 text-white" : "bg-green-500 text-white"
-                                                      : "bg-white text-gray-400"
+                                                      : "bg-slate-900 text-slate-500"
                                                   }`}>
                                                   {md === "this" ? "この月" : md === "from" ? "以降" : "全月"}
                                                 </button>
@@ -1129,13 +1129,13 @@ function BudgetContent() {
                                                 if (e.key === "Enter") handleMonthBudgetSave(row.name, row.cardType, m, editingMonthBudget.value, editingMonthBudget.mode)
                                                 if (e.key === "Escape") setEditingMonthBudget(null)
                                               }}
-                                              className="w-16 text-right border border-blue-400 rounded px-1 py-0 outline-none bg-white text-gray-800 text-xs"
+                                              className="w-16 text-right border border-blue-400 rounded px-1 py-0 outline-none bg-slate-900 text-slate-100 text-xs"
                                             />
                                           </div>
                                         ) : (
                                           <span
                                             onClick={() => setEditingMonthBudget({ category: row.name, cardType: row.cardType, month: m, value: mb > 0 ? String(mb) : "", mode: "this" })}
-                                            className={`font-medium cursor-pointer hover:text-blue-500 hover:underline ${mb > 0 ? "text-gray-700" : "text-gray-200 opacity-0 group-hover/cell:opacity-100"}`}
+                                            className={`font-medium cursor-pointer hover:text-blue-400 hover:underline ${mb > 0 ? "text-slate-300" : "text-gray-200 opacity-0 group-hover/cell:opacity-100"}`}
                                             title="クリックして予算を設定"
                                           >
                                             {mb > 0 ? toJPYShort(mb) : "+ 予算"}
@@ -1145,12 +1145,12 @@ function BudgetContent() {
                                       {viewMode === "actual" && (
                                         <span
                                           onClick={() => ma > 0 && openDrillDown(row.name, row.cardType, m)}
-                                          className={`font-medium ${isOver ? "text-red-500" : ma > 0 ? "text-gray-800 cursor-pointer hover:underline hover:text-blue-600" : "text-gray-300"}`}>
+                                          className={`font-medium ${isOver ? "text-red-400" : ma > 0 ? "text-slate-100 cursor-pointer hover:underline hover:text-blue-400" : "text-slate-600"}`}>
                                           {ma > 0 ? toJPYShort(ma) : "—"}
                                         </span>
                                       )}
                                       {viewMode === "diff" && (
-                                        <span className={`font-medium ${mb === 0 ? "text-gray-300" : mdiff < 0 ? "text-red-500" : "text-green-600"}`}>
+                                        <span className={`font-medium ${mb === 0 ? "text-slate-600" : mdiff < 0 ? "text-red-400" : "text-green-400"}`}>
                                           {mb > 0 ? `${mdiff >= 0 ? "+" : ""}${toJPYShort(mdiff)}` : "—"}
                                         </span>
                                       )}
@@ -1159,21 +1159,21 @@ function BudgetContent() {
                                           {/* 実績行 */}
                                           <span
                                             onClick={() => ma > 0 && openDrillDown(row.name, row.cardType, m)}
-                                            className={`block font-medium ${isOver ? "text-red-500" : ma > 0 ? "text-gray-800 cursor-pointer hover:underline hover:text-blue-600" : "text-gray-300"}`}>
+                                            className={`block font-medium ${isOver ? "text-red-400" : ma > 0 ? "text-slate-100 cursor-pointer hover:underline hover:text-blue-400" : "text-slate-600"}`}>
                                             {ma > 0 ? toJPYShort(ma) : "—"}
                                           </span>
                                           {/* 予算行（クリックで編集） */}
                                           {isEditingCell ? (
                                             <span className="block" onClick={e => e.stopPropagation()}>
                                               <span className="flex justify-end mb-0.5">
-                                                <span className="flex rounded overflow-hidden border border-gray-200 text-[9px]">
+                                                <span className="flex rounded overflow-hidden border border-slate-800 text-[9px]">
                                                   {(["this", "from", "all"] as const).map((md, i) => (
                                                     <button key={md} type="button"
                                                       onMouseDown={e => { e.preventDefault(); setEditingMonthBudget({ ...editingMonthBudget, mode: md }) }}
-                                                      className={`px-1 py-0.5 ${i > 0 ? "border-l border-gray-200" : ""} transition-colors ${
+                                                      className={`px-1 py-0.5 ${i > 0 ? "border-l border-slate-800" : ""} transition-colors ${
                                                         editingMonthBudget.mode === md
                                                           ? md === "this" ? "bg-blue-500 text-white" : md === "from" ? "bg-purple-500 text-white" : "bg-green-500 text-white"
-                                                          : "bg-white text-gray-400"
+                                                          : "bg-slate-900 text-slate-500"
                                                       }`}>
                                                       {md === "this" ? "この月" : md === "from" ? "以降" : "全月"}
                                                     </button>
@@ -1190,13 +1190,13 @@ function BudgetContent() {
                                                   if (e.key === "Enter") handleMonthBudgetSave(row.name, row.cardType, m, editingMonthBudget.value, editingMonthBudget.mode)
                                                   if (e.key === "Escape") setEditingMonthBudget(null)
                                                 }}
-                                                className="w-16 text-right border border-blue-400 rounded px-1 py-0 outline-none bg-white text-gray-800"
+                                                className="w-16 text-right border border-blue-400 rounded px-1 py-0 outline-none bg-slate-900 text-slate-100"
                                               />
                                             </span>
                                           ) : (
                                             <span
                                               onClick={() => setEditingMonthBudget({ category: row.name, cardType: row.cardType, month: m, value: mb > 0 ? String(mb) : "", mode: "this" })}
-                                              className={`block cursor-pointer hover:text-blue-500 hover:underline ${mb > 0 ? (mdiff < 0 ? "text-red-400" : "text-blue-400") : "text-gray-200 opacity-0 group-hover/cell:opacity-100"}`}
+                                              className={`block cursor-pointer hover:text-blue-400 hover:underline ${mb > 0 ? (mdiff < 0 ? "text-red-400" : "text-blue-400") : "text-gray-200 opacity-0 group-hover/cell:opacity-100"}`}
                                               title="クリックして予算を設定"
                                             >
                                               {mb > 0 ? `予${toJPYShort(mb)}` : "+ 予算"}
@@ -1208,29 +1208,29 @@ function BudgetContent() {
                                   )
                                 })}
                                 {/* 年計 */}
-                                <td className="text-right px-3 py-1.5 bg-gray-50 border-l border-gray-100">
+                                <td className="text-right px-3 py-1.5 bg-slate-800 border-l border-slate-800">
                                   {viewMode === "budget" && (
-                                    <span className="font-semibold text-gray-700">
+                                    <span className="font-semibold text-slate-300">
                                       {row.yearBudget > 0 ? toJPYShort(row.yearBudget) : "—"}
                                     </span>
                                   )}
                                   {viewMode === "actual" && (
-                                    <span className={`font-semibold ${row.yearActual > row.yearBudget && row.yearBudget > 0 ? "text-red-500" : "text-gray-800"}`}>
+                                    <span className={`font-semibold ${row.yearActual > row.yearBudget && row.yearBudget > 0 ? "text-red-400" : "text-slate-100"}`}>
                                       {row.yearActual > 0 ? toJPYShort(row.yearActual) : "—"}
                                     </span>
                                   )}
                                   {viewMode === "diff" && (
-                                    <span className={`font-semibold ${row.yearBudget === 0 ? "text-gray-300" : diff < 0 ? "text-red-500" : "text-green-600"}`}>
+                                    <span className={`font-semibold ${row.yearBudget === 0 ? "text-slate-600" : diff < 0 ? "text-red-400" : "text-green-400"}`}>
                                       {row.yearBudget > 0 ? `${diff >= 0 ? "+" : ""}${toJPYShort(diff)}` : "—"}
                                     </span>
                                   )}
                                   {viewMode === "both" && (
                                     <span className="text-[10px] leading-tight">
-                                      <span className={`block font-semibold ${row.yearActual > 0 ? "text-gray-800" : "text-gray-300"}`}>
+                                      <span className={`block font-semibold ${row.yearActual > 0 ? "text-slate-100" : "text-slate-600"}`}>
                                         {row.yearActual > 0 ? toJPYShort(row.yearActual) : "—"}
                                       </span>
                                       {row.yearBudget > 0 && (
-                                        <span className={`block font-medium ${diff < 0 ? "text-red-500" : "text-green-600"}`}>
+                                        <span className={`block font-medium ${diff < 0 ? "text-red-400" : "text-green-400"}`}>
                                           {diff >= 0 ? "+" : ""}{toJPYShort(diff)}
                                         </span>
                                       )}
@@ -1243,14 +1243,14 @@ function BudgetContent() {
                                   const ra = rangeMonths.reduce((s, m) => s + (row.byMonth[m]?.actual ?? 0), 0)
                                   const rdiff = rowSign === 1 ? ra - rb : rb - ra
                                   return (
-                                    <td className="text-right px-3 py-1.5 bg-indigo-50 border-l border-indigo-100">
-                                      {viewMode === "budget" && <span className="font-semibold text-indigo-700">{rb > 0 ? toJPYShort(rb) : "—"}</span>}
-                                      {viewMode === "actual" && <span className={`font-semibold ${ra > rb && rb > 0 ? "text-red-500" : "text-indigo-800"}`}>{ra > 0 ? toJPYShort(ra) : "—"}</span>}
-                                      {viewMode === "diff" && <span className={`font-semibold ${rb === 0 ? "text-gray-300" : rdiff < 0 ? "text-red-500" : "text-green-600"}`}>{rb > 0 ? `${rdiff >= 0 ? "+" : ""}${toJPYShort(rdiff)}` : "—"}</span>}
+                                    <td className="text-right px-3 py-1.5 bg-indigo-500/10 border-l border-indigo-500/20">
+                                      {viewMode === "budget" && <span className="font-semibold text-indigo-300">{rb > 0 ? toJPYShort(rb) : "—"}</span>}
+                                      {viewMode === "actual" && <span className={`font-semibold ${ra > rb && rb > 0 ? "text-red-400" : "text-indigo-300"}`}>{ra > 0 ? toJPYShort(ra) : "—"}</span>}
+                                      {viewMode === "diff" && <span className={`font-semibold ${rb === 0 ? "text-slate-600" : rdiff < 0 ? "text-red-400" : "text-green-400"}`}>{rb > 0 ? `${rdiff >= 0 ? "+" : ""}${toJPYShort(rdiff)}` : "—"}</span>}
                                       {viewMode === "both" && (
                                         <span className="text-[10px] leading-tight">
-                                          <span className={`block font-semibold ${ra > 0 ? "text-indigo-800" : "text-gray-300"}`}>{ra > 0 ? toJPYShort(ra) : "—"}</span>
-                                          {rb > 0 && <span className={`block font-medium ${rdiff < 0 ? "text-red-500" : "text-green-600"}`}>{rdiff >= 0 ? "+" : ""}{toJPYShort(rdiff)}</span>}
+                                          <span className={`block font-semibold ${ra > 0 ? "text-indigo-300" : "text-slate-600"}`}>{ra > 0 ? toJPYShort(ra) : "—"}</span>
+                                          {rb > 0 && <span className={`block font-medium ${rdiff < 0 ? "text-red-400" : "text-green-400"}`}>{rdiff >= 0 ? "+" : ""}{toJPYShort(rdiff)}</span>}
                                         </span>
                                       )}
                                     </td>
@@ -1264,7 +1264,7 @@ function BudgetContent() {
                     })}
                   </tbody>
                   <tfoot>
-                    <tr className="border-t-2 border-gray-400 bg-gray-900 text-white sticky bottom-0">
+                    <tr className="border-t-2 border-slate-600 bg-gray-900 text-white sticky bottom-0">
                       <td className="sticky left-0 bg-gray-900 px-3 py-2 font-bold text-sm">余剰</td>
                       {months.map(m => {
                         const { budget: sb, actual: sa } = surplusData.byMonth[m] ?? { budget: 0, actual: 0 }
@@ -1276,7 +1276,7 @@ function BudgetContent() {
                             {viewMode === "actual" && (
                               <span className={sa >= 0 ? "text-green-300" : "text-red-300"}>{toJPYShort(sa)}</span>
                             )}
-                            {viewMode === "diff" && <span className="text-gray-400">—</span>}
+                            {viewMode === "diff" && <span className="text-slate-500">—</span>}
                             {viewMode === "both" && (
                               <span className="text-[10px] leading-snug block">
                                 <span className={`block ${sa >= 0 ? "text-green-300" : "text-red-300"}`}>{toJPYShort(sa)}</span>
@@ -1286,14 +1286,14 @@ function BudgetContent() {
                           </td>
                         )
                       })}
-                      <td className="text-right px-3 py-2 font-bold bg-gray-800">
+                      <td className="text-right px-3 py-2 font-bold bg-slate-800">
                         {viewMode === "budget" && (
                           <span className={surplusData.yearBudget >= 0 ? "text-green-300" : "text-red-300"}>{toJPYShort(surplusData.yearBudget)}</span>
                         )}
                         {viewMode === "actual" && (
                           <span className={surplusData.yearActual >= 0 ? "text-green-300" : "text-red-300"}>{toJPYShort(surplusData.yearActual)}</span>
                         )}
-                        {viewMode === "diff" && <span className="text-gray-400">—</span>}
+                        {viewMode === "diff" && <span className="text-slate-500">—</span>}
                         {viewMode === "both" && (
                           <span className="text-[10px] leading-tight block">
                             <span className={`block font-bold ${surplusData.yearActual >= 0 ? "text-green-300" : "text-red-300"}`}>{toJPYShort(surplusData.yearActual)}</span>
@@ -1316,7 +1316,7 @@ function BudgetContent() {
                           <td className="text-right px-3 py-2 font-bold bg-indigo-900">
                             {viewMode === "budget" && <span className={rsb >= 0 ? "text-green-300" : "text-red-300"}>{toJPYShort(rsb)}</span>}
                             {viewMode === "actual" && <span className={rsa >= 0 ? "text-green-300" : "text-red-300"}>{toJPYShort(rsa)}</span>}
-                            {viewMode === "diff" && <span className="text-gray-400">—</span>}
+                            {viewMode === "diff" && <span className="text-slate-500">—</span>}
                             {viewMode === "both" && (
                               <span className="text-[10px] leading-tight block">
                                 <span className={`block font-bold ${rsa >= 0 ? "text-green-300" : "text-red-300"}`}>{toJPYShort(rsa)}</span>
@@ -1334,10 +1334,10 @@ function BudgetContent() {
 
             {/* 凡例 */}
             {!yearlyLoading && (
-              <div className="flex flex-wrap gap-3 text-xs text-gray-400">
+              <div className="flex flex-wrap gap-3 text-xs text-slate-500">
                 <span>赤背景 = 予算超過</span>
                 <span className="text-red-400">赤文字 = 超過額</span>
-                <span className="text-green-500">緑文字 = 余剰</span>
+                <span className="text-green-400">緑文字 = 余剰</span>
                 <span className="text-blue-400">青ヘッダー = 当月</span>
               </div>
             )}
@@ -1350,26 +1350,26 @@ function BudgetContent() {
       {drillDown && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
           onClick={e => { if (e.target === e.currentTarget) setDrillDown(null) }}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col">
+          <div className="bg-slate-900 rounded-2xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col">
             {/* ヘッダー */}
             <div className="flex items-center justify-between px-5 py-3 border-b">
               <div>
-                <p className="text-sm font-bold text-gray-800">{drillDown.category}</p>
-                <p className="text-xs text-gray-500">{drillDown.month.replace("-", "年")}月 の明細</p>
+                <p className="text-sm font-bold text-slate-100">{drillDown.category}</p>
+                <p className="text-xs text-slate-400">{drillDown.month.replace("-", "年")}月 の明細</p>
               </div>
-              <button onClick={() => setDrillDown(null)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+              <button onClick={() => setDrillDown(null)} className="text-slate-500 hover:text-slate-400 text-2xl leading-none">×</button>
             </div>
 
             {/* ボディ */}
             <div className="overflow-y-auto flex-1 px-5 py-3">
               {drillDownLoading ? (
-                <p className="text-center text-gray-400 text-sm py-8">読み込み中...</p>
+                <p className="text-center text-slate-500 text-sm py-8">読み込み中...</p>
               ) : drillDownRows.length === 0 ? (
-                <p className="text-center text-gray-400 text-sm py-8">明細がありません</p>
+                <p className="text-center text-slate-500 text-sm py-8">明細がありません</p>
               ) : (
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="text-gray-500 border-b">
+                    <tr className="text-slate-400 border-b">
                       <th className="text-left py-1.5 font-medium">日付</th>
                       <th className="text-left py-1.5 font-medium">メモ / 種別</th>
                       <th className="text-right py-1.5 font-medium">金額</th>
@@ -1382,16 +1382,16 @@ function BudgetContent() {
                       const catOptions = allCatRows.filter(c => c.card_type === r.card_type).map(c => c.name)
                       if (isEditing && editingRow) {
                         return (
-                          <tr key={`${r.source}-${r.id}`} className="bg-blue-50">
+                          <tr key={`${r.source}-${r.id}`} className="bg-blue-500/10">
                             <td className="py-2" colSpan={4}>
                               <div className="flex flex-col gap-1.5 px-1">
                                 <div className="flex gap-1.5">
                                   <input type="date" value={editingRow.date}
                                     onChange={e => setEditingRow({ ...editingRow, date: e.target.value })}
-                                    className="border border-gray-300 rounded px-2 py-1 text-xs text-gray-900 w-32" />
+                                    className="border border-slate-700 rounded px-2 py-1 text-xs text-slate-100 w-32" />
                                   <select value={editingRow.category}
                                     onChange={e => setEditingRow({ ...editingRow, category: e.target.value })}
-                                    className="border border-gray-300 rounded px-2 py-1 text-xs text-gray-900 flex-1">
+                                    className="border border-slate-700 rounded px-2 py-1 text-xs text-slate-100 flex-1">
                                     {catOptions.map(n => <option key={n} value={n}>{n}</option>)}
                                     {!catOptions.includes(editingRow.category) && <option value={editingRow.category}>{editingRow.category}</option>}
                                   </select>
@@ -1400,13 +1400,13 @@ function BudgetContent() {
                                   <input type="text" value={editingRow.memo}
                                     onChange={e => setEditingRow({ ...editingRow, memo: e.target.value })}
                                     placeholder="メモ"
-                                    className="border border-gray-300 rounded px-2 py-1 text-xs text-gray-900 flex-1" />
+                                    className="border border-slate-700 rounded px-2 py-1 text-xs text-slate-100 flex-1" />
                                   <input type="text" inputMode="numeric" value={editingRow.amount}
                                     onChange={e => { const v = e.target.value.replace(/,/g, ""); if (v === "" || /^-?\d+$/.test(v)) setEditingRow({ ...editingRow, amount: v }) }}
-                                    className="border border-gray-300 rounded px-2 py-1 text-xs text-gray-900 w-24 text-right" />
+                                    className="border border-slate-700 rounded px-2 py-1 text-xs text-slate-100 w-24 text-right" />
                                 </div>
                                 <div className="flex gap-1.5 justify-end">
-                                  <button onClick={() => setEditingRow(null)} className="text-xs px-3 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-100">キャンセル</button>
+                                  <button onClick={() => setEditingRow(null)} className="text-xs px-3 py-1 rounded border border-slate-700 text-slate-400 hover:bg-slate-800">キャンセル</button>
                                   <button onClick={handleSaveEdit} disabled={editSaving} className="text-xs px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">{editSaving ? "保存中…" : "保存"}</button>
                                 </div>
                               </div>
@@ -1415,22 +1415,22 @@ function BudgetContent() {
                         )
                       }
                       return (
-                        <tr key={`${r.source}-${r.id}`} className="hover:bg-gray-50">
-                          <td className="py-1.5 text-gray-600 whitespace-nowrap">{r.date}</td>
-                          <td className="py-1.5 text-gray-700 max-w-[200px]">
+                        <tr key={`${r.source}-${r.id}`} className="hover:bg-slate-800">
+                          <td className="py-1.5 text-slate-400 whitespace-nowrap">{r.date}</td>
+                          <td className="py-1.5 text-slate-300 max-w-[200px]">
                             <span className="block truncate">{r.memo || "—"}</span>
                             {r.source === "income" ? (
-                              <span className="text-[10px] text-green-600">収入</span>
+                              <span className="text-[10px] text-green-400">収入</span>
                             ) : r.card_name ? (
-                              <span className="text-[10px] text-gray-400">{r.card_name}</span>
+                              <span className="text-[10px] text-slate-500">{r.card_name}</span>
                             ) : null}
                           </td>
-                          <td className={`py-1.5 text-right font-semibold whitespace-nowrap ${Number(r.amount) < 0 ? "text-red-500" : "text-gray-800"}`}>
+                          <td className={`py-1.5 text-right font-semibold whitespace-nowrap ${Number(r.amount) < 0 ? "text-red-400" : "text-slate-100"}`}>
                             {Number(r.amount).toLocaleString("ja-JP")}
                           </td>
                           <td className="py-1.5 text-right">
                             <button onClick={() => setEditingRow({ id: r.id, source: r.source, date: r.date, category: drillDown?.category ?? "", amount: String(r.amount), memo: r.memo ?? "" })}
-                              className="text-gray-300 hover:text-blue-500 text-sm px-1">✎</button>
+                              className="text-slate-600 hover:text-blue-400 text-sm px-1">✎</button>
                           </td>
                         </tr>
                       )
@@ -1443,8 +1443,8 @@ function BudgetContent() {
             {/* フッター: 合計 */}
             {!drillDownLoading && drillDownRows.length > 0 && (
               <div className="border-t px-5 py-3 flex justify-between items-center">
-                <span className="text-xs text-gray-500">{drillDownRows.length}件</span>
-                <span className="text-sm font-bold text-gray-800">
+                <span className="text-xs text-slate-400">{drillDownRows.length}件</span>
+                <span className="text-sm font-bold text-slate-100">
                   合計 {drillDownRows.reduce((s, r) => s + Number(r.amount), 0).toLocaleString("ja-JP")}円
                 </span>
               </div>
