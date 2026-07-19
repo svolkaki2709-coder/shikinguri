@@ -200,6 +200,11 @@ function HistoryContent() {
                       borderColor: cardId === String(c.id) ? c.color : "#334155",
                       color: cardId === String(c.id) ? "white" : "#94a3b8",
                     }}>
+                    {usageFilter === "all" && (
+                      <span className={`mr-1 text-[9px] font-bold px-1 py-0.5 rounded ${c.card_type === "joint" ? "bg-amber-400/25 text-amber-100" : "bg-indigo-400/25 text-indigo-100"}`}>
+                        {c.card_type === "joint" ? "共" : "個"}
+                      </span>
+                    )}
                     {c.name}
                   </button>
                 ))}
@@ -266,6 +271,11 @@ function HistoryContent() {
                       borderColor: cardId === String(c.id) ? c.color : "#334155",
                       color: cardId === String(c.id) ? "white" : "#94a3b8",
                     }}>
+                    {usageFilter === "all" && (
+                      <span className={`mr-1 text-[9px] font-bold px-1 py-0.5 rounded ${c.card_type === "joint" ? "bg-amber-400/25 text-amber-100" : "bg-indigo-400/25 text-indigo-100"}`}>
+                        {c.card_type === "joint" ? "共" : "個"}
+                      </span>
+                    )}
                     {c.name}
                   </button>
                 ))}
@@ -451,7 +461,7 @@ function HistoryContent() {
               <select value={editForm.card_id}
                 onChange={e => setEditForm(f => ({ ...f, card_id: Number(e.target.value) }))}
                 className="w-full border rounded-lg px-3 py-2 text-sm text-slate-100 bg-slate-900 outline-none focus:ring-2 focus:ring-blue-400">
-                {cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {cards.map(c => <option key={c.id} value={c.id}>{c.name}（{c.card_type === "joint" ? "共用" : "個人"}）</option>)}
               </select>
             </div>
 
