@@ -94,6 +94,12 @@ function getCategorySign(row: CategoryData): number {
   return -1
 }
 
+// 増減の色分け方向: このグループは「実績が多いほど良い」（収入と同じ扱い）
+// ※資金の流れ（純額集計）自体は従来通りsign=-1のまま。表示上の良し悪し判定だけ反転させる
+function moreIsBetter(groupType: string | null): boolean {
+  return groupType === "収入" || groupType === "投資"
+}
+
 type MainTab = "monthly" | "yearly"
 type ViewMode = "budget" | "actual" | "diff" | "both"
 type DisplayMode = "table" | "chart"
@@ -536,7 +542,7 @@ function BudgetContent() {
           return sg === -1 ? s + b.actual : sg === 1 ? s - b.actual : s
         }, 0)
     // 収入グループは実績が予算を上回るほど良い（黒字）ので実績-予算、それ以外は予算-実績（残額）
-    const gDiff = group === "収入" ? gActual - gBudget : gBudget - gActual
+    const gDiff = moreIsBetter(group) ? gActual - gBudget : gBudget - gActual
 
     return (
       <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 overflow-hidden">
@@ -556,16 +562,17 @@ function BudgetContent() {
         <div className="divide-y divide-gray-100">
           {rows.map((b, rowIdx) => {
             const sign = getEffectiveSign(b)
-            // sign=-1(支出): 予算-実績 が正なら余り、負なら超過
-            // sign=+1(収入/精算): 実績-予算 が正なら余剰、負なら不足
+            const favorable = sign === 1 || moreIsBetter(b.groupType)
+            // favorable=true(収入/投資/精算): 実績-予算 が正なら余剰、負なら不足
+            // favorable=false(支出等): 予算-実績 が正なら余り、負なら超過
             // sign=0(振替): 差額表示なし
-            const effectiveDiff = sign === 1 ? b.actual - b.budget : b.budget - b.actual
+            const effectiveDiff = favorable ? b.actual - b.budget : b.budget - b.actual
             const hasBudget = b.budget > 0
             const isBad = hasBudget && sign !== 0 && effectiveDiff < 0
             const pct = hasBudget ? Math.min((b.actual / b.budget) * 100, 100) : 0
             const isDraggingOver = dragOverIdx?.group === group && dragOverIdx.idx === rowIdx
             const isDragging = dragItem?.group === group && dragItem.idx === rowIdx
-            const diffLabel = sign === 1
+            const diffLabel = favorable
               ? (isBad
                   ? (b.groupType === "立替" ? "▲未精算 " : "▲不足 ")
                   : (b.groupType === "立替" ? "+精算済 " : "+余剰 "))
@@ -1009,8 +1016,8 @@ function BudgetContent() {
                             }, 0)
                       const groupYearBudget = signAwareSum(r => r.yearBudget)
                       const groupYearActual = signAwareSum(r => r.yearActual)
-                      const isIncomeGroup = group === "収入"
-                      // 収入グループ: 実績 > 予算 = 良い、その他: 予算 > 実績 = 良い
+                      const isIncomeGroup = moreIsBetter(group)
+                      // 収入・投資グループ: 実績 > 予算 = 良い、その他: 予算 > 実績 = 良い
                       const groupDiff = isIncomeGroup
                         ? groupYearActual - groupYearBudget
                         : groupYearBudget - groupYearActual
@@ -1089,9 +1096,10 @@ function BudgetContent() {
                           {/* カテゴリ行 */}
                           {rows.map(row => {
                             const rowSign = getCategorySign(row)
-                            // 収入系(sign=1): 実績 > 予算 = 良い → diff = 実績 - 予算
-                            // 支出系(sign=-1): 実績 < 予算 = 良い → diff = 予算 - 実績
-                            const diff = rowSign === 1
+                            const rowFavorable = rowSign === 1 || moreIsBetter(row.groupType)
+                            // 収入・投資系: 実績 > 予算 = 良い → diff = 実績 - 予算
+                            // 支出系: 実績 < 予算 = 良い → diff = 予算 - 実績
+                            const diff = rowFavorable
                               ? row.yearActual - row.yearBudget
                               : row.yearBudget - row.yearActual
                             return (
@@ -1102,8 +1110,8 @@ function BudgetContent() {
                                 </td>
                                 {months.map(m => {
                                   const { budget: mb, actual: ma } = row.byMonth[m] ?? { budget: 0, actual: 0 }
-                                  const mdiff = rowSign === 1 ? ma - mb : mb - ma
-                                  const isOver = mb > 0 && (rowSign === 1 ? ma < mb : ma > mb)
+                                  const mdiff = rowFavorable ? ma - mb : mb - ma
+                                  const isOver = mb > 0 && (rowFavorable ? ma < mb : ma > mb)
                                   const isEditingCell = editingMonthBudget?.category === row.name && editingMonthBudget?.cardType === row.cardType && editingMonthBudget?.month === m
                                   return (
                                     <td key={m} className={`text-right px-2 py-1 group/cell ${isOver && viewMode === "actual" ? "bg-red-500/10" : ""}`}>
