@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
+import { requireUser, unauthorized } from "@/lib/session"
 // v1.1.1: lib直接インポートでVercelのfs問題を回避（v1のentry pointがtest fileを読もうとするバグ対策）
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const pdfParse = require("pdf-parse/lib/pdf-parse")
@@ -165,8 +165,8 @@ function parsePayslipText(text: string): ParsedPayslip {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const me = await requireUser()
+  if (!me) return unauthorized()
 
   try {
     const formData = await req.formData()
@@ -177,7 +177,8 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(arrayBuffer)
 
     const parsed = await pdfParse(buffer, { max: 1 })
-    const data = parsePayslipText(parsed.text)
+    const { _debug, ...data } = parsePayslipText(parsed.text)
+    void _debug
 
     return NextResponse.json({ success: true, ...data })
   } catch (e: unknown) {

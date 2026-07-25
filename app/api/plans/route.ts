@@ -1,28 +1,35 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
 import { sql } from "@/lib/db"
+import { requireUser, unauthorized } from "@/lib/session"
 
 export async function GET(req: NextRequest) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const me = await requireUser()
+  if (!me) return unauthorized()
 
   const { searchParams } = new URL(req.url)
   const now = new Date()
   const month =
     searchParams.get("month") ??
     `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+  const isJoint = searchParams.get("card_type") === "joint"
 
-  const plans = await sql`SELECT * FROM monthly_plans WHERE month = ${month}`
+  const plans = isJoint
+    ? await sql`SELECT * FROM monthly_plans WHERE month = ${month} AND owner_user_id IS NULL`
+    : await sql`SELECT * FROM monthly_plans WHERE month = ${month} AND owner_user_id = ${me.id}`
   const plan = plans[0] ?? { savings_target: 0, nisa_target: 0 }
 
   // 前月との資産差分で貯金・NISA実績を計算
-  const assets = await sql`
-    SELECT month, savings_balance, investment_balance
-    FROM assets
-    WHERE month <= ${month}
-    ORDER BY month DESC
-    LIMIT 2
-  `
+  const assets = isJoint
+    ? await sql`
+        SELECT month, savings_balance, investment_balance FROM assets
+        WHERE month <= ${month} AND owner_user_id IS NULL
+        ORDER BY month DESC LIMIT 2
+      `
+    : await sql`
+        SELECT month, savings_balance, investment_balance FROM assets
+        WHERE month <= ${month} AND owner_user_id = ${me.id}
+        ORDER BY month DESC LIMIT 2
+      `
 
   let savingsActual = 0
   let nisaActual = 0
@@ -42,19 +49,31 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const me = await requireUser()
+  if (!me) return unauthorized()
 
-  const { month, savings_target, nisa_target } = await req.json()
+  const { month, savings_target, nisa_target, card_type } = await req.json()
   if (!month) return NextResponse.json({ error: "month は必須です" }, { status: 400 })
 
-  await sql`
-    INSERT INTO monthly_plans (month, savings_target, nisa_target, updated_at)
-    VALUES (${month}, ${Number(savings_target ?? 0)}, ${Number(nisa_target ?? 0)}, NOW())
-    ON CONFLICT (month) DO UPDATE
-      SET savings_target = EXCLUDED.savings_target,
-          nisa_target = EXCLUDED.nisa_target,
+  const owner = card_type === "joint" ? null : me.id
+
+  const existing = owner === null
+    ? await sql<{ id: number }>`SELECT id FROM monthly_plans WHERE month = ${month} AND owner_user_id IS NULL LIMIT 1`
+    : await sql<{ id: number }>`SELECT id FROM monthly_plans WHERE month = ${month} AND owner_user_id = ${owner} LIMIT 1`
+
+  if (existing.length > 0) {
+    await sql`
+      UPDATE monthly_plans
+      SET savings_target = ${Number(savings_target ?? 0)},
+          nisa_target = ${Number(nisa_target ?? 0)},
           updated_at = NOW()
-  `
+      WHERE id = ${existing[0].id}
+    `
+  } else {
+    await sql`
+      INSERT INTO monthly_plans (month, savings_target, nisa_target, owner_user_id, updated_at)
+      VALUES (${month}, ${Number(savings_target ?? 0)}, ${Number(nisa_target ?? 0)}, ${owner}, NOW())
+    `
+  }
   return NextResponse.json({ success: true })
 }

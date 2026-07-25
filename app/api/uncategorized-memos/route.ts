@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/auth"
 import { sql } from "@/lib/db"
+import { requireUser, unauthorized } from "@/lib/session"
 
 export async function GET() {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const me = await requireUser()
+  if (!me) return unauthorized()
 
   // 未分類かつメモがある明細のメモ値を重複排除して取得（件数多い順）
   const rows = await sql`
@@ -16,6 +16,7 @@ export async function GET() {
       WHERE t.category = '未分類'
         AND t.memo IS NOT NULL
         AND t.memo != ''
+        AND (t.owner_user_id IS NULL OR t.owner_user_id = ${me.id})
     ) sub
     GROUP BY memo, card_type
     ORDER BY cnt DESC, last_date DESC

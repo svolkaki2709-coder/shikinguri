@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
 import { sql } from "@/lib/db"
+import { requireUser, unauthorized } from "@/lib/session"
 
 /**
  * 予実横並び一覧 API
@@ -9,8 +9,8 @@ import { sql } from "@/lib/db"
  * ?from=2026-01&to=2026-12
  */
 export async function GET(req: NextRequest) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const me = await requireUser()
+  if (!me) return unauthorized()
 
   const { searchParams } = new URL(req.url)
   const now = new Date()
@@ -35,9 +35,10 @@ export async function GET(req: NextRequest) {
   const budgetRows = await sql`
     SELECT category, card_type, amount, month, COALESCE(is_from_month, FALSE) AS is_from_month
     FROM budgets
-    WHERE month IS NULL
+    WHERE (owner_user_id IS NULL OR owner_user_id = ${me.id})
+      AND (month IS NULL
        OR (month >= ${from + "-01"} AND month <= ${to + "-31"})
-       OR (COALESCE(is_from_month, FALSE) = TRUE AND month < ${from + "-01"})
+       OR (COALESCE(is_from_month, FALSE) = TRUE AND month < ${from + "-01"}))
     ORDER BY category, card_type, month NULLS LAST
   `
 
@@ -87,6 +88,7 @@ export async function GET(req: NextRequest) {
       LEFT JOIN cards c ON t.card_id = c.id
       WHERE TO_CHAR(t.date, 'YYYY-MM') >= ${from}
         AND TO_CHAR(t.date, 'YYYY-MM') <= ${to}
+        AND (t.owner_user_id IS NULL OR t.owner_user_id = ${me.id})
       GROUP BY t.category, c.card_type, TO_CHAR(t.date, 'YYYY-MM')
     `,
     sql`
@@ -98,6 +100,7 @@ export async function GET(req: NextRequest) {
       FROM incomes
       WHERE TO_CHAR(date, 'YYYY-MM') >= ${from}
         AND TO_CHAR(date, 'YYYY-MM') <= ${to}
+        AND (owner_user_id IS NULL OR owner_user_id = ${me.id})
       GROUP BY category, card_type, TO_CHAR(date, 'YYYY-MM')
     `,
   ])
@@ -115,6 +118,7 @@ export async function GET(req: NextRequest) {
   const categoryRows = await sql`
     SELECT name, card_type, group_type, COALESCE(sort_order, 9999) AS sort_order, sign
     FROM categories
+    WHERE (owner_user_id IS NULL OR owner_user_id = ${me.id})
     ORDER BY card_type, group_type NULLS LAST, sort_order, name
   `
 

@@ -1,145 +1,135 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
 import { sql } from "@/lib/db"
+import { requireUser, unauthorized, forbidden, ownerFor } from "@/lib/session"
 
-async function migrateCategories() {
-  await sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS card_type TEXT NOT NULL DEFAULT 'self'`
-  await sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS group_type TEXT`
-  await sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS sort_order INTEGER`
-  await sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS sign TEXT`
-  try {
-    await sql`ALTER TABLE categories DROP CONSTRAINT IF EXISTS categories_name_key`
-  } catch (_) { /* 無視 */ }
-  try {
-    await sql`
-      DO $$ BEGIN
-        IF NOT EXISTS (
-          SELECT 1 FROM pg_constraint WHERE conname = 'categories_name_cardtype_key'
-        ) THEN
-          ALTER TABLE categories ADD CONSTRAINT categories_name_cardtype_key UNIQUE (name, card_type);
-        END IF;
-      END $$
-    `
-  } catch (_) { /* 無視 */ }
-  // sort_order が未設定の行に初期値をセット（追加順）
-  await sql`
-    UPDATE categories SET sort_order = sub.rn
-    FROM (
-      SELECT id, ROW_NUMBER() OVER (PARTITION BY card_type ORDER BY id) AS rn
-      FROM categories WHERE sort_order IS NULL
-    ) sub
-    WHERE categories.id = sub.id
-  `
+type Row = {
+  name: string
+  card_type: string
+  group_type: string | null
+  sort_order: number | null
+  sign: string | null
+}
+
+function shape(rows: Row[]) {
+  return {
+    categories: rows.map(r => r.name),
+    rows: rows.map(r => ({
+      name: r.name,
+      card_type: r.card_type,
+      group_type: r.group_type ?? null,
+      sort_order: r.sort_order ?? null,
+      sign: r.sign ?? null,
+    })),
+  }
 }
 
 export async function GET(req: NextRequest) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  await migrateCategories()
+  const me = await requireUser()
+  if (!me) return unauthorized()
 
   const { searchParams } = new URL(req.url)
   const cardType = searchParams.get("card_type")
 
-  let rows
-  if (cardType) {
-    rows = await sql`SELECT name, card_type, group_type, sort_order, sign FROM categories WHERE card_type = ${cardType} ORDER BY COALESCE(sort_order, 9999), name`
-  } else {
-    rows = await sql`SELECT name, card_type, group_type, sort_order, sign FROM categories ORDER BY card_type, COALESCE(sort_order, 9999), name`
-  }
+  const rows = cardType
+    ? await sql<Row>`
+        SELECT name, card_type, group_type, sort_order, sign FROM categories
+        WHERE card_type = ${cardType}
+          AND (owner_user_id IS NULL OR owner_user_id = ${me.id})
+        ORDER BY COALESCE(sort_order, 9999), name
+      `
+    : await sql<Row>`
+        SELECT name, card_type, group_type, sort_order, sign FROM categories
+        WHERE (owner_user_id IS NULL OR owner_user_id = ${me.id})
+        ORDER BY card_type, COALESCE(sort_order, 9999), name
+      `
 
-  return NextResponse.json({
-    categories: rows.map(r => r.name as string),
-    rows: rows.map(r => ({
-      name: r.name as string,
-      card_type: r.card_type as string,
-      group_type: (r.group_type ?? null) as string | null,
-      sort_order: (r.sort_order ?? null) as number | null,
-      sign: (r.sign ?? null) as string | null,
-    })),
-  })
+  return NextResponse.json(shape(rows))
 }
 
 export async function POST(req: Request) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  await migrateCategories()
+  const me = await requireUser()
+  if (!me) return unauthorized()
 
   const { name, card_type, group_type, sign } = await req.json()
   if (!name) return NextResponse.json({ error: "名前が必要です" }, { status: 400 })
 
-  const ct = card_type ?? "self"
-  const existing = await sql`SELECT id FROM categories WHERE name = ${name} AND card_type = ${ct}`
+  const ct = card_type === "joint" ? "joint" : "self"
+  const owner = ownerFor(ct, me.id)
+
+  const existing = owner === null
+    ? await sql<{ id: number }>`SELECT id FROM categories WHERE name = ${name} AND card_type = ${ct} AND owner_user_id IS NULL`
+    : await sql<{ id: number }>`SELECT id FROM categories WHERE name = ${name} AND card_type = ${ct} AND owner_user_id = ${owner}`
+
   if (existing.length === 0) {
-    // 末尾に追加（そのcard_typeの最大sort_order + 1）
-    const maxRes = await sql`SELECT COALESCE(MAX(sort_order), 0) + 1 AS next FROM categories WHERE card_type = ${ct}`
-    const nextOrder = maxRes[0].next as number
-    await sql`INSERT INTO categories (name, card_type, group_type, sort_order) VALUES (${name}, ${ct}, ${group_type ?? null}, ${nextOrder})`
+    // 末尾に追加（同一スコープ内の最大 sort_order + 1）
+    const maxRes = owner === null
+      ? await sql<{ next: number }>`SELECT COALESCE(MAX(sort_order), 0) + 1 AS next FROM categories WHERE card_type = ${ct} AND owner_user_id IS NULL`
+      : await sql<{ next: number }>`SELECT COALESCE(MAX(sort_order), 0) + 1 AS next FROM categories WHERE card_type = ${ct} AND owner_user_id = ${owner}`
+    await sql`
+      INSERT INTO categories (name, card_type, group_type, sort_order, owner_user_id)
+      VALUES (${name}, ${ct}, ${group_type ?? null}, ${maxRes[0].next}, ${owner})
+    `
   } else {
     if (group_type !== undefined) {
-      await sql`UPDATE categories SET group_type = ${group_type ?? null} WHERE name = ${name} AND card_type = ${ct}`
+      await sql`UPDATE categories SET group_type = ${group_type ?? null} WHERE id = ${existing[0].id}`
     }
     if (sign !== undefined) {
-      await sql`UPDATE categories SET sign = ${sign ?? null} WHERE name = ${name} AND card_type = ${ct}`
+      await sql`UPDATE categories SET sign = ${sign ?? null} WHERE id = ${existing[0].id}`
     }
   }
   return NextResponse.json({ success: true })
 }
 
-// PATCH: action="reorder" → sort_order一括更新 / それ以外 → 共用カテゴリ自動移行
+// PATCH: action="reorder" → sort_order 一括更新。それ以外は一覧を返すだけ。
 export async function PATCH(req: NextRequest) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  await migrateCategories()
+  const me = await requireUser()
+  if (!me) return unauthorized()
 
   const body = await req.json().catch(() => ({}))
 
-  // ドラッグ&ドロップによる並び替え
   if (body.action === "reorder") {
-    const updates: Array<{ name: string; card_type: string; sort_order: number }> = body.updates ?? []
+    // 画面によって items / updates のどちらでも受ける
+    const updates: Array<{ name: string; card_type: string; sort_order: number }> =
+      body.updates ?? body.items ?? []
     for (const u of updates) {
-      await sql`UPDATE categories SET sort_order = ${u.sort_order} WHERE name = ${u.name} AND card_type = ${u.card_type}`
+      await sql`
+        UPDATE categories SET sort_order = ${u.sort_order}
+        WHERE name = ${u.name} AND card_type = ${u.card_type}
+          AND (owner_user_id IS NULL OR owner_user_id = ${me.id})
+      `
     }
     return NextResponse.json({ success: true })
   }
 
-  // 既存: 共用カード取引からカテゴリを自動移行
-  await sql`
-    UPDATE categories
-    SET card_type = 'joint'
-    WHERE name != '未分類'
-    AND card_type = 'self'
-    AND name IN (
-      SELECT DISTINCT t.category
-      FROM transactions t
-      JOIN cards c ON t.card_id = c.id
-      WHERE c.card_type = 'joint'
-    )
+  const rows = await sql<Row>`
+    SELECT name, card_type, group_type, sort_order, sign FROM categories
+    WHERE (owner_user_id IS NULL OR owner_user_id = ${me.id})
+    ORDER BY card_type, COALESCE(sort_order, 9999), name
   `
-
-  const rows = await sql`SELECT name, card_type, group_type, sort_order, sign FROM categories ORDER BY card_type, COALESCE(sort_order, 9999), name`
-  return NextResponse.json({
-    categories: rows.map(r => r.name as string),
-    rows: rows.map(r => ({
-      name: r.name as string,
-      card_type: r.card_type as string,
-      group_type: (r.group_type ?? null) as string | null,
-      sort_order: (r.sort_order ?? null) as number | null,
-      sign: (r.sign ?? null) as string | null,
-    })),
-  })
+  return NextResponse.json(shape(rows))
 }
 
 export async function DELETE(req: NextRequest) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const me = await requireUser()
+  if (!me) return unauthorized()
 
   const { searchParams } = new URL(req.url)
   const name = searchParams.get("name")
+  // 個人と共同で同名カテゴリが並存するため card_type は必須（片方だけ消す）
+  const cardType = searchParams.get("card_type")
   if (!name) return NextResponse.json({ error: "name は必須です" }, { status: 400 })
+  if (cardType !== "self" && cardType !== "joint") {
+    return NextResponse.json(
+      { error: "card_type（self / joint）の指定が必要です" }, { status: 400 }
+    )
+  }
 
-  await sql`DELETE FROM categories WHERE name = ${name}`
+  const deleted = await sql`
+    DELETE FROM categories
+    WHERE name = ${name} AND card_type = ${cardType}
+      AND (owner_user_id IS NULL OR owner_user_id = ${me.id})
+    RETURNING id
+  `
+  if (deleted.length === 0) return forbidden()
   return NextResponse.json({ success: true })
 }

@@ -41,6 +41,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# DBバックアップ（家計の実データを含むため絶対にコミットしない）
+/backups
+
 .vercel
 
 .vercel

@@ -375,11 +375,23 @@ function SettingsContent() {
     setCatSaving(false)
   }
 
-  async function handleDeleteCategory(name: string) {
-    if (!confirm(`カテゴリ「${name}」を削除しますか？\n（このカテゴリが設定された明細はそのまま残ります）`)) return
-    await fetch(`/api/categories?name=${encodeURIComponent(name)}`, { method: "DELETE" })
-    setCategories(prev => prev.filter(c => c !== name))
-    setCategoryRows(prev => prev.filter(r => r.name !== name))
+  async function handleDeleteCategory(name: string, cardType: string) {
+    const scopeLabel = cardType === "joint" ? "共同" : "個人"
+    if (!confirm(`${scopeLabel}のカテゴリ「${name}」を削除しますか？\n（このカテゴリが設定された明細はそのまま残ります）`)) return
+    const res = await fetch(
+      `/api/categories?name=${encodeURIComponent(name)}&card_type=${cardType}`,
+      { method: "DELETE" }
+    )
+    if (!res.ok) {
+      alert("削除に失敗しました")
+      return
+    }
+    setCategoryRows(prev => prev.filter(r => !(r.name === name && r.card_type === cardType)))
+    setCategories(prev =>
+      categoryRows.some(r => r.name === name && r.card_type !== cardType)
+        ? prev
+        : prev.filter(c => c !== name)
+    )
   }
 
   async function handleSetGroupType(name: string, card_type: string, group_type: string | null) {
@@ -818,7 +830,7 @@ function SettingsContent() {
                                   </button>
                                 )
                               })()}
-                              <button onClick={() => handleDeleteCategory(r.name)}
+                              <button onClick={() => handleDeleteCategory(r.name, r.card_type)}
                                 className="w-7 py-1 text-slate-600 hover:text-red-400 text-base leading-none border-l text-center">×</button>
                             </div>
                           )

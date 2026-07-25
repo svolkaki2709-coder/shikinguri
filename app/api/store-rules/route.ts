@@ -1,35 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/auth"
 import { sql } from "@/lib/db"
-import { STORE_CATEGORY_MAP } from "@/lib/categoryData"
-
-async function ensureTable() {
-  await sql`
-    CREATE TABLE IF NOT EXISTS store_category_rules (
-      id SERIAL PRIMARY KEY,
-      keyword TEXT NOT NULL,
-      category TEXT NOT NULL,
-      created_at TIMESTAMPTZ DEFAULT NOW(),
-      UNIQUE(keyword)
-    )
-  `
-  // 初回のみ categoryData.ts のハードコード済みデータをシード
-  const count = await sql`SELECT COUNT(*) as cnt FROM store_category_rules`
-  if (Number(count[0].cnt) === 0) {
-    for (const [keyword, category] of Object.entries(STORE_CATEGORY_MAP)) {
-      await sql`
-        INSERT INTO store_category_rules (keyword, category)
-        VALUES (${keyword}, ${category})
-        ON CONFLICT (keyword) DO NOTHING
-      `
-    }
-  }
-}
+import { requireUser, unauthorized, forbidden } from "@/lib/session"
 
 export async function GET(req: NextRequest) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  await ensureTable()
+  const me = await requireUser()
+  if (!me) return unauthorized()
 
   const { searchParams } = new URL(req.url)
   const q = searchParams.get("q") ?? ""
@@ -37,74 +12,97 @@ export async function GET(req: NextRequest) {
   const rows = q
     ? await sql`
         SELECT id, keyword, category FROM store_category_rules
-        WHERE keyword ILIKE ${"%" + q + "%"} OR category ILIKE ${"%" + q + "%"}
+        WHERE (owner_user_id IS NULL OR owner_user_id = ${me.id})
+          AND (keyword ILIKE ${"%" + q + "%"} OR category ILIKE ${"%" + q + "%"})
         ORDER BY keyword LIMIT 100
       `
     : await sql`
         SELECT id, keyword, category FROM store_category_rules
+        WHERE (owner_user_id IS NULL OR owner_user_id = ${me.id})
         ORDER BY keyword LIMIT 300
       `
 
   return NextResponse.json({ rules: rows })
 }
 
-// キーワードにマッチする未分類トランザクションを遡って更新
-async function applyRuleToExisting(keyword: string, category: string) {
+/**
+ * キーワードにマッチする未分類明細を遡って振り分ける。
+ * 「メモがキーワードを含む」場合のみ対象。以前は逆方向の包含
+ * （キーワードがメモを含む）も見ていたため、短いメモが無関係な
+ * ルールで巻き込まれていた。
+ */
+async function applyRuleToExisting(keyword: string, category: string, userId: number) {
   const k = keyword.trim()
+  if (!k) return
   await sql`
     UPDATE transactions
     SET category = ${category}
     WHERE category = '未分類'
-      AND memo IS NOT NULL
-      AND memo != ''
-      AND (
-        memo = ${k}
-        OR POSITION(${k} IN memo) > 0
-        OR POSITION(memo IN ${k}) > 0
-      )
+      AND memo IS NOT NULL AND memo <> ''
+      AND POSITION(${k} IN memo) > 0
+      AND (owner_user_id IS NULL OR owner_user_id = ${userId})
   `
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  await ensureTable()
+  const me = await requireUser()
+  if (!me) return unauthorized()
 
-  const { keyword, category } = await req.json()
-  if (!keyword || !category) return NextResponse.json({ error: "keyword と category は必須です" }, { status: 400 })
+  const { keyword, category, card_type } = await req.json()
+  if (!keyword || !category) {
+    return NextResponse.json({ error: "keyword と category は必須です" }, { status: 400 })
+  }
+  const k = String(keyword).trim()
+  const owner = card_type === "joint" ? null : me.id
 
-  await sql`
-    INSERT INTO store_category_rules (keyword, category)
-    VALUES (${keyword.trim()}, ${category})
-    ON CONFLICT (keyword) DO UPDATE SET category = ${category}
-  `
-  await applyRuleToExisting(keyword, category)
+  const existing = owner === null
+    ? await sql<{ id: number }>`SELECT id FROM store_category_rules WHERE keyword = ${k} AND owner_user_id IS NULL LIMIT 1`
+    : await sql<{ id: number }>`SELECT id FROM store_category_rules WHERE keyword = ${k} AND owner_user_id = ${owner} LIMIT 1`
+
+  if (existing.length > 0) {
+    await sql`UPDATE store_category_rules SET category = ${category} WHERE id = ${existing[0].id}`
+  } else {
+    await sql`
+      INSERT INTO store_category_rules (keyword, category, owner_user_id)
+      VALUES (${k}, ${category}, ${owner})
+    `
+  }
+  await applyRuleToExisting(k, category, me.id)
   return NextResponse.json({ success: true })
 }
 
 export async function PATCH(req: NextRequest) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const me = await requireUser()
+  if (!me) return unauthorized()
 
   const { id, keyword, category } = await req.json()
-  if (!id || !keyword || !category) return NextResponse.json({ error: "id, keyword, category は必須です" }, { status: 400 })
+  if (!id || !keyword || !category) {
+    return NextResponse.json({ error: "id, keyword, category は必須です" }, { status: 400 })
+  }
 
-  await sql`
-    UPDATE store_category_rules SET keyword = ${keyword.trim()}, category = ${category}
-    WHERE id = ${Number(id)}
+  const updated = await sql`
+    UPDATE store_category_rules SET keyword = ${String(keyword).trim()}, category = ${category}
+    WHERE id = ${Number(id)} AND (owner_user_id IS NULL OR owner_user_id = ${me.id})
+    RETURNING id
   `
-  await applyRuleToExisting(keyword, category)
+  if (updated.length === 0) return forbidden()
+  await applyRuleToExisting(String(keyword), category, me.id)
   return NextResponse.json({ success: true })
 }
 
 export async function DELETE(req: NextRequest) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const me = await requireUser()
+  if (!me) return unauthorized()
 
   const { searchParams } = new URL(req.url)
   const id = searchParams.get("id")
   if (!id) return NextResponse.json({ error: "id は必須です" }, { status: 400 })
 
-  await sql`DELETE FROM store_category_rules WHERE id = ${Number(id)}`
+  const deleted = await sql`
+    DELETE FROM store_category_rules
+    WHERE id = ${Number(id)} AND (owner_user_id IS NULL OR owner_user_id = ${me.id})
+    RETURNING id
+  `
+  if (deleted.length === 0) return forbidden()
   return NextResponse.json({ success: true })
 }

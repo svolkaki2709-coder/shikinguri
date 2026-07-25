@@ -36,53 +36,84 @@ export default function AssetsPage() {
   const [goalDeadline, setGoalDeadline] = useState("")
   const [addingGoal, setAddingGoal] = useState(false)
 
+  const [loadError, setLoadError] = useState("")
+
   useEffect(() => {
     fetchData()
   }, [])
 
   async function fetchData() {
     setLoading(true)
-    const [assetData, goalData] = await Promise.all([
-      fetch("/api/assets").then(r => r.json()),
-      fetch("/api/goals").then(r => r.json()),
-    ])
-    setAssets(assetData.assets ?? [])
-    setGoals(goalData.goals ?? [])
-    setTotalAssets(goalData.totalAssets ?? 0)
-    setLoading(false)
+    setLoadError("")
+    try {
+      const [assetData, goalData] = await Promise.all([
+        fetch("/api/assets").then(r => r.json()),
+        fetch("/api/goals").then(r => r.json()),
+      ])
+      setAssets(assetData.assets ?? [])
+      setGoals(goalData.goals ?? [])
+      setTotalAssets(goalData.totalAssets ?? 0)
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setLoading(false)
+    }
   }
+
+  // 選択中の月に既存データがあればフォームへ反映する。
+  // 空欄のまま保存して、もう一方の残高を0で上書きしてしまう事故を防ぐ。
+  useEffect(() => {
+    const row = assets.find(a => a.month === month)
+    setSavings(row ? String(row.savings) : "")
+    setInvestment(row ? String(row.investment) : "")
+  }, [month, assets])
 
   async function handleSaveAssets() {
     setSaving(true)
     setSaveMsg("")
-    await fetch("/api/assets", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ month, savings_balance: Number(savings), investment_balance: Number(investment) }),
-    })
-    setSaveMsg("保存しました")
-    setSaving(false)
-    fetchData()
+    try {
+      const res = await fetch("/api/assets", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          month,
+          // 未入力欄は null で送り、サーバー側で既存値を維持させる
+          savings_balance: savings === "" ? null : Number(savings),
+          investment_balance: investment === "" ? null : Number(investment),
+        }),
+      })
+      setSaveMsg(res.ok ? "保存しました" : "保存に失敗しました")
+      if (res.ok) fetchData()
+    } catch {
+      setSaveMsg("通信エラーが発生しました")
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function handleAddGoal() {
     if (!goalName || !goalAmount) return
     setAddingGoal(true)
-    await fetch("/api/goals", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: goalName, target_amount: Number(goalAmount), deadline: goalDeadline || null }),
-    })
-    setGoalName("")
-    setGoalAmount("")
-    setGoalDeadline("")
-    setAddingGoal(false)
-    fetchData()
+    try {
+      const res = await fetch("/api/goals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: goalName, target_amount: Number(goalAmount), deadline: goalDeadline || null }),
+      })
+      if (!res.ok) { alert("目標の追加に失敗しました"); return }
+      setGoalName("")
+      setGoalAmount("")
+      setGoalDeadline("")
+      fetchData()
+    } finally {
+      setAddingGoal(false)
+    }
   }
 
   async function handleDeleteGoal(id: number) {
     if (!confirm("目標を削除しますか？")) return
-    await fetch(`/api/goals?id=${id}`, { method: "DELETE" })
+    const res = await fetch(`/api/goals?id=${id}`, { method: "DELETE" })
+    if (!res.ok) { alert("削除に失敗しました"); return }
     setGoals(prev => prev.filter(g => g.id !== id))
   }
 
@@ -93,6 +124,11 @@ export default function AssetsPage() {
       <PageHeader title="資産管理" />
       <main className={isPC ? "max-w-xl mx-auto px-6 py-4 space-y-3" : "max-w-md mx-auto px-4 py-2 space-y-3"}>
         {loading && <div className="text-center py-4 text-slate-400">読み込み中...</div>}
+        {loadError && (
+          <div className="bg-red-500/10 border border-red-500/40 rounded-xl p-3 text-sm text-red-300">
+            読み込みに失敗しました: {loadError}
+          </div>
+        )}
 
         {!loading && (
           <>
