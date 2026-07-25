@@ -86,32 +86,46 @@ export function parseAmountAbs(raw: string): number {
 }
 
 // ── 列の検出 ─────────────────────────────────────────────────────
+// 各リストは「具体的なものから先に」並べる。列の並び順ではなくキーワードの
+// 優先順で探すので、「摘要内容」を「摘要」より先に拾える。
 const DATE_KEYS = [
-  "利用日", "取引日", "お取引日", "処理日", "お支払日", "支払日", "発生日", "決済日",
-  "日付", "年月日", "取扱日", "計上日", "date",
+  "利用日", "ご利用日", "取引日", "お取引日", "取扱日", "お取扱日", "処理日",
+  "お支払日", "支払日", "発生日", "決済日", "計上日", "年月日", "日付", "date",
 ]
 const WITHDRAW_KEYS = [
-  "お引出し", "お引き出し", "引出し", "引出", "出金", "支払金額", "お支払い金額",
-  "利用金額", "ご利用金額", "引落金額", "お引落し", "支払額", "withdrawal", "debit",
+  "お引出し金額", "お引き出し金額", "引出金額", "出金金額", "お支払い金額", "支払い金額",
+  "支払金額", "引落金額", "お引落し", "ご利用金額", "利用金額",
+  "お引出し", "お引き出し", "引出し", "引出", "払出金額", "払戻金額", "出金", "支払額",
+  "withdrawal", "debit", "payment",
 ]
 const DEPOSIT_KEYS = [
-  "お預入れ", "お預り金額", "お預け入れ", "預入", "入金", "受取", "振込入金",
-  "deposit", "credit",
+  "お預入れ金額", "お預り金額", "お預かり金額", "預かり金額", "預り金額", "入金金額",
+  "振込入金", "お預入れ", "お預け入れ", "お預かり", "預かり", "預り", "預入",
+  "入金", "受取", "deposit", "credit",
 ]
-const BALANCE_KEYS = ["残高", "差引残高", "balance"]
+const BALANCE_KEYS = ["差引残高", "残高", "balance"]
 const MEMO_KEYS = [
-  "お取扱内容", "取扱内容", "利用先", "ご利用先", "店名", "内容", "摘要", "備考",
-  "加盟店", "お取引内容", "取引内容", "memo", "description",
+  "お取扱内容", "取扱内容", "お取引内容", "取引内容", "摘要内容", "ご利用先", "利用先",
+  "お店名", "店名", "加盟店", "詳細", "内容", "摘要", "備考", "memo", "description",
 ]
 
 function norm(h: string) {
   return toHalfWidth(h).toLowerCase().replace(/\s/g, "")
 }
+
+/**
+ * キーワード優先で列を探す。
+ * 列の並び順で探すと「摘要」が「摘要内容」より手前にあるだけで
+ * 情報量の少ない列を拾ってしまうため、キーワード側を外側で回す。
+ */
 function findIdx(headers: string[], keys: string[], exclude: number[] = []): number {
   const lower = headers.map(norm)
-  for (let i = 0; i < lower.length; i++) {
-    if (exclude.includes(i)) continue
-    if (keys.some(k => lower[i].includes(norm(k)))) return i
+  for (const k of keys) {
+    const nk = norm(k)
+    for (let i = 0; i < lower.length; i++) {
+      if (exclude.includes(i)) continue
+      if (lower[i].includes(nk)) return i
+    }
   }
   return -1
 }
@@ -122,8 +136,25 @@ export interface ColumnMap {
   depositIdx: number
   balanceIdx: number
   memoIdx: number
+  /** 「受払区分」のように入出金の向きを示す列（無ければ -1） */
+  directionIdx: number
   /** 出金・入金が1列にまとまっている（符号で判別する）形式か */
   singleAmountColumn: boolean
+}
+
+const DEPOSIT_WORDS = ["預入", "預り", "預かり", "入金", "受入", "受取", "振込入金", "利息"]
+const WITHDRAW_WORDS = ["払出", "払戻", "引出", "出金", "支払", "振替"]
+
+/**
+ * 「受払区分」列の値から入出金の向きを返す。
+ * 金額が1列しかなく符号も付かない明細（ゆうちょ等）で使う。
+ */
+export function directionFromLabel(raw: string): "deposit" | "withdraw" | null {
+  const s = norm(raw)
+  if (!s) return null
+  if (DEPOSIT_WORDS.some(w => s.includes(norm(w)))) return "deposit"
+  if (WITHDRAW_WORDS.some(w => s.includes(norm(w)))) return "withdraw"
+  return null
 }
 
 /**
@@ -134,12 +165,20 @@ export function detectColumns(headers: string[]): ColumnMap {
   const balanceIdx = findIdx(headers, BALANCE_KEYS)
   const depositIdx = findIdx(headers, DEPOSIT_KEYS, [balanceIdx])
   const withdrawIdx = findIdx(headers, WITHDRAW_KEYS, [balanceIdx, depositIdx])
-  const memoIdx = findIdx(headers, MEMO_KEYS)
   let dateIdx = findIdx(headers, DATE_KEYS)
+
+  // 「区分」列は内容ではなく種別なので摘要としては使わない
+  const lower = headers.map(norm)
+  const kubunIdx = lower.map((h, i) => (h.includes("区分") ? i : -1)).filter(i => i >= 0)
+  // 「受払区分」「入払区分」のように向きを示す列
+  const directionIdx = lower.findIndex(
+    h => h.includes("区分") && (h.includes("払") || h.includes("入") || h.includes("受"))
+  )
+  let memoIdx = findIdx(headers, MEMO_KEYS, [balanceIdx, depositIdx, withdrawIdx, ...kubunIdx])
+  if (memoIdx < 0) memoIdx = findIdx(headers, MEMO_KEYS, [balanceIdx, depositIdx, withdrawIdx])
 
   // 「日」を含むだけの列へのゆるいフォールバック（金額・件数系は除外）
   if (dateIdx < 0) {
-    const lower = headers.map(norm)
     dateIdx = lower.findIndex(h => h.includes("日") && !h.includes("金額") && !h.includes("件数"))
   }
 
@@ -155,6 +194,7 @@ export function detectColumns(headers: string[]): ColumnMap {
     depositIdx,
     balanceIdx,
     memoIdx: memoIdx >= 0 ? memoIdx : 1,
+    directionIdx,
     // 入金列が無い＝1列に符号付きで入っている可能性がある形式
     singleAmountColumn: depositIdx < 0,
   }

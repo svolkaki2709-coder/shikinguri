@@ -5,11 +5,15 @@ import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
 import { useViewMode } from "@/components/ViewModeContext"
 
-interface Card { id: number; name: string; card_type: string; color: string; has_csv: boolean }
+interface Card { id: number; name: string; card_type: string; color: string; has_csv: boolean; kind?: string }
+
+const KIND_ICON: Record<string, string> = { card: "💳", bank: "🏦", cash: "💵", emoney: "📱" }
 interface ImportLog {
   id: number
   card_id: number
   card_name: string
+  kind?: string
+  income_count?: number
   start_date: string
   end_date: string
   row_count: number
@@ -25,7 +29,10 @@ export default function ImportPage() {
   const [file, setFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<{
+    kind?: string
     imported: number; skipped: number
+    incomeImported?: number; incomeTotal?: number
+    transferCount?: number; balanceCount?: number
     importedTotal?: number; csvBillingTotal?: number | null; verified?: boolean | null
   } | null>(null)
   const [error, setError] = useState("")
@@ -66,7 +73,10 @@ export default function ImportPage() {
         setWarning({ message: data.message, newRange: data.newRange })
       } else if (res.ok) {
         setResult({
+          kind: data.kind,
           imported: data.imported, skipped: data.skipped,
+          incomeImported: data.incomeImported, incomeTotal: data.incomeTotal,
+          transferCount: data.transferCount, balanceCount: data.balanceCount,
           importedTotal: data.importedTotal, csvBillingTotal: data.csvBillingTotal, verified: data.verified,
         })
         setFile(null)
@@ -110,19 +120,34 @@ export default function ImportPage() {
     return groups
   }, [logs, cards])
 
+  const selectedIsBank = cards.find(c => c.id === cardId)?.kind === "bank"
+
   const FormCard = (
     <div className="space-y-3">
       {/* 説明 */}
       <div className="bg-blue-500/10 rounded-xl p-3 text-sm text-blue-300 space-y-1">
-        <p className="font-medium">各カード会社のCSVをインポートできます</p>
-        <p className="text-xs text-blue-400">自動的に日付・金額・メモ列を検出します。カテゴリは「未分類」で取り込まれます。</p>
+        {selectedIsBank ? (
+          <>
+            <p className="font-medium">🏦 銀行の入出金明細CSVを取り込みます</p>
+            <p className="text-xs text-blue-400">
+              出金は支出、入金は収入として登録します。残高列があれば口座残高の推移も記録します。
+              クレジットカードの引き落としなど自分の他口座あての出金は「振替」に分類し、
+              カード明細と二重計上にならないようにします。
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="font-medium">💳 各カード会社のCSVを取り込みます</p>
+            <p className="text-xs text-blue-400">日付・金額・メモ列を自動検出します。カテゴリは「未分類」で取り込まれます。</p>
+          </>
+        )}
       </div>
 
       <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 space-y-3">
         {/* カード選択・ファイル選択（PCは横並び） */}
         <div className={isPC ? "grid grid-cols-2 gap-3" : "space-y-3"}>
           <div>
-            <label className="block text-xs font-medium text-slate-400 mb-2">取り込み先カード</label>
+            <label className="block text-xs font-medium text-slate-400 mb-2">取り込み先の口座</label>
             <div className="flex gap-2 flex-wrap">
               {cards.map(c => (
                 <button
@@ -136,9 +161,16 @@ export default function ImportPage() {
                     color: cardId === c.id ? c.color : "#94a3b8",
                   }}
                 >
+                  <span className="mr-1">{KIND_ICON[c.kind ?? "card"] ?? "💳"}</span>
                   {c.name}
                 </button>
               ))}
+              {cards.length === 0 && (
+                <p className="text-xs text-amber-400 bg-amber-500/10 rounded-lg px-3 py-2">
+                  CSV取込に対応した口座がありません。設定 → カテゴリ → 口座・支払方法 で
+                  対象の口座の「CSV」ボタンをONにしてください。
+                </p>
+              )}
             </div>
           </div>
 
@@ -174,9 +206,30 @@ export default function ImportPage() {
         )}
         {result && (
           <div className="space-y-2">
-            <div className="bg-green-500/10 text-green-300 rounded-lg px-3 py-2 text-sm">
-              ✅ {result.imported}件取り込み完了
-              {result.skipped > 0 && <span className="text-slate-400 ml-2">（{result.skipped}件スキップ）</span>}
+            <div className="bg-green-500/10 text-green-300 rounded-lg px-3 py-2 text-sm space-y-0.5">
+              <p>
+                ✅ 支出 {result.imported}件を取り込みました
+                {result.importedTotal != null && (
+                  <span className="text-green-400/80 ml-1">（¥{result.importedTotal.toLocaleString()}）</span>
+                )}
+                {result.skipped > 0 && <span className="text-slate-400 ml-2">／{result.skipped}件スキップ</span>}
+              </p>
+              {!!result.incomeImported && (
+                <p>
+                  💰 入金 {result.incomeImported}件
+                  {result.incomeTotal != null && (
+                    <span className="text-green-400/80 ml-1">（¥{result.incomeTotal.toLocaleString()}）</span>
+                  )}
+                </p>
+              )}
+              {!!result.transferCount && (
+                <p className="text-slate-400">
+                  🔁 うち {result.transferCount}件は自分の他口座あてのため「振替」に分類しました
+                </p>
+              )}
+              {!!result.balanceCount && (
+                <p className="text-slate-400">🏦 残高 {result.balanceCount}日分を記録しました</p>
+              )}
             </div>
             {/* 請求合計との照合 */}
             {result.csvBillingTotal != null && (

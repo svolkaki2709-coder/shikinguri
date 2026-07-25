@@ -3,7 +3,7 @@ import { sql } from "@/lib/db"
 import { requireUser, unauthorized, forbidden } from "@/lib/session"
 import {
   decodeCsvBuffer, parseCSV, normalizeDate,
-  parseAmountSigned, parseAmountAbs, detectColumns, findHeaderRowIndex,
+  parseAmountSigned, parseAmountAbs, detectColumns, findHeaderRowIndex, directionFromLabel,
 } from "@/lib/csv"
 
 export async function GET(req: NextRequest) {
@@ -189,10 +189,12 @@ export async function POST(req: NextRequest) {
         if (w != null && w !== 0) withdraw = Math.abs(w)
         if (d != null && d !== 0) deposit = Math.abs(d)
       } else if (cols.withdrawIdx >= 0) {
-        // 金額が1列。マイナスは入金（返金・入金）として扱う
+        // 金額が1列だけの形式。向きは「受払区分」列があればそれで、無ければ符号で判断する
         const v = parseAmountSigned(row[cols.withdrawIdx] ?? "")
         if (v != null && v !== 0) {
-          if (isBank && v < 0) deposit = Math.abs(v)
+          const label = cols.directionIdx >= 0 ? directionFromLabel(row[cols.directionIdx] ?? "") : null
+          const isDeposit = label ? label === "deposit" : isBank && v < 0
+          if (isDeposit) deposit = Math.abs(v)
           else withdraw = Math.abs(v)
         }
       }
