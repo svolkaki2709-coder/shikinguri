@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react"
 import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
 import Link from "next/link"
+import { useViewMode } from "@/components/ViewModeContext"
 
 interface PayslipDetail {
   id: number
@@ -179,6 +180,8 @@ function FormulaModal({ target, onClose }: { target: FormulaTarget; onClose: () 
 }
 
 export default function PayslipDetailsPage() {
+  const { mode } = useViewMode()
+  const isPC = mode === "pc"
   const [details, setDetails] = useState<PayslipDetail[]>([])
   const [loading, setLoading] = useState(true)
   const [deletingMonth, setDeletingMonth] = useState<string | null>(null)
@@ -221,9 +224,9 @@ export default function PayslipDetailsPage() {
   }
 
   return (
-    <div className="pb-20">
+    <div className={isPC ? "" : "pb-20"}>
       <PageHeader title="給与源泉管理" />
-      <div className="max-w-4xl mx-auto px-4 py-3 space-y-4">
+      <div className={isPC ? "max-w-5xl mx-auto px-6 py-4 space-y-4" : "max-w-md mx-auto px-4 py-3 space-y-4"}>
 
         {/* ヘッダー説明 */}
         <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 text-xs text-blue-300 flex items-start justify-between gap-3">
@@ -301,7 +304,8 @@ export default function PayslipDetailsPage() {
                 <span className="text-xs text-slate-500">{rows.length}ヶ月分</span>
               </div>
 
-              {/* PC: 横スクロールテーブル */}
+              {/* PC表示のみ: 10列テーブル。スマホ表示ではサマリーカードを使う */}
+              {isPC && (
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
@@ -416,9 +420,11 @@ export default function PayslipDetailsPage() {
                   </tfoot>
                 </table>
               </div>
+              )}
 
-              {/* サマリーカード（モバイル向け補足） */}
-              <div className="px-4 py-3 bg-slate-800 border-t border-slate-800 grid grid-cols-2 gap-2 md:hidden">
+              {/* サマリーカード（スマホ表示） */}
+              {!isPC && (
+              <div className="px-4 py-3 bg-slate-800 border-t border-slate-800 grid grid-cols-2 gap-2">
                 <div className="text-center">
                   <p className="text-[10px] text-slate-500">年間支給合計</p>
                   <p className="text-sm font-bold text-slate-100">{fmtJPY(totalGross)}</p>
@@ -429,6 +435,7 @@ export default function PayslipDetailsPage() {
                   <p className="text-[10px] text-slate-500">{pct(totalDeduction, totalTaxableBase)}</p>
                 </div>
               </div>
+              )}
             </div>
           )
         })}

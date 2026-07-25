@@ -177,22 +177,29 @@ export default function InputPage() {
     if (!incomeAmount) return
     setIncomeSaving(true)
     setIncomeMsg("")
-    await fetch("/api/income", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date: incomeDate, amount: Number(incomeAmount.replace(/,/g, "")), category: incomeCategory, memo: incomeMemo, card_type: incomeCardType }),
-    })
-    setIncomeMsg("保存しました")
-    setIncomeAmount("")
-    setIncomeMemo("")
-    setIncomeSaving(false)
-    const d = await fetch(`/api/income?month=${incomeDate.slice(0, 7)}&card_type=${incomeCardType}`).then(r => r.json())
-    setMonthIncomeRecords(d.incomes ?? [])
+    try {
+      const res = await fetch("/api/income", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: incomeDate, amount: Number(incomeAmount.replace(/,/g, "")), category: incomeCategory, memo: incomeMemo, card_type: incomeCardType }),
+      })
+      if (!res.ok) { setIncomeMsg("保存に失敗しました"); return }
+      setIncomeMsg("保存しました")
+      setIncomeAmount("")
+      setIncomeMemo("")
+      const d = await fetch(`/api/income?month=${incomeDate.slice(0, 7)}&card_type=${incomeCardType}`).then(r => r.json())
+      setMonthIncomeRecords(d.incomes ?? [])
+    } catch {
+      setIncomeMsg("通信エラーが発生しました")
+    } finally {
+      setIncomeSaving(false)
+    }
   }
 
   async function handleDeleteIncome(id: number) {
     if (!confirm("この入金記録を削除しますか？")) return
-    await fetch(`/api/income?id=${id}`, { method: "DELETE" })
+    const res = await fetch(`/api/income?id=${id}`, { method: "DELETE" })
+    if (!res.ok) { alert("削除に失敗しました"); return }
     setMonthIncomeRecords(prev => prev.filter(r => r.id !== id))
   }
 
@@ -251,7 +258,7 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
             <form onSubmit={handleSubmit} className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-4 space-y-4">
               <p className="text-xs text-slate-400">現金・電子マネー・PayPay等、カード以外の支出を記録します</p>
 
-              {/* 共用 / 個人 トグル */}
+              {/* 共同 / 個人 トグル */}
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-2">用途</label>
                 <div className="flex rounded-xl bg-slate-800 p-1 gap-1">
@@ -271,7 +278,7 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
                       color: usageType === "joint" ? jointColor : "#94a3b8",
                       boxShadow: usageType === "joint" ? `0 0 0 2px ${jointColor}` : "none",
                     }}>
-                    共用
+                    共同
                   </button>
                 </div>
               </div>
@@ -363,7 +370,7 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
             {/* 収入フォーム */}
             <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-4 space-y-4">
 
-              {/* 個人 / 共用 トグル */}
+              {/* 個人 / 共同 トグル */}
               <div className="flex rounded-xl bg-slate-800 p-1 gap-1">
                 <button type="button" onClick={() => setIncomeCardType("self")}
                   className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${incomeCardType === "self" ? "bg-slate-900 shadow-sm text-indigo-400" : "text-slate-400"}`}>
@@ -371,7 +378,7 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
                 </button>
                 <button type="button" onClick={() => setIncomeCardType("joint")}
                   className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${incomeCardType === "joint" ? "bg-slate-900 shadow-sm text-amber-400" : "text-slate-400"}`}>
-                  共用
+                  共同
                 </button>
               </div>
 

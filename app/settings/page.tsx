@@ -141,7 +141,7 @@ function SettingsContent() {
     if (tab === "category") {
       fetchStoreRules(ruleSearch)
       fetch("/api/uncategorized-memos").then(r => r.json()).then(d => setUncategorizedMemos(d.memos ?? []))
-      // 初回のみ取引履歴から共用カテゴリを自動分類
+      // 初回のみ取引履歴から共同カテゴリを自動分類
       if (!catMigrated) {
         setCatMigrated(true)
         fetch("/api/categories", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }).then(r => r.json()).then(d => {
@@ -191,22 +191,30 @@ function SettingsContent() {
   async function handleSavePlan() {
     setPlanSaving(true)
     setPlanMsg("")
-    await fetch("/api/plans", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ month: planMonth, savings_target: Number(planSavingsTarget) || 0, nisa_target: Number(planNisaTarget) || 0 }),
-    })
-    setPlanMsg("保存しました")
-    setPlanSaving(false)
+    try {
+      const res = await fetch("/api/plans", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ month: planMonth, savings_target: Number(planSavingsTarget) || 0, nisa_target: Number(planNisaTarget) || 0 }),
+      })
+      setPlanMsg(res.ok ? "保存しました" : "保存に失敗しました")
+    } catch {
+      setPlanMsg("通信エラーが発生しました")
+    } finally {
+      setPlanSaving(false)
+    }
   }
 
   async function handleAddRecurring() {
     if (!rCategory || !rAmount) return
-    // 個人/共用から対応カードを自動選択
+    // 個人/共同から対応カードを自動選択
     const card = cards.find(c => c.card_type === rUsageType)
-    if (!card) return
+    if (!card) {
+      alert(`${rUsageType === "joint" ? "共同" : "個人"}の支払方法がありません。先に「カテゴリ」タブの口座・支払方法から追加してください。`)
+      return
+    }
     setRSaving(true)
-    await fetch("/api/recurring", {
+    const res = await fetch("/api/recurring", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -218,6 +226,11 @@ function SettingsContent() {
         entry_type: rEntryType,
       }),
     })
+    if (!res.ok) {
+      alert("定期項目の追加に失敗しました")
+      setRSaving(false)
+      return
+    }
     setRAmount("")
     setRMemo("")
     const d = await fetch("/api/recurring").then(r => r.json())
@@ -529,7 +542,7 @@ function SettingsContent() {
                 </button>
               </div>
 
-              {/* 個人 / 共用 */}
+              {/* 個人 / 共同 */}
               <div className="flex rounded-xl bg-slate-800 p-1 gap-1">
                 <button type="button" onClick={() => setRUsageType("self")}
                   className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${rUsageType === "self" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-400"}`}>
@@ -537,7 +550,7 @@ function SettingsContent() {
                 </button>
                 <button type="button" onClick={() => setRUsageType("joint")}
                   className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${rUsageType === "joint" ? "bg-amber-500 text-white shadow-sm" : "text-slate-400"}`}>
-                  共用
+                  共同
                 </button>
               </div>
 
@@ -614,7 +627,7 @@ function SettingsContent() {
               ) : (
                 recurring.map(r => {
                   const isIncome = r.entry_type === "income"
-                  const usageLabel = r.card_type === "joint" ? "共用" : "個人"
+                  const usageLabel = r.card_type === "joint" ? "共同" : "個人"
                   const usageColor = r.card_type === "joint" ? "#f59e0b" : "#6366f1"
                   return (
                     <div key={r.id} className="flex items-center px-4 py-2.5 border-b last:border-0">
@@ -699,7 +712,7 @@ function SettingsContent() {
                   <span className="text-xs text-red-400">-{toJPY(planSelfBudget)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400 pl-3 text-xs">共用支出（予算）</span>
+                  <span className="text-slate-400 pl-3 text-xs">共同支出（予算）</span>
                   <span className="text-xs text-red-400">-{toJPY(planJointBudget)}</span>
                 </div>
                 {Number(planSavingsTarget) > 0 && (
@@ -768,7 +781,7 @@ function SettingsContent() {
                 <button type="button"
                   onClick={() => { setCatViewType("joint"); setNewCatCardType("joint") }}
                   className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${catViewType === "joint" ? "bg-amber-500 text-white border-amber-500" : "border-slate-700 text-slate-400"}`}>
-                  共用
+                  共同
                 </button>
               </div>
               <div className="border rounded-lg overflow-hidden">
@@ -866,7 +879,7 @@ function SettingsContent() {
               <div className="flex gap-2 pt-1 border-t">
                 <input type="text" value={newCatName} onChange={e => setNewCatName(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && handleAddCategory()}
-                  placeholder={`新しい${catViewType === "joint" ? "共用" : "個人"}カテゴリ名`}
+                  placeholder={`新しい${catViewType === "joint" ? "共同" : "個人"}カテゴリ名`}
                   className="flex-1 border rounded-lg px-2 py-1.5 text-xs text-slate-100"
                 />
                 <button onClick={handleAddCategory} disabled={catSaving || !newCatName.trim()}
@@ -990,9 +1003,9 @@ function SettingsContent() {
           const CardBlock = () => (
             <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 space-y-2">
               <h2 className="text-xs font-semibold text-slate-300">口座・支払方法</h2>
-              {/* 個人/共用トグル */}
+              {/* 個人/共同トグル */}
               <div className="flex rounded-lg bg-slate-800 p-0.5">
-                {([["self", "個人"] as const, ["joint", "共用"] as const]).map(([k, label]) => (
+                {([["self", "個人"] as const, ["joint", "共同"] as const]).map(([k, label]) => (
                   <button key={k} type="button" onClick={() => setCardViewType(k)}
                     className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors ${
                       cardViewType === k

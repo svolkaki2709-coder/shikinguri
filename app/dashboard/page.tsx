@@ -145,7 +145,7 @@ export default function DashboardPage() {
   const viewBarKey = viewType === "self" ? "selfTotal" : "jointTotal"
   const viewIncome = viewType === "self" ? incomeTotal : jointIncomeTotal
 
-  // ─── 予算サマリー（表示中の個人/共用） ───────────────────────
+  // ─── 予算サマリー（表示中の個人/共同） ───────────────────────
   const viewBudgetRows = budgetRows.filter(b => b.cardType === viewType && budgetEffSign(b) === -1)
   const budgetTotal = viewBudgetRows.reduce((s, b) => s + b.budget, 0)
   const budgetActual = viewBudgetRows.reduce((s, b) => s + b.actual, 0)
@@ -180,7 +180,7 @@ export default function DashboardPage() {
         <div className="flex items-baseline justify-between mb-1">
           <p className="text-xs text-slate-400">
             {isCurrentMonth ? "今月あと使える額" : `${month} の予算残額`}
-            <span className="ml-1 text-slate-500">（{viewType === "self" ? "個人" : "共用"}）</span>
+            <span className="ml-1 text-slate-500">（{viewType === "self" ? "個人" : "共同"}）</span>
           </p>
           <Link href={`/budget?month=${month}&ct=${viewType}`} className="text-[11px] text-blue-400 hover:underline">予実へ ›</Link>
         </div>
@@ -272,7 +272,7 @@ export default function DashboardPage() {
       <div className="flex rounded-lg bg-slate-800 p-0.5 mb-3">
         {[
           { key: "self" as const, label: "個人", color: "text-indigo-400" },
-          { key: "joint" as const, label: "共用", color: "text-amber-400" },
+          { key: "joint" as const, label: "共同", color: "text-amber-400" },
         ].map(v => (
           <button key={v.key} onClick={() => setViewType(v.key)}
             className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-colors ${viewType === v.key ? `bg-slate-900 shadow-sm ${v.color}` : "text-slate-400"}`}>
@@ -293,7 +293,7 @@ export default function DashboardPage() {
       <BudgetHeroCard />
 
       <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3">
-        <p className="text-xs text-slate-400 mb-2">{month} — {viewType === "self" ? "個人" : "共用"}</p>
+        <p className="text-xs text-slate-400 mb-2">{month} — {viewType === "self" ? "個人" : "共同"}</p>
         <div className="grid grid-cols-3 gap-2 text-center">
           <div>
             <p className="text-xs text-slate-400">{viewType === "self" ? "収入" : "入金"}</p>
@@ -402,7 +402,7 @@ export default function DashboardPage() {
               <XAxis dataKey="month" tick={{ fontSize: 10, fill: "#94a3b8" }} tickFormatter={v => v.replace(/^\d{4}-/, "")} />
               <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickFormatter={v => `${fmt(Number(v))}`} />
               <Tooltip formatter={(v) => toJPY(Number(v))} labelFormatter={v => String(v)} contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155", color: "#e2e8f0", fontSize: 12 }} />
-              <Bar dataKey={viewBarKey} fill={viewColor} name={viewType === "self" ? "個人" : "共用"} radius={[3, 3, 0, 0]} />
+              <Bar dataKey={viewBarKey} fill={viewColor} name={viewType === "self" ? "個人" : "共同"} radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

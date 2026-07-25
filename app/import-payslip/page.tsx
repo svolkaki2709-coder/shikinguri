@@ -3,6 +3,7 @@
 import { useRef, useState, useMemo, useEffect, useCallback } from "react"
 import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
+import { useViewMode } from "@/components/ViewModeContext"
 
 interface ParsedPayslip {
   paymentMonth: string | null
@@ -49,6 +50,8 @@ const DEDUCTION_PRESETS = ["年末調整還付", "その他控除"]
 const INCOME_PRESETS = ["賞与", "特別手当", "その他"]
 
 export default function ImportPayslipPage() {
+  const { mode } = useViewMode()
+  const isPC = mode === "pc"
   const fileRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
@@ -348,9 +351,9 @@ export default function ImportPayslipPage() {
   }
 
   return (
-    <div className="pb-20">
+    <div className={isPC ? "" : "pb-20"}>
       <PageHeader title="給与明細取込" />
-      <div className="max-w-lg mx-auto px-4 py-3 space-y-4">
+      <div className={isPC ? "max-w-3xl mx-auto px-6 py-4 space-y-4" : "max-w-md mx-auto px-4 py-3 space-y-4"}>
 
         <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 text-xs text-blue-300">
           <p className="font-semibold">アイドマ・ホールディングス給与明細PDF対応</p>
@@ -571,9 +574,9 @@ export default function ImportPayslipPage() {
                 </div>
               )}
 
-              <button onClick={handleSave} disabled={saving || !result.paymentMonth}
+              <button onClick={handleSave} disabled={saving || !result.paymentMonth || savedIds.length > 0}
                 className="w-full bg-blue-600 text-white text-sm font-semibold py-3 rounded-xl disabled:opacity-50 hover:bg-blue-700 transition-colors">
-                {saving ? "保存中..." : "家計簿に保存する"}
+                {saving ? "保存中..." : savedIds.length > 0 ? "保存済み" : "家計簿に保存する"}
               </button>
             </div>
           </div>

@@ -224,9 +224,9 @@ function QuickInputModal({ tab, setTab, onClose }: {
           {/* ═══ 支出 ═══ */}
           {loaded && tab === "expense" && (
             <>
-              {/* 個人/共用 */}
+              {/* 個人/共同 */}
               <div className="flex rounded-xl bg-slate-800 p-1 gap-1">
-                {([["self", "個人", "text-indigo-400"], ["joint", "共用", "text-amber-400"]] as const).map(([k, label, color]) => (
+                {([["self", "個人", "text-indigo-400"], ["joint", "共同", "text-amber-400"]] as const).map(([k, label, color]) => (
                   <button key={k} type="button" onClick={() => setUsageType(k)}
                     className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${usageType === k ? `bg-slate-900 shadow-sm ${color}` : "text-slate-400"}`}>
                     {label}
@@ -311,7 +311,7 @@ function QuickInputModal({ tab, setTab, onClose }: {
           {loaded && tab === "income" && (
             <>
               <div className="flex rounded-xl bg-slate-800 p-1 gap-1">
-                {([["self", "個人", "text-indigo-400"], ["joint", "共用", "text-amber-400"]] as const).map(([k, label, color]) => (
+                {([["self", "個人", "text-indigo-400"], ["joint", "共同", "text-amber-400"]] as const).map(([k, label, color]) => (
                   <button key={k} type="button" onClick={() => setIncomeCardType(k)}
                     className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${incomeCardType === k ? `bg-slate-900 shadow-sm ${color}` : "text-slate-400"}`}>
                     {label}

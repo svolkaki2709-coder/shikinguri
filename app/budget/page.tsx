@@ -311,7 +311,7 @@ function BudgetContent() {
   const jointActual = jointRows.filter(r => getEffectiveSign(r) === -1).reduce((s, r) => s + r.actual, 0)
   const selfBudget = selfRows.filter(r => getEffectiveSign(r) === -1).reduce((s, r) => s + r.budget, 0)
   const jointBudget = jointRows.filter(r => getEffectiveSign(r) === -1).reduce((s, r) => s + r.budget, 0)
-  // 個人: 収入 - 個人支出、共用: 入金 - 共用支出（入金があれば入金ベース、なければ予算ベース）
+  // 個人: 収入 - 個人支出、共同: 入金 - 共同支出（入金があれば入金ベース、なければ予算ベース）
   const selfBalance = incomeTotal - selfActual
   const jointBalance = jointIncomeTotal > 0 ? jointIncomeTotal - jointActual : jointBudget - jointActual
 
@@ -704,7 +704,7 @@ function BudgetContent() {
                 className="text-slate-400 hover:text-blue-400 px-2 py-1 rounded hover:bg-slate-800 text-lg font-bold">›</button>
             </div>
 
-            {/* 収支サマリーカード（個人/共用で切替） */}
+            {/* 収支サマリーカード（個人/共同で切替） */}
             {cardTypeFilter === "self" ? (
               <div className={`grid ${isPC ? "grid-cols-4" : "grid-cols-2"} gap-2`}>
                 <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 text-center">
@@ -753,9 +753,9 @@ function BudgetContent() {
               </div>
             )}
 
-            {/* 個人/共用トグル */}
+            {/* 個人/共同トグル */}
             <div className="flex rounded-lg bg-slate-800 p-0.5">
-              {([["self", "個人"] as const, ["joint", "共用"] as const]).map(([k, label]) => (
+              {([["self", "個人"] as const, ["joint", "共同"] as const]).map(([k, label]) => (
                 <button key={k} onClick={() => setCardTypeFilter(k)}
                   className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-colors ${
                     cardTypeFilter === k
@@ -818,9 +818,9 @@ function BudgetContent() {
                   className="text-slate-400 hover:text-blue-400 px-1 font-bold text-sm">›</button>
               </div>
 
-              {/* 個人/共用 */}
+              {/* 個人/共同 */}
               <div className="flex rounded-lg bg-slate-800 p-0.5">
-                {([["self", "個人"] as const, ["joint", "共用"] as const]).map(([k, label]) => (
+                {([["self", "個人"] as const, ["joint", "共同"] as const]).map(([k, label]) => (
                   <button key={k} onClick={() => setYearCardTypeFilter(k)}
                     className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
                       yearCardTypeFilter === k

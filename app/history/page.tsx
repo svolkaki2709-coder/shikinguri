@@ -107,26 +107,26 @@ function HistoryContent() {
   async function handleQuickCategorySave(t: Transaction, newCategory: string) {
     setQuickEditId(null)
     if (newCategory === t.category) return
-    if (t.source === "income") {
-      await fetch("/api/income", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: t.id, amount: t.amount, category: newCategory, date: t.date, memo: t.memo }),
-      })
-    } else {
-      await fetch("/api/transactions", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: t.id, category: newCategory, memo: t.memo, date: t.date, amount: t.amount, card_id: t.card_id }),
-      })
-    }
+    const res = t.source === "income"
+      ? await fetch("/api/income", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: t.id, amount: t.amount, category: newCategory, date: t.date, memo: t.memo }),
+        })
+      : await fetch("/api/transactions", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: t.id, category: newCategory, memo: t.memo, date: t.date, amount: t.amount, card_id: t.card_id }),
+        })
+    if (!res.ok) { alert("カテゴリの変更に失敗しました"); return }
     setTransactions(prev => prev.map(x => x.id === t.id ? { ...x, category: newCategory } : x))
   }
 
   async function handleDelete(id: number, source: string) {
     if (!confirm("この明細を削除しますか？")) return
     const url = source === "income" ? `/api/income?id=${id}` : `/api/transactions?id=${id}`
-    await fetch(url, { method: "DELETE" })
+    const res = await fetch(url, { method: "DELETE" })
+    if (!res.ok) { alert("削除に失敗しました"); return }
     setTransactions(prev => prev.filter(t => t.id !== id))
   }
 
@@ -201,9 +201,9 @@ function HistoryContent() {
         <div className={`bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 ${isPC ? "mb-4" : "mb-3 space-y-3"}`}>
           {isPC ? (
             <div className="flex items-center gap-3 flex-wrap">
-              {/* 個人/共用トグル */}
+              {/* 個人/共同トグル */}
               <div className="flex rounded-lg bg-slate-800 p-0.5 shrink-0">
-                {([["all", "すべて"], ["self", "個人"], ["joint", "共用"]] as const).map(([k, label]) => (
+                {([["all", "すべて"], ["self", "個人"], ["joint", "共同"]] as const).map(([k, label]) => (
                   <button key={k} onClick={() => { setUsageFilter(k); setCardId("") }}
                     className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${
                       usageFilter === k
@@ -272,9 +272,9 @@ function HistoryContent() {
             </div>
           ) : (
             <>
-              {/* モバイル: 個人/共用トグル */}
+              {/* モバイル: 個人/共同トグル */}
               <div className="flex rounded-lg bg-slate-800 p-0.5">
-                {([["all", "すべて"], ["self", "個人"], ["joint", "共用"]] as const).map(([k, label]) => (
+                {([["all", "すべて"], ["self", "個人"], ["joint", "共同"]] as const).map(([k, label]) => (
                   <button key={k} onClick={() => { setUsageFilter(k); setCardId("") }}
                     className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors ${
                       usageFilter === k
@@ -377,7 +377,7 @@ function HistoryContent() {
                       <td className="px-3 py-1.5">
                         <div className="flex items-center gap-1 flex-wrap">
                           <span className={`text-xs px-1.5 py-0.5 rounded font-medium whitespace-nowrap ${t.card_type === "joint" ? "bg-amber-500/15 text-amber-300" : "bg-indigo-500/15 text-indigo-300"}`}>
-                            {t.card_type === "joint" ? "共用" : "個人"}
+                            {t.card_type === "joint" ? "共同" : "個人"}
                           </span>
                           {t.source === "income" ? (
                             <span className="text-xs px-1.5 py-0.5 rounded font-medium whitespace-nowrap bg-green-500/15 text-green-300">収入</span>
@@ -439,7 +439,7 @@ function HistoryContent() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
                       <span className={`text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${t.card_type === "joint" ? "bg-amber-500/15 text-amber-300" : "bg-indigo-500/15 text-indigo-300"}`}>
-                        {t.card_type === "joint" ? "共用" : "個人"}
+                        {t.card_type === "joint" ? "共同" : "個人"}
                       </span>
                       {t.source === "income" ? (
                         <span className="text-xs px-1.5 py-0.5 rounded font-medium shrink-0 bg-green-500/15 text-green-300">収入</span>
@@ -515,7 +515,7 @@ function HistoryContent() {
               <select value={editForm.card_id}
                 onChange={e => setEditForm(f => ({ ...f, card_id: Number(e.target.value) }))}
                 className="w-full border rounded-lg px-3 py-2 text-sm text-slate-100 bg-slate-900 outline-none focus:ring-2 focus:ring-blue-400">
-                {cards.map(c => <option key={c.id} value={c.id}>{c.name}（{c.card_type === "joint" ? "共用" : "個人"}）</option>)}
+                {cards.map(c => <option key={c.id} value={c.id}>{c.name}（{c.card_type === "joint" ? "共同" : "個人"}）</option>)}
               </select>
             </div>
 
