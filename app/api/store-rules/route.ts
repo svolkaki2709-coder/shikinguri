@@ -31,16 +31,18 @@ export async function GET(req: NextRequest) {
  * （キーワードがメモを含む）も見ていたため、短いメモが無関係な
  * ルールで巻き込まれていた。
  */
-async function applyRuleToExisting(keyword: string, category: string, userId: number) {
+async function applyRuleToExisting(keyword: string, category: string, owner: number | null) {
   const k = keyword.trim()
   if (!k) return
+  // ルールと同じスコープの明細だけを書き換える。
+  // 個人ルールが共同明細（相手にも見えるデータ）を勝手に振り分けないようにする。
   await sql`
     UPDATE transactions
     SET category = ${category}
     WHERE category = '未分類'
       AND memo IS NOT NULL AND memo <> ''
       AND POSITION(${k} IN memo) > 0
-      AND (owner_user_id IS NULL OR owner_user_id = ${userId})
+      AND COALESCE(owner_user_id, 0) = COALESCE(${owner}, 0)
   `
 }
 
@@ -67,7 +69,7 @@ export async function POST(req: NextRequest) {
       VALUES (${k}, ${category}, ${owner})
     `
   }
-  await applyRuleToExisting(k, category, me.id)
+  await applyRuleToExisting(k, category, owner)
   return NextResponse.json({ success: true })
 }
 
@@ -80,13 +82,13 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "id, keyword, category は必須です" }, { status: 400 })
   }
 
-  const updated = await sql`
+  const updated = await sql<{ id: number; owner_user_id: number | null }>`
     UPDATE store_category_rules SET keyword = ${String(keyword).trim()}, category = ${category}
     WHERE id = ${Number(id)} AND (owner_user_id IS NULL OR owner_user_id = ${me.id})
-    RETURNING id
+    RETURNING id, owner_user_id
   `
   if (updated.length === 0) return forbidden()
-  await applyRuleToExisting(String(keyword), category, me.id)
+  await applyRuleToExisting(String(keyword), category, updated[0].owner_user_id)
   return NextResponse.json({ success: true })
 }
 

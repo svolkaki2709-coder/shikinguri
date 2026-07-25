@@ -110,6 +110,7 @@ export async function POST(req: NextRequest) {
                imported_at AT TIME ZONE 'Asia/Tokyo' AS imported_at
         FROM csv_import_logs
         WHERE card_id = ${Number(cardId)}
+          AND (owner_user_id IS NULL OR owner_user_id = ${me.id})
           AND start_date <= ${endDate} AND end_date >= ${startDate}
         ORDER BY imported_at DESC LIMIT 1
       `

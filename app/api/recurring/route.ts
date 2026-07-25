@@ -37,6 +37,7 @@ export async function GET(req: NextRequest) {
                 AND t.amount = r.amount
                 AND t.source = 'recurring'
                 AND TO_CHAR(t.date, 'YYYY-MM') = ${month}
+                AND COALESCE(t.owner_user_id, 0) = COALESCE(r.owner_user_id, 0)
             )
           END
         )
@@ -170,6 +171,7 @@ export async function PUT(req: NextRequest) {
         SELECT 1 FROM transactions
         WHERE card_id = ${r.card_id} AND category = ${r.category} AND amount = ${r.amount}
           AND source = 'recurring' AND TO_CHAR(date, 'YYYY-MM') = ${month}
+          AND COALESCE(owner_user_id, 0) = COALESCE(${r.owner_user_id}, 0)
         LIMIT 1
       `
       if (dup.length > 0) { skipped++; continue }

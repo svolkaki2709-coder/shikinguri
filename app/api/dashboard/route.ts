@@ -39,6 +39,7 @@ export async function GET(req: NextRequest) {
           FROM cards c
           LEFT JOIN transactions t ON t.card_id = c.id
             AND TO_CHAR(t.date, 'YYYY-MM') = ${month}
+            AND (t.owner_user_id IS NULL OR t.owner_user_id = ${me.id})
           WHERE c.name != '現金'
             AND (c.owner_user_id IS NULL OR c.owner_user_id = ${me.id})
           GROUP BY c.id, c.name, c.card_type, c.color, c.sort_order

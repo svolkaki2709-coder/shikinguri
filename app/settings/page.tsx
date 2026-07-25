@@ -5,8 +5,16 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
 import { useViewMode } from "@/components/ViewModeContext"
+import { MembersPanel } from "@/components/MembersPanel"
 
-interface Card { id: number; name: string; card_type: string; color: string; has_csv: boolean }
+interface Card { id: number; name: string; card_type: string; color: string; has_csv: boolean; kind?: string; institution?: string | null }
+
+const ACCOUNT_KINDS: { key: string; label: string; icon: string }[] = [
+  { key: "card", label: "カード", icon: "💳" },
+  { key: "bank", label: "銀行", icon: "🏦" },
+  { key: "cash", label: "現金", icon: "💵" },
+  { key: "emoney", label: "電子マネー", icon: "📱" },
+]
 interface Recurring { id: number; day_of_month: number; card_id: number; card_name: string; card_type: string; color: string; category: string; amount: number; memo: string; entry_type: string }
 interface Category { name: string }
 interface BudgetRow { category: string; card_type: string; budget: number; is_monthly?: boolean; is_from_month?: boolean; record_month?: string | null }
@@ -26,7 +34,7 @@ function toJPY(n: number) {
   return new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 }).format(n)
 }
 
-type Tab = "recurring" | "plan" | "category"
+type Tab = "recurring" | "plan" | "category" | "members"
 
 export default function SettingsPage() {
   return (
@@ -44,7 +52,7 @@ function SettingsContent() {
   const { mode } = useViewMode()
   const isPC = mode === "pc"
 
-  const validTabs: Tab[] = ["recurring", "plan", "category"]
+  const validTabs: Tab[] = ["recurring", "plan", "category", "members"]
   const initialTab = (searchParams.get("tab") as Tab | null)
   const [tab, setTabState] = useState<Tab>(validTabs.includes(initialTab as Tab) ? initialTab as Tab : "recurring")
 
@@ -298,6 +306,7 @@ function SettingsContent() {
   const [editingCardId, setEditingCardId] = useState<number | null>(null)
   const [editingCardName, setEditingCardName] = useState("")
   const [newCardName, setNewCardName] = useState("")
+  const [newCardKind, setNewCardKind] = useState("card")
   const [cardSaving, setCardSaving] = useState(false)
 
   async function handleAddCard() {
@@ -307,7 +316,7 @@ function SettingsContent() {
     const res = await fetch("/api/cards", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, card_type: cardViewType, color: cardViewType === "joint" ? "#f59e0b" : "#6366f1" }),
+      body: JSON.stringify({ name, card_type: cardViewType, kind: newCardKind, color: cardViewType === "joint" ? "#f59e0b" : "#6366f1" }),
     })
     const d = await res.json().catch(() => ({}))
     if (!res.ok) {
@@ -318,6 +327,16 @@ function SettingsContent() {
       setNewCardName("")
     }
     setCardSaving(false)
+  }
+
+  async function handleSetCardKind(id: number, kind: string) {
+    const res = await fetch("/api/cards", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, kind }),
+    })
+    if (!res.ok) { alert("種別の変更に失敗しました"); return }
+    setCards(prev => prev.map(c => c.id === id ? { ...c, kind } : c))
   }
 
   async function handleToggleCsv(id: number, current: boolean) {
@@ -470,6 +489,7 @@ function SettingsContent() {
     { key: "recurring", label: "定期" },
     { key: "plan", label: "計画" },
     { key: "category", label: "カテゴリ" },
+    { key: "members", label: "メンバー" },
   ]
 
   return (
@@ -485,6 +505,9 @@ function SettingsContent() {
             </button>
           ))}
         </div>
+
+        {/* === メンバータブ === */}
+        {tab === "members" && <MembersPanel isPC={isPC} />}
 
         {/* === 定期支出・入金タブ === */}
         {tab === "recurring" && (
@@ -966,7 +989,7 @@ function SettingsContent() {
 
           const CardBlock = () => (
             <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 space-y-2">
-              <h2 className="text-xs font-semibold text-slate-300">支払方法管理</h2>
+              <h2 className="text-xs font-semibold text-slate-300">口座・支払方法</h2>
               {/* 個人/共用トグル */}
               <div className="flex rounded-lg bg-slate-800 p-0.5">
                 {([["self", "個人"] as const, ["joint", "共用"] as const]).map(([k, label]) => (
@@ -981,13 +1004,23 @@ function SettingsContent() {
                 ))}
               </div>
               {/* 新規追加フォーム */}
+              <div className="flex rounded-lg bg-slate-800 p-0.5 gap-0.5">
+                {ACCOUNT_KINDS.map(k => (
+                  <button key={k.key} type="button" onClick={() => setNewCardKind(k.key)}
+                    className={`flex-1 py-1 rounded-md text-[10px] font-semibold transition-colors ${
+                      newCardKind === k.key ? "bg-slate-900 text-blue-400 shadow-sm" : "text-slate-500"
+                    }`}>
+                    {k.icon} {k.label}
+                  </button>
+                ))}
+              </div>
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={newCardName}
                   onChange={e => setNewCardName(e.target.value)}
                   onKeyDown={e => { if (e.key === "Enter") handleAddCard() }}
-                  placeholder="新しい支払方法名"
+                  placeholder={newCardKind === "bank" ? "例：三菱UFJ銀行 普通" : "新しい口座・支払方法名"}
                   className="flex-1 text-xs border rounded-lg px-3 py-1.5 text-slate-100 outline-none focus:ring-1 focus:ring-blue-400"
                 />
                 <button
@@ -1023,6 +1056,14 @@ function SettingsContent() {
                         {c.name}
                       </span>
                     )}
+                    <select
+                      value={c.kind ?? "card"}
+                      onChange={e => handleSetCardKind(c.id, e.target.value)}
+                      title="口座の種別。銀行にすると入出金CSVを取り込めます"
+                      className="text-[10px] border border-slate-700 rounded px-1 py-0.5 bg-slate-900 text-slate-400 shrink-0 outline-none cursor-pointer hover:text-slate-100"
+                    >
+                      {ACCOUNT_KINDS.map(k => <option key={k.key} value={k.key}>{k.icon}{k.label}</option>)}
+                    </select>
                     <button
                       onClick={() => handleToggleCsv(c.id, c.has_csv)}
                       title={c.has_csv ? "CSV対応ON（クリックでOFF）" : "CSV対応OFF（クリックでON）"}

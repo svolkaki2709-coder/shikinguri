@@ -41,18 +41,20 @@ export async function POST(req: NextRequest) {
   const { date, amount, category, memo, card_type, account_id } = await req.json()
   if (!date || !amount) return NextResponse.json({ error: "date, amount は必須です" }, { status: 400 })
 
-  const ct = card_type ?? "self"
+  let ct = card_type === "joint" ? "joint" : "self"
 
-  // 口座を指定する場合は権限を確認し、スコープを口座に合わせる
+  // 口座を指定する場合は権限を確認し、スコープを口座に合わせる。
+  // card_type も口座から決める（クライアント申告と食い違うと予実の集計先がズレるため）
   let ownerUserId = ownerFor(ct, me.id)
   if (account_id != null) {
-    const [account] = await sql<{ owner_user_id: number | null }>`
-      SELECT owner_user_id FROM cards
+    const [account] = await sql<{ owner_user_id: number | null; card_type: string }>`
+      SELECT owner_user_id, card_type FROM cards
       WHERE id = ${Number(account_id)} AND (owner_user_id IS NULL OR owner_user_id = ${me.id})
       LIMIT 1
     `
     if (!account) return forbidden()
     ownerUserId = account.owner_user_id
+    ct = account.card_type
   }
 
   const result = await sql`

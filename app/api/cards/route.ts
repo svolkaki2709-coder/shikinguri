@@ -107,12 +107,15 @@ export async function PATCH(req: NextRequest) {
         institution = COALESCE(${body.institution ?? null}, institution),
         active      = COALESCE(${typeof body.active === "boolean" ? body.active : null}, active)
       WHERE id = ${Number(id)}
+        AND (owner_user_id IS NULL OR owner_user_id = ${me.id})
       RETURNING *
     `
+    if (result.length === 0) return forbidden()
     return NextResponse.json({ card: result[0] })
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e)
-    return NextResponse.json({ error: msg }, { status: 500 })
+    // Postgresの生エラー（制約名や列名）は返さない
+    console.error("[PATCH /api/cards]", e)
+    return NextResponse.json({ error: "更新に失敗しました" }, { status: 500 })
   }
 }
 
@@ -145,11 +148,23 @@ export async function DELETE(req: NextRequest) {
         { error: "個人と共同をまたいで明細を移すことはできません" }, { status: 400 }
       )
     }
-    await sql`UPDATE transactions SET card_id = ${Number(reassignId)} WHERE card_id = ${Number(id)}`
-    await sql`UPDATE recurring_expenses SET card_id = ${Number(reassignId)} WHERE card_id = ${Number(id)}`
-    await sql`UPDATE incomes SET account_id = ${Number(reassignId)} WHERE account_id = ${Number(id)}`
+    await sql`
+      UPDATE transactions SET card_id = ${Number(reassignId)}
+      WHERE card_id = ${Number(id)} AND (owner_user_id IS NULL OR owner_user_id = ${me.id})
+    `
+    await sql`
+      UPDATE recurring_expenses SET card_id = ${Number(reassignId)}
+      WHERE card_id = ${Number(id)} AND (owner_user_id IS NULL OR owner_user_id = ${me.id})
+    `
+    await sql`
+      UPDATE incomes SET account_id = ${Number(reassignId)}
+      WHERE account_id = ${Number(id)} AND (owner_user_id IS NULL OR owner_user_id = ${me.id})
+    `
   }
 
-  await sql`DELETE FROM cards WHERE id = ${Number(id)}`
+  await sql`
+    DELETE FROM cards
+    WHERE id = ${Number(id)} AND (owner_user_id IS NULL OR owner_user_id = ${me.id})
+  `
   return NextResponse.json({ success: true })
 }

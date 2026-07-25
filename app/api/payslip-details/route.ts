@@ -2,36 +2,14 @@ import { NextRequest, NextResponse } from "next/server"
 import { requireUser, unauthorized, forbidden } from "@/lib/session"
 import { sql } from "@/lib/db"
 
-// テーブル自動作成
-async function ensureTable() {
-  await sql`
-    CREATE TABLE IF NOT EXISTS payslip_details (
-      id            SERIAL PRIMARY KEY,
-      payment_month VARCHAR(7) NOT NULL,  -- YYYY-MM
-      gross_pay     INTEGER,
-      net_pay       INTEGER,
-      income_tax    INTEGER,
-      resident_tax  INTEGER,
-      health_insurance    INTEGER,
-      pension             INTEGER,
-      employment_insurance INTEGER,
-      travel_reimbursement    INTEGER,
-      nontaxable_commute      INTEGER,
-      taxable_commute         INTEGER,
-      total_deduction    INTEGER,
-      year_end_adjustment INTEGER,
-      created_at    TIMESTAMP DEFAULT NOW(),
-      updated_at    TIMESTAMP DEFAULT NOW(),
-      UNIQUE (payment_month)
-    )
-  `
-}
+// スキーマ定義は scripts/migrations 側に集約した。
+// （旧 ensureTable は owner_user_id を持たない・UNIQUE(payment_month) が世帯全体で
+//   衝突する古い定義でテーブルを作り直してしまうため廃止）
 
 export async function GET() {
   const me = await requireUser()
   if (!me) return unauthorized()
 
-  await ensureTable()
 
   const rows = await sql`
     SELECT *
@@ -46,7 +24,6 @@ export async function POST(req: NextRequest) {
   const me = await requireUser()
   if (!me) return unauthorized()
 
-  await ensureTable()
 
   const body = await req.json()
   const {

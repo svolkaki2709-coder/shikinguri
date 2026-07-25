@@ -16,5 +16,7 @@ declare module "next-auth/jwt" {
   interface JWT {
     uid?: number
     displayName?: string | null
+    /** 最後にDBでユーザーの有効性を確認した時刻（ms） */
+    checkedAt?: number
   }
 }
