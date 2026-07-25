@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
+import { useViewMode } from "@/components/ViewModeContext"
 
 interface AssetRow { month: string; savings: number; investment: number; total: number }
 interface Goal { id: number; name: string; target_amount: number; deadline: string | null }
@@ -12,6 +13,8 @@ function toJPY(n: number) {
 }
 
 export default function AssetsPage() {
+  const { mode } = useViewMode()
+  const isPC = mode === "pc"
   const now = new Date()
   const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
 
@@ -86,9 +89,9 @@ export default function AssetsPage() {
   const latest = assets[assets.length - 1]
 
   return (
-    <div className="pb-20">
+    <div className={isPC ? "" : "pb-20"}>
       <PageHeader title="資産管理" />
-      <main className="max-w-md mx-auto px-4 py-2 space-y-3">
+      <main className={isPC ? "max-w-xl mx-auto px-6 py-4 space-y-3" : "max-w-md mx-auto px-4 py-2 space-y-3"}>
         {loading && <div className="text-center py-4 text-slate-400">読み込み中...</div>}
 
         {!loading && (

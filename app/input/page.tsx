@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react"
 import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
+import { useViewMode } from "@/components/ViewModeContext"
 
 interface Card { id: number; name: string; card_type: string; color: string; has_csv: boolean }
 interface CategoryRow { name: string; card_type: string; group_type?: string | null; sign?: string | null }
@@ -27,6 +28,8 @@ function effSign(r: CategoryRow): number {
 }
 
 export default function InputPage() {
+  const { mode } = useViewMode()
+  const isPC = mode === "pc"
   const now = new Date()
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
 
@@ -197,9 +200,9 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
   const selfColor = cards.find(c => c.card_type === "self")?.color ?? "#6366f1"
 
   return (
-    <div className="pb-20">
+    <div className={isPC ? "" : "pb-20"}>
       <PageHeader title="入力" />
-      <main className="max-w-md mx-auto px-4 py-2 space-y-3">
+      <main className={isPC ? "max-w-xl mx-auto px-6 py-4 space-y-3" : "max-w-md mx-auto px-4 py-2 space-y-3"}>
 
         {/* メインタブ: 支出 / 収入 */}
         <div className="flex rounded-xl bg-slate-800 p-1">
