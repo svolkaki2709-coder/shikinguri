@@ -978,6 +978,9 @@ function BudgetContent() {
                     <tr className="bg-slate-800 text-white sticky top-0 z-10">
                       <th className="text-left px-3 py-2 font-semibold sticky left-0 bg-slate-800 z-20 min-w-[140px]">
                         カテゴリ
+                        <span className="block text-[10px] font-normal text-blue-300 mt-0.5">
+                          表示: {viewMode === "budget" ? "予算" : viewMode === "actual" ? "実績" : viewMode === "diff" ? "差額" : "予算/実績"}
+                        </span>
                       </th>
                       {months.map(m => (
                         <th key={m} className={`text-right px-2 py-2 font-medium min-w-[90px] ${
