@@ -145,7 +145,7 @@ export default function ImportPage() {
           <div>
             <label className="block text-xs font-medium text-slate-400 mb-2">CSVファイル</label>
             <div
-              className="border-2 border-dashed border-slate-800 rounded-xl px-4 py-2 cursor-pointer hover:border-blue-500/40 hover:bg-blue-500/10 transition-colors flex items-center gap-3 h-[38px]"
+              className="border-2 border-dashed border-slate-800 rounded-xl px-3 py-2 cursor-pointer hover:border-blue-500/40 hover:bg-blue-500/10 transition-colors flex items-center gap-2 min-h-[38px]"
               onClick={() => fileRef.current?.click()}
             >
               <span className="text-lg shrink-0">📂</span>
@@ -155,7 +155,7 @@ export default function ImportPage() {
                   <p className="text-xs text-slate-300">{(file.size / 1024).toFixed(1)} KB</p>
                 </div>
               ) : (
-                <p className="text-sm text-slate-300">タップしてCSVを選択</p>
+                <p className="text-sm text-slate-300 whitespace-nowrap">タップして選択</p>
               )}
             </div>
             <input
