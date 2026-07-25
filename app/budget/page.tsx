@@ -535,7 +535,8 @@ function BudgetContent() {
           const sg = getEffectiveSign(b)
           return sg === -1 ? s + b.actual : sg === 1 ? s - b.actual : s
         }, 0)
-    const gDiff = gBudget - gActual
+    // 収入グループは実績が予算を上回るほど良い（黒字）ので実績-予算、それ以外は予算-実績（残額）
+    const gDiff = group === "収入" ? gActual - gBudget : gBudget - gActual
 
     return (
       <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 overflow-hidden">
