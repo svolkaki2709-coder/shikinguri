@@ -12,10 +12,12 @@ interface PendingRecurring {
   day_of_month: number
   card_id: number
   card_name: string
+  card_type: string
   color: string
   category: string
   amount: number
   memo: string
+  entry_type: string
 }
 interface IncomeRecord { id: number; date: string; amount: number; category: string; memo: string }
 
@@ -120,6 +122,10 @@ export default function InputPage() {
     setSelectedCardId(null)
   }, [usageType, filteredCategories])
 
+  // 定期の未登録候補を支出/入金で分ける（以前は種別を無視して全部「支出」として扱っていた）
+  const pendingExpense = pendingRecurring.filter(r => r.entry_type !== "income")
+  const pendingIncome = pendingRecurring.filter(r => r.entry_type === "income")
+
   // ── 支出登録 ──
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -154,11 +160,19 @@ export default function InputPage() {
     try {
       const day = String(r.day_of_month).padStart(2, "0")
       const txDate = `${currentMonth}-${day}`
-      const res = await fetch("/api/transactions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date: txDate, card_id: r.card_id, category: r.category, amount: r.amount, memo: r.memo, source: "recurring" }),
-      })
+      // 入金の定期項目は収入テーブルへ。以前は種別を見ずに常に支出として登録しており、
+      // 「振込」等の入金がずっと未登録扱いのまま重複して支出計上されるバグがあった。
+      const res = r.entry_type === "income"
+        ? await fetch("/api/income", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ date: txDate, amount: r.amount, category: r.category, memo: r.memo, card_type: r.card_type, account_id: r.card_id }),
+          })
+        : await fetch("/api/transactions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ date: txDate, card_id: r.card_id, category: r.category, amount: r.amount, memo: r.memo, source: "recurring" }),
+          })
       if (res.ok) {
         setPendingRecurring(prev => prev.filter(p => p.id !== r.id))
         setMessage({ type: "success", text: `「${r.category}」を登録しました` })
@@ -227,10 +241,10 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
         {mainTab === "expense" && (
           <>
             {/* 定期支出候補 */}
-            {pendingRecurring.length > 0 && (
+            {pendingExpense.length > 0 && (
               <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 space-y-2">
                 <p className="text-xs font-semibold text-amber-300">📋 今月の定期支出（未登録）</p>
-                {pendingRecurring.map(r => (
+                {pendingExpense.map(r => (
                   <div key={r.id} className="flex items-center justify-between bg-slate-900 rounded-lg px-3 py-2 border border-amber-500/20">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="text-[10px] px-1.5 py-0.5 rounded text-white font-bold shrink-0"
@@ -367,6 +381,34 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
         {/* ═══ 収入タブ ═══ */}
         {mainTab === "income" && (
           <div className="space-y-3">
+            {/* 定期入金候補 */}
+            {pendingIncome.length > 0 && (
+              <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3 space-y-2">
+                <p className="text-xs font-semibold text-green-300">📋 今月の定期入金（未登録）</p>
+                {pendingIncome.map(r => (
+                  <div key={r.id} className="flex items-center justify-between bg-slate-900 rounded-lg px-3 py-2 border border-green-500/20">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded text-white font-bold shrink-0"
+                        style={{ backgroundColor: r.color ?? "#22c55e" }}>
+                        {r.card_type === "joint" ? "共同" : "個人"}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-slate-100 truncate">{r.category}</p>
+                        <p className="text-[10px] text-slate-500">{r.day_of_month}日{r.memo ? ` / ${r.memo}` : ""}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 ml-2">
+                      <span className="text-xs font-semibold text-slate-300">¥{r.amount.toLocaleString("ja-JP")}</span>
+                      <button onClick={() => handleConfirmRecurring(r)} disabled={confirmingId === r.id}
+                        className="text-xs bg-green-600 hover:bg-green-700 text-white px-2.5 py-1 rounded-lg font-semibold disabled:opacity-50 transition-colors">
+                        {confirmingId === r.id ? "..." : "確定"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* 収入フォーム */}
             <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-4 space-y-4">
 

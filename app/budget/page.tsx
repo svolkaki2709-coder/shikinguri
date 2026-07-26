@@ -568,7 +568,7 @@ function BudgetContent() {
               ? (isBad
                   ? (b.groupType === "立替" ? "▲未精算 " : "▲不足 ")
                   : (b.groupType === "立替" ? "+精算済 " : "+余剰 "))
-              : (isBad ? "▲超過 " : "+残り ")
+              : (isBad ? "▲超過 " : "+予算内 ")
             return (
               <div
                 key={`${b.category}-${b.cardType}`}
