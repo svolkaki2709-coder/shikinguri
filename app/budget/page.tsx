@@ -301,6 +301,9 @@ function BudgetContent() {
   const jointIncomeTotal = jointRows.filter(r => r.groupType === "収入").reduce((s, r) => s + r.actual, 0)
   const selfBalance = incomeTotal - selfActual
   const jointBalance = jointIncomeTotal > 0 ? jointIncomeTotal - jointActual : jointBudget - jointActual
+  // 予実差: 支出予算に対して実績がどれだけ余ったか（プラス=予算内、マイナス=超過）
+  const selfVariance = selfBudget - selfActual
+  const jointVariance = jointBudget - jointActual
 
   // ─── 年次: フィルタ・グループ集計 ─────────────────────────────
   const yearFiltered = useMemo(() =>
@@ -704,19 +707,19 @@ function BudgetContent() {
                   <p className="text-sm font-bold text-green-400">{toJPY(incomeTotal)}</p>
                 </div>
                 <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 text-center">
-                  <p className="text-[11px] text-slate-400 mb-1">支出実績</p>
+                  <p className="text-[11px] text-slate-400 mb-1">支出</p>
                   <p className={`text-sm font-bold ${selfActual > selfBudget && selfBudget > 0 ? "text-red-400" : "text-slate-100"}`}>
                     {toJPY(selfActual)}
                   </p>
                 </div>
                 <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 text-center">
-                  <p className="text-[11px] text-slate-400 mb-1">予算合計</p>
+                  <p className="text-[11px] text-slate-400 mb-1">予算</p>
                   <p className="text-sm font-bold text-slate-300">{toJPY(selfBudget)}</p>
                 </div>
-                <div className={`rounded-xl shadow-sm p-3 text-center ${selfBalance >= 0 ? "bg-blue-500/10" : "bg-red-500/10"}`}>
-                  <p className="text-[11px] text-slate-400 mb-1">収支差額</p>
-                  <p className={`text-sm font-bold ${selfBalance >= 0 ? "text-blue-400" : "text-red-400"}`}>
-                    {selfBalance >= 0 ? "+" : ""}{toJPY(selfBalance)}
+                <div className={`rounded-xl shadow-sm p-3 text-center ${selfVariance >= 0 ? "bg-blue-500/10" : "bg-red-500/10"}`}>
+                  <p className="text-[11px] text-slate-400 mb-1">予実差</p>
+                  <p className={`text-sm font-bold ${selfVariance >= 0 ? "text-blue-400" : "text-red-400"}`}>
+                    {selfVariance >= 0 ? "+" : ""}{toJPY(selfVariance)}
                   </p>
                 </div>
               </div>
@@ -727,19 +730,19 @@ function BudgetContent() {
                   <p className="text-sm font-bold text-green-400">{toJPY(jointIncomeTotal)}</p>
                 </div>
                 <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 text-center">
-                  <p className="text-[11px] text-slate-400 mb-1">支出実績</p>
+                  <p className="text-[11px] text-slate-400 mb-1">支出</p>
                   <p className={`text-sm font-bold ${jointActual > jointBudget && jointBudget > 0 ? "text-red-400" : "text-slate-100"}`}>
                     {toJPY(jointActual)}
                   </p>
                 </div>
                 <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 text-center">
-                  <p className="text-[11px] text-slate-400 mb-1">予算合計</p>
+                  <p className="text-[11px] text-slate-400 mb-1">予算</p>
                   <p className="text-sm font-bold text-slate-300">{toJPY(jointBudget)}</p>
                 </div>
-                <div className={`rounded-xl shadow-sm p-3 text-center ${jointBalance >= 0 ? "bg-amber-500/10" : "bg-red-500/10"}`}>
-                  <p className="text-[11px] text-slate-400 mb-1">収支差額</p>
-                  <p className={`text-sm font-bold ${jointBalance >= 0 ? "text-amber-400" : "text-red-400"}`}>
-                    {jointBalance >= 0 ? "+" : ""}{toJPY(jointBalance)}
+                <div className={`rounded-xl shadow-sm p-3 text-center ${jointVariance >= 0 ? "bg-amber-500/10" : "bg-red-500/10"}`}>
+                  <p className="text-[11px] text-slate-400 mb-1">予実差</p>
+                  <p className={`text-sm font-bold ${jointVariance >= 0 ? "text-amber-400" : "text-red-400"}`}>
+                    {jointVariance >= 0 ? "+" : ""}{toJPY(jointVariance)}
                   </p>
                 </div>
               </div>
