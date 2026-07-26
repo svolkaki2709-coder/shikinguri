@@ -517,10 +517,13 @@ function SettingsContent() {
     if (!newRuleKeyword.trim() || !newRuleCategory) return
     setRuleSaving(true)
     if (editingRule) {
+      // 既存ルールの card_type は変えない（登録時のスコープのまま更新）
       await fetch("/api/store-rules", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: editingRule.id, keyword: newRuleKeyword, category: newRuleCategory }) })
       setEditingRule(null)
     } else {
-      await fetch("/api/store-rules", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ keyword: newRuleKeyword, category: newRuleCategory }) })
+      // card_type を送らないと常に「個人」スコープでルールが作られ、共同カードの
+      // 明細には遡って反映されない（スコープ不一致でバックフィルが0件になる）不具合があった
+      await fetch("/api/store-rules", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ keyword: newRuleKeyword, category: newRuleCategory, card_type: catViewType }) })
     }
     setNewRuleKeyword("")
     setNewRuleCategory("")
