@@ -122,9 +122,8 @@ function SettingsContent() {
     }
   }
   const [catSaving, setCatSaving] = useState(false)
-  const [cardViewType, setCardViewType] = useState<"self" | "joint">("self")
+  // 口座・カテゴリ・ルール・未分類は常に同じスコープで揃える（別々のトグルだと今どちらを見ているか分からなくなるため）
   const [catViewType, setCatViewType] = useState<"self" | "joint">("self")
-  const [newCatCardType, setNewCatCardType] = useState<"self" | "joint">("self")
   const [categoryRows, setCategoryRows] = useState<{ name: string; card_type: string; group_type: string | null; sort_order: number | null; sign: string | null }[]>([])
   // ドラッグ&ドロップ
   const [dragIdx, setDragIdx] = useState<number | null>(null)
@@ -367,7 +366,7 @@ function SettingsContent() {
     const res = await fetch("/api/cards", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, card_type: cardViewType, kind: newCardKind, color: cardViewType === "joint" ? "#f59e0b" : "#6366f1" }),
+      body: JSON.stringify({ name, card_type: catViewType, kind: newCardKind, color: catViewType === "joint" ? "#f59e0b" : "#6366f1" }),
     })
     const d = await res.json().catch(() => ({}))
     if (!res.ok) {
@@ -437,7 +436,7 @@ function SettingsContent() {
   async function handleAddCategory() {
     if (!newCatName.trim()) return
     setCatSaving(true)
-    await fetch("/api/categories", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newCatName.trim(), card_type: newCatCardType }) })
+    await fetch("/api/categories", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newCatName.trim(), card_type: catViewType }) })
     const data = await fetch("/api/categories").then(r => r.json())
     setCategories(data.categories ?? [])
     setCategoryRows(data.rows ?? [])
@@ -727,7 +726,13 @@ function SettingsContent() {
           <div className={isPC ? "grid grid-cols-2 gap-4 items-start" : "space-y-3"}>
             {/* 入力フォーム */}
             <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 space-y-3">
-              <h2 className="text-sm font-semibold text-slate-300">貯蓄・投資計画</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-slate-300">貯蓄・投資計画</h2>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-300 font-semibold shrink-0">👤 個人の目標</span>
+              </div>
+              <p className="text-[11px] text-slate-500 -mt-2">
+                目標はあなた個人のものです。下の収入・予算は参考として個人＋共同の合計を表示しています。
+              </p>
               <div>
                 <label className="text-xs text-slate-300 mb-1 block">月</label>
                 <div className="flex items-center gap-1 border rounded-lg px-2 py-1">
@@ -837,18 +842,6 @@ function SettingsContent() {
           const CategoryBlock = () => (
             <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 space-y-2">
               <h2 className="text-xs font-semibold text-slate-300">カテゴリ一覧</h2>
-              <div className="flex gap-1.5">
-                <button type="button"
-                  onClick={() => { setCatViewType("self"); setNewCatCardType("self") }}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${catViewType === "self" ? "bg-indigo-600 text-white border-indigo-600" : "border-slate-700 text-slate-400"}`}>
-                  個人
-                </button>
-                <button type="button"
-                  onClick={() => { setCatViewType("joint"); setNewCatCardType("joint") }}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${catViewType === "joint" ? "bg-amber-500 text-white border-amber-500" : "border-slate-700 text-slate-400"}`}>
-                  共同
-                </button>
-              </div>
               <div className="border rounded-lg overflow-hidden">
                 {(() => {
                   // sort_order順で並べる（ドラッグ&ドロップで変更可能）
@@ -1102,19 +1095,6 @@ function SettingsContent() {
           const CardBlock = () => (
             <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 space-y-2">
               <h2 className="text-xs font-semibold text-slate-300">口座・支払方法</h2>
-              {/* 個人/共同トグル */}
-              <div className="flex rounded-lg bg-slate-800 p-0.5">
-                {([["self", "個人"] as const, ["joint", "共同"] as const]).map(([k, label]) => (
-                  <button key={k} type="button" onClick={() => setCardViewType(k)}
-                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                      cardViewType === k
-                        ? k === "self" ? "bg-slate-900 text-indigo-400 shadow-sm" : "bg-slate-900 text-amber-400 shadow-sm"
-                        : "text-slate-400"
-                    }`}>
-                    {label}
-                  </button>
-                ))}
-              </div>
               {/* 新規追加フォーム */}
               <div className="flex rounded-lg bg-slate-800 p-0.5 gap-0.5">
                 {ACCOUNT_KINDS.map(k => (
@@ -1144,7 +1124,7 @@ function SettingsContent() {
                 </button>
               </div>
               <div className="border rounded-lg overflow-hidden">
-                {cards.filter(c => c.card_type === cardViewType).map(c => (
+                {cards.filter(c => c.card_type === catViewType).map(c => (
                   <div key={c.id} className="flex items-center gap-2 px-3 py-2 border-b last:border-0">
                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
                     {editingCardId === c.id ? (
@@ -1193,17 +1173,53 @@ function SettingsContent() {
             </div>
           )
 
-          return isPC ? (
-            <div className="grid grid-cols-3 gap-4 items-start">
-              <div className="space-y-4">
-                {CardBlock()}
-                {CategoryBlock()}
+          // このタブ内（口座・カテゴリ・ルール・未分類）は常に同じスコープを見せる。
+          // 以前は口座だけ別トグルを持っていて、他のブロックと表示が食い違うことがあった。
+          const ScopeBanner = (
+            <div className={`rounded-xl p-3 border-2 flex items-center justify-between transition-colors ${
+              catViewType === "joint" ? "bg-amber-500/10 border-amber-500/40" : "bg-indigo-500/10 border-indigo-500/40"
+            }`}>
+              <div className="flex items-center gap-2">
+                <span className={`text-lg ${catViewType === "joint" ? "" : ""}`}>{catViewType === "joint" ? "👥" : "👤"}</span>
+                <div>
+                  <p className={`text-sm font-bold ${catViewType === "joint" ? "text-amber-300" : "text-indigo-300"}`}>
+                    {catViewType === "joint" ? "共同" : "個人"}のデータを表示中
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    この下の口座・カテゴリ・振り分けルール・未分類明細は、すべて{catViewType === "joint" ? "共同（相手にも見える）" : "個人（自分だけに見える）"}のものです
+                  </p>
+                </div>
               </div>
-              {RulesBlock()}
-              {UncategorizedBlock()}
+              <div className="flex rounded-lg bg-slate-800 p-0.5 shrink-0">
+                {([["self", "個人"] as const, ["joint", "共同"] as const]).map(([k, label]) => (
+                  <button key={k} type="button" onClick={() => setCatViewType(k)}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
+                      catViewType === k
+                        ? k === "self" ? "bg-slate-900 text-indigo-400 shadow-sm" : "bg-slate-900 text-amber-400 shadow-sm"
+                        : "text-slate-500"
+                    }`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )
+
+          return isPC ? (
+            <div className="space-y-4">
+              {ScopeBanner}
+              <div className="grid grid-cols-3 gap-4 items-start">
+                <div className="space-y-4">
+                  {CardBlock()}
+                  {CategoryBlock()}
+                </div>
+                {RulesBlock()}
+                {UncategorizedBlock()}
+              </div>
             </div>
           ) : (
             <div className="space-y-3">
+              {ScopeBanner}
               {CardBlock()}
               {CategoryBlock()}
               {UncategorizedBlock()}
