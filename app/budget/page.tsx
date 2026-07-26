@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useMemo, Suspense } from "react"
+import { useEffect, useState, useMemo, useCallback, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { PageHeader } from "@/components/PageHeader"
@@ -132,7 +132,13 @@ function BudgetContent() {
   }
 
   // ── 月次タブ用 state ──
-  const [month, setMonth] = useState(searchParams.get("month") ?? defaultMonth)
+  const [month, setMonthState] = useState(searchParams.get("month") ?? defaultMonth)
+  function setMonth(m: string) {
+    setMonthState(m)
+    const p = new URLSearchParams(searchParams.toString())
+    p.set("month", m)
+    router.replace(`?${p.toString()}`, { scroll: false })
+  }
   const [cardTypeFilter, setCardTypeFilterState] = useState<"self" | "joint">(
     (searchParams.get("ct") as "self" | "joint" | null) ?? "self"
   )
@@ -387,6 +393,10 @@ function BudgetContent() {
   const [editingBudget, setEditingBudget] = useState<{
     category: string; cardType: string; value: string; periodType: "monthly" | "this_month"
   } | null>(null)
+  // autoFocusのフォーカスイベントに依存せず、マウント直後に確実に全選択する
+  const focusAndSelect = useCallback((el: HTMLInputElement | null) => {
+    if (el) { el.focus(); el.select() }
+  }, [])
 
   async function handleBudgetSave(
     category: string, cardType: string, value: string,
@@ -636,7 +646,7 @@ function BudgetContent() {
                       </div>
                       <input
                         type="text"
-                        autoFocus
+                        ref={focusAndSelect}
                         value={editingBudget.value}
                         onChange={e => setEditingBudget({ ...editingBudget, value: fmtInput(e.target.value) })}
                         onFocus={e => e.currentTarget.select()}
@@ -1130,7 +1140,7 @@ function BudgetContent() {
                                             </div>
                                             <input
                                               type="text"
-                                              autoFocus
+                                              ref={focusAndSelect}
                                               value={editingMonthBudget.value}
                                               onChange={e => setEditingMonthBudget({ ...editingMonthBudget, value: fmtInput(e.target.value) })}
                                               onFocus={e => e.currentTarget.select()}
@@ -1192,7 +1202,7 @@ function BudgetContent() {
                                               </span>
                                               <input
                                                 type="text"
-                                                autoFocus
+                                                ref={focusAndSelect}
                                                 value={editingMonthBudget.value}
                                                 onChange={e => setEditingMonthBudget({ ...editingMonthBudget, value: fmtInput(e.target.value) })}
                                                 onFocus={e => e.currentTarget.select()}
@@ -1399,10 +1409,10 @@ function BudgetContent() {
                                 <div className="flex gap-1.5">
                                   <input type="date" value={editingRow.date}
                                     onChange={e => setEditingRow({ ...editingRow, date: e.target.value })}
-                                    className="border border-slate-700 rounded px-2 py-1 text-xs text-slate-100 w-32" />
+                                    className="border border-slate-700 rounded px-2 py-1 text-xs text-slate-100 bg-slate-900 w-32" />
                                   <select value={editingRow.category}
                                     onChange={e => setEditingRow({ ...editingRow, category: e.target.value })}
-                                    className="border border-slate-700 rounded px-2 py-1 text-xs text-slate-100 flex-1">
+                                    className="border border-slate-700 rounded px-2 py-1 text-xs text-slate-100 bg-slate-900 flex-1">
                                     {catOptions.map(n => <option key={n} value={n}>{n}</option>)}
                                     {!catOptions.includes(editingRow.category) && <option value={editingRow.category}>{editingRow.category}</option>}
                                   </select>
@@ -1411,10 +1421,11 @@ function BudgetContent() {
                                   <input type="text" value={editingRow.memo}
                                     onChange={e => setEditingRow({ ...editingRow, memo: e.target.value })}
                                     placeholder="メモ"
-                                    className="border border-slate-700 rounded px-2 py-1 text-xs text-slate-100 flex-1" />
+                                    className="border border-slate-700 rounded px-2 py-1 text-xs text-slate-100 bg-slate-900 flex-1" />
                                   <input type="text" inputMode="numeric" value={editingRow.amount}
+                                    onFocus={e => e.currentTarget.select()}
                                     onChange={e => { const v = e.target.value.replace(/,/g, ""); if (v === "" || /^-?\d+$/.test(v)) setEditingRow({ ...editingRow, amount: v }) }}
-                                    className="border border-slate-700 rounded px-2 py-1 text-xs text-slate-100 w-24 text-right" />
+                                    className="border border-slate-700 rounded px-2 py-1 text-xs text-slate-100 bg-slate-900 w-24 text-right" />
                                 </div>
                                 <div className="flex gap-1.5 justify-end">
                                   <button onClick={() => setEditingRow(null)} className="text-xs px-3 py-1 rounded border border-slate-700 text-slate-400 hover:bg-slate-800">キャンセル</button>
