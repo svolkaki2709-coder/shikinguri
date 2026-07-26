@@ -10,16 +10,28 @@ export async function GET(req: NextRequest) {
   const pending = searchParams.get("pending")
   const month = searchParams.get("month")
 
-  // ?pending=true&month=YYYY-MM → 当月未生成で予定日を過ぎたものを返す（支出・入金の両方）
+  // ?pending=true&month=YYYY-MM → 指定月に未生成・未スキップの項目を返す（支出・入金の両方）
+  // 過去月を指定した場合は全日が経過済み扱い、未来月は表示しない（当月のみ「今日まで」で絞る）
   if (pending === "true" && month) {
-    const todayDay = new Date().getDate()
+    const now = new Date()
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+    const todayDay = now.getDate()
     const rows = await sql`
       SELECT r.*, c.name AS card_name, c.card_type, c.color
       FROM recurring_expenses r
       LEFT JOIN cards c ON r.card_id = c.id
       WHERE r.active = TRUE
         AND (r.owner_user_id IS NULL OR r.owner_user_id = ${me.id})
-        AND r.day_of_month <= ${todayDay}
+        AND (
+          CASE
+            WHEN ${month} < ${currentMonth} THEN TRUE
+            WHEN ${month} = ${currentMonth} THEN r.day_of_month <= ${todayDay}
+            ELSE FALSE
+          END
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM recurring_skips s WHERE s.recurring_id = r.id AND s.month = ${month}
+        )
         AND (
           CASE WHEN COALESCE(r.entry_type, 'expense') = 'income' THEN
             NOT EXISTS (

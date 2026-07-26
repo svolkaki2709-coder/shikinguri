@@ -52,9 +52,23 @@ export default function InputPage() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
-  // 定期支出候補
+  // 定期支出候補（対象月を切り替えて過去の登録忘れも確認できる）
+  const [pendingMonth, setPendingMonth] = useState(currentMonth)
   const [pendingRecurring, setPendingRecurring] = useState<PendingRecurring[]>([])
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
+  const [skippingId, setSkippingId] = useState<number | null>(null)
+
+  function shiftPendingMonth(delta: number) {
+    const [y, m] = pendingMonth.split("-").map(Number)
+    const d = new Date(y, m - 1 + delta, 1)
+    setPendingMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`)
+  }
+
+  function fetchPendingRecurring(targetMonth: string) {
+    fetch(`/api/recurring?pending=true&month=${targetMonth}`)
+      .then(r => r.json())
+      .then(d => setPendingRecurring(d.recurring ?? []))
+  }
 
   // ── 収入フォーム ──
   const [incomeCardType, setIncomeCardType] = useState<"self" | "joint">("self")
@@ -70,13 +84,16 @@ export default function InputPage() {
     Promise.all([
       fetch("/api/cards").then(r => r.json()),
       fetch("/api/categories").then(r => r.json()),
-      fetch(`/api/recurring?pending=true&month=${currentMonth}`).then(r => r.json()),
-    ]).then(([cardData, catData, recurringData]) => {
+    ]).then(([cardData, catData]) => {
       setCards(cardData.cards ?? [])
       setAllCategoryRows(catData.rows ?? [])
-      setPendingRecurring(recurringData.recurring ?? [])
     })
-  }, [currentMonth])
+  }, [])
+
+  useEffect(() => {
+    fetchPendingRecurring(pendingMonth)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingMonth])
 
   // 収入タブの履歴取得
   useEffect(() => {
@@ -159,7 +176,7 @@ export default function InputPage() {
     setConfirmingId(r.id)
     try {
       const day = String(r.day_of_month).padStart(2, "0")
-      const txDate = `${currentMonth}-${day}`
+      const txDate = `${pendingMonth}-${day}`
       // 入金の定期項目は収入テーブルへ。以前は種別を見ずに常に支出として登録しており、
       // 「振込」等の入金がずっと未登録扱いのまま重複して支出計上されるバグがあった。
       const res = r.entry_type === "income"
@@ -183,6 +200,28 @@ export default function InputPage() {
       setMessage({ type: "error", text: "通信エラーが発生しました" })
     } finally {
       setConfirmingId(null)
+    }
+  }
+
+  // ── 定期支出候補のスキップ（この月だけ対象外にする。明細は作らない）──
+  async function handleSkipRecurring(r: PendingRecurring) {
+    setSkippingId(r.id)
+    try {
+      const res = await fetch("/api/recurring/skip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: r.id, month: pendingMonth }),
+      })
+      if (res.ok) {
+        setPendingRecurring(prev => prev.filter(p => p.id !== r.id))
+        setMessage({ type: "success", text: `「${r.category}」を${pendingMonth}はスキップしました` })
+      } else {
+        setMessage({ type: "error", text: "スキップに失敗しました" })
+      }
+    } catch {
+      setMessage({ type: "error", text: "通信エラーが発生しました" })
+    } finally {
+      setSkippingId(null)
     }
   }
 
@@ -241,9 +280,20 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
         {mainTab === "expense" && (
           <>
             {/* 定期支出候補 */}
-            {pendingExpense.length > 0 && (
+            {(pendingExpense.length > 0 || pendingMonth !== currentMonth) && (
               <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 space-y-2">
-                <p className="text-xs font-semibold text-amber-300">📋 今月の定期支出（未登録）</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-amber-300">📋 定期支出（未登録）</p>
+                  <div className="flex items-center gap-1 text-amber-300">
+                    <button onClick={() => shiftPendingMonth(-1)} className="px-1.5 hover:text-amber-100 font-bold">‹</button>
+                    <span className="text-xs font-semibold w-16 text-center">{pendingMonth}</span>
+                    <button onClick={() => shiftPendingMonth(1)} disabled={pendingMonth >= currentMonth}
+                      className="px-1.5 hover:text-amber-100 font-bold disabled:opacity-30">›</button>
+                  </div>
+                </div>
+                {pendingExpense.length === 0 && (
+                  <p className="text-xs text-slate-500 text-center py-2">この月の未登録はありません</p>
+                )}
                 {pendingExpense.map(r => (
                   <div key={r.id} className="flex items-center justify-between bg-slate-900 rounded-lg px-3 py-2 border border-amber-500/20">
                     <div className="flex items-center gap-2 min-w-0">
@@ -256,9 +306,14 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
                         <p className="text-[10px] text-slate-500">{r.day_of_month}日{r.memo ? ` / ${r.memo}` : ""}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-2">
+                    <div className="flex items-center gap-1.5 shrink-0 ml-2">
                       <span className="text-xs font-semibold text-slate-300">¥{r.amount.toLocaleString("ja-JP")}</span>
-                      <button onClick={() => handleConfirmRecurring(r)} disabled={confirmingId === r.id}
+                      <button onClick={() => handleSkipRecurring(r)} disabled={skippingId === r.id || confirmingId === r.id}
+                        title={`${pendingMonth}はこの項目を対象外にする`}
+                        className="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 px-2 py-1 rounded-lg font-semibold disabled:opacity-50 transition-colors">
+                        {skippingId === r.id ? "..." : "スキップ"}
+                      </button>
+                      <button onClick={() => handleConfirmRecurring(r)} disabled={confirmingId === r.id || skippingId === r.id}
                         className="text-xs bg-amber-500 hover:bg-amber-600 text-white px-2.5 py-1 rounded-lg font-semibold disabled:opacity-50 transition-colors">
                         {confirmingId === r.id ? "..." : "確定"}
                       </button>
@@ -382,9 +437,20 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
         {mainTab === "income" && (
           <div className="space-y-3">
             {/* 定期入金候補 */}
-            {pendingIncome.length > 0 && (
+            {(pendingIncome.length > 0 || pendingMonth !== currentMonth) && (
               <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3 space-y-2">
-                <p className="text-xs font-semibold text-green-300">📋 今月の定期入金（未登録）</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-green-300">📋 定期入金（未登録）</p>
+                  <div className="flex items-center gap-1 text-green-300">
+                    <button onClick={() => shiftPendingMonth(-1)} className="px-1.5 hover:text-green-100 font-bold">‹</button>
+                    <span className="text-xs font-semibold w-16 text-center">{pendingMonth}</span>
+                    <button onClick={() => shiftPendingMonth(1)} disabled={pendingMonth >= currentMonth}
+                      className="px-1.5 hover:text-green-100 font-bold disabled:opacity-30">›</button>
+                  </div>
+                </div>
+                {pendingIncome.length === 0 && (
+                  <p className="text-xs text-slate-500 text-center py-2">この月の未登録はありません</p>
+                )}
                 {pendingIncome.map(r => (
                   <div key={r.id} className="flex items-center justify-between bg-slate-900 rounded-lg px-3 py-2 border border-green-500/20">
                     <div className="flex items-center gap-2 min-w-0">
@@ -397,9 +463,14 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
                         <p className="text-[10px] text-slate-500">{r.day_of_month}日{r.memo ? ` / ${r.memo}` : ""}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-2">
+                    <div className="flex items-center gap-1.5 shrink-0 ml-2">
                       <span className="text-xs font-semibold text-slate-300">¥{r.amount.toLocaleString("ja-JP")}</span>
-                      <button onClick={() => handleConfirmRecurring(r)} disabled={confirmingId === r.id}
+                      <button onClick={() => handleSkipRecurring(r)} disabled={skippingId === r.id || confirmingId === r.id}
+                        title={`${pendingMonth}はこの項目を対象外にする`}
+                        className="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 px-2 py-1 rounded-lg font-semibold disabled:opacity-50 transition-colors">
+                        {skippingId === r.id ? "..." : "スキップ"}
+                      </button>
+                      <button onClick={() => handleConfirmRecurring(r)} disabled={confirmingId === r.id || skippingId === r.id}
                         className="text-xs bg-green-600 hover:bg-green-700 text-white px-2.5 py-1 rounded-lg font-semibold disabled:opacity-50 transition-colors">
                         {confirmingId === r.id ? "..." : "確定"}
                       </button>

@@ -90,6 +90,37 @@ function SettingsContent() {
 
   // カテゴリ管理
   const [newCatName, setNewCatName] = useState("")
+  const [reassignFrom, setReassignFrom] = useState<string | null>(null)
+  const [reassignTo, setReassignTo] = useState("")
+  const [reassignBusy, setReassignBusy] = useState(false)
+  const [reassignMsg, setReassignMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null)
+
+  async function handleReassignCategory(cardType: string) {
+    if (!reassignFrom || !reassignTo) return
+    if (!confirm(`「${reassignFrom}」に割り振られている明細・収入・予算・定期・振り分けルールを
+「${reassignTo}」へすべて移し替えます。よろしいですか？`)) return
+    setReassignBusy(true)
+    setReassignMsg(null)
+    try {
+      const res = await fetch("/api/categories/reassign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ card_type: cardType, from: reassignFrom, to: reassignTo }),
+      })
+      const d = await res.json()
+      if (!res.ok) { setReassignMsg({ type: "err", text: d.error ?? "移行に失敗しました" }); return }
+      setReassignMsg({
+        type: "ok",
+        text: `明細${d.transactions}件・収入${d.incomes}件を「${reassignTo}」へ移しました。「${reassignFrom}」はこのまま残りますが、不要であれば×で削除できます。`,
+      })
+      setReassignFrom(null)
+      setReassignTo("")
+    } catch {
+      setReassignMsg({ type: "err", text: "通信エラーが発生しました" })
+    } finally {
+      setReassignBusy(false)
+    }
+  }
   const [catSaving, setCatSaving] = useState(false)
   const [cardViewType, setCardViewType] = useState<"self" | "joint">("self")
   const [catViewType, setCatViewType] = useState<"self" | "joint">("self")
@@ -824,7 +855,7 @@ function SettingsContent() {
                   if (visibleRows.length === 0) return <p className="text-xs text-slate-500 px-3 py-3">なし</p>
                   return (
                     <>
-                      <div className="grid grid-cols-[18px_1fr_auto_auto_auto] bg-slate-800 border-b text-xs text-slate-400 font-medium">
+                      <div className="grid grid-cols-[18px_1fr_auto_auto_auto_auto] bg-slate-800 border-b text-xs text-slate-400 font-medium">
                         <div></div>
                         <div className="px-2 py-1">カテゴリ名</div>
                         <div className="px-2 py-1">グループ</div>
@@ -848,7 +879,7 @@ function SettingsContent() {
                                 setDragIdx(null)
                                 setDragOverIdx(null)
                               }}
-                              className={`grid grid-cols-[18px_1fr_auto_auto_auto] items-center border-b last:border-b-0 border-l-2 transition-all
+                              className={`grid grid-cols-[18px_1fr_auto_auto_auto_auto] items-center border-b last:border-b-0 border-l-2 transition-all
                                 ${gc ? gc.border : "border-l-transparent"}
                                 ${isDragging ? "opacity-40 bg-blue-500/10" : gc ? gc.light : "hover:bg-slate-800"}
                                 ${isDragOver ? "border-t-2 border-t-blue-400" : ""}
@@ -897,6 +928,10 @@ function SettingsContent() {
                                   </button>
                                 )
                               })()}
+                              <button
+                                onClick={() => { setReassignFrom(r.name); setReassignTo(""); setReassignMsg(null) }}
+                                title="このカテゴリの明細・収入をまとめて別カテゴリへ変更"
+                                className="w-7 py-1 text-slate-600 hover:text-blue-400 text-sm leading-none border-l text-center">⇄</button>
                               <button onClick={() => handleDeleteCategory(r.name, r.card_type)}
                                 className="w-7 py-1 text-slate-600 hover:text-red-400 text-base leading-none border-l text-center">×</button>
                             </div>
@@ -907,6 +942,36 @@ function SettingsContent() {
                   )
                 })()}
               </div>
+
+              {/* 一括変更パネル */}
+              {reassignFrom && (
+                <div className="border border-blue-500/40 bg-blue-500/10 rounded-lg p-2.5 space-y-2">
+                  <p className="text-xs text-blue-300">
+                    「<span className="font-semibold">{reassignFrom}</span>」の明細・収入・予算・定期・振り分けルールをまとめて別カテゴリへ変更
+                  </p>
+                  <div className="flex gap-2">
+                    <select value={reassignTo} onChange={e => setReassignTo(e.target.value)}
+                      className="flex-1 border rounded-lg px-2 py-1.5 text-xs bg-slate-900 text-slate-100">
+                      <option value="">変更先を選択...</option>
+                      {categoryRows
+                        .filter(r => (catViewType === "joint" ? r.card_type === "joint" : r.card_type !== "joint") && r.name !== reassignFrom)
+                        .sort((a, b) => (a.sort_order ?? 9999) - (b.sort_order ?? 9999))
+                        .map(r => <option key={r.name} value={r.name}>{r.name}</option>)}
+                    </select>
+                    <button onClick={() => handleReassignCategory(catViewType)} disabled={!reassignTo || reassignBusy}
+                      className="bg-blue-600 text-white rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-40 whitespace-nowrap">
+                      {reassignBusy ? "変更中..." : "まとめて変更"}
+                    </button>
+                    <button onClick={() => setReassignFrom(null)}
+                      className="text-xs text-slate-400 px-2 hover:text-slate-200">キャンセル</button>
+                  </div>
+                </div>
+              )}
+              {reassignMsg && (
+                <div className={`text-xs rounded-lg px-3 py-2 ${reassignMsg.type === "ok" ? "bg-green-500/10 text-green-300" : "bg-red-500/10 text-red-300"}`}>
+                  {reassignMsg.text}
+                </div>
+              )}
               <div className="flex gap-2 pt-1 border-t">
                 <input type="text" value={newCatName} onChange={e => setNewCatName(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && handleAddCategory()}
