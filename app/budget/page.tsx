@@ -637,12 +637,13 @@ function BudgetContent() {
                         autoFocus
                         value={editingBudget.value}
                         onChange={e => setEditingBudget({ ...editingBudget, value: fmtInput(e.target.value) })}
+                        onFocus={e => e.currentTarget.select()}
                         onBlur={() => handleBudgetSave(b.category, b.cardType, editingBudget.value, editingBudget.periodType)}
                         onKeyDown={e => {
-                          if (e.key === "Enter") handleBudgetSave(b.category, b.cardType, editingBudget.value, editingBudget.periodType)
+                          if (e.key === "Enter") { e.currentTarget.blur() }
                           if (e.key === "Escape") setEditingBudget(null)
                         }}
-                        className="w-20 text-right text-xs border border-blue-400 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-blue-400 bg-slate-900"
+                        className="w-20 text-right text-xs text-slate-100 border border-blue-400 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-blue-400 bg-slate-900"
                       />
                     </div>
                   ) : (
@@ -1130,9 +1131,10 @@ function BudgetContent() {
                                               autoFocus
                                               value={editingMonthBudget.value}
                                               onChange={e => setEditingMonthBudget({ ...editingMonthBudget, value: fmtInput(e.target.value) })}
+                                              onFocus={e => e.currentTarget.select()}
                                               onBlur={() => handleMonthBudgetSave(row.name, row.cardType, m, editingMonthBudget.value, editingMonthBudget.mode)}
                                               onKeyDown={e => {
-                                                if (e.key === "Enter") handleMonthBudgetSave(row.name, row.cardType, m, editingMonthBudget.value, editingMonthBudget.mode)
+                                                if (e.key === "Enter") { e.currentTarget.blur() }
                                                 if (e.key === "Escape") setEditingMonthBudget(null)
                                               }}
                                               className="w-16 text-right border border-blue-400 rounded px-1 py-0 outline-none bg-slate-900 text-slate-100 text-xs"
@@ -1191,9 +1193,10 @@ function BudgetContent() {
                                                 autoFocus
                                                 value={editingMonthBudget.value}
                                                 onChange={e => setEditingMonthBudget({ ...editingMonthBudget, value: fmtInput(e.target.value) })}
+                                                onFocus={e => e.currentTarget.select()}
                                                 onBlur={() => handleMonthBudgetSave(row.name, row.cardType, m, editingMonthBudget.value, editingMonthBudget.mode)}
                                                 onKeyDown={e => {
-                                                  if (e.key === "Enter") handleMonthBudgetSave(row.name, row.cardType, m, editingMonthBudget.value, editingMonthBudget.mode)
+                                                  if (e.key === "Enter") { e.currentTarget.blur() }
                                                   if (e.key === "Escape") setEditingMonthBudget(null)
                                                 }}
                                                 className="w-16 text-right border border-blue-400 rounded px-1 py-0 outline-none bg-slate-900 text-slate-100"
