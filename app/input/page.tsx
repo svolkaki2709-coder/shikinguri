@@ -57,6 +57,13 @@ export default function InputPage() {
   const [pendingRecurring, setPendingRecurring] = useState<PendingRecurring[]>([])
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
   const [skippingId, setSkippingId] = useState<number | null>(null)
+  // 確定前に金額を上書きできるようにする（例: 変動する積立額など）
+  const [pendingAmountOverrides, setPendingAmountOverrides] = useState<Record<number, string>>({})
+  function pendingAmountFor(r: PendingRecurring): number {
+    const v = pendingAmountOverrides[r.id]
+    if (v === undefined || v === "") return r.amount
+    return Number(v.replace(/,/g, "")) || 0
+  }
 
   function shiftPendingMonth(delta: number) {
     const [y, m] = pendingMonth.split("-").map(Number)
@@ -177,21 +184,23 @@ export default function InputPage() {
     try {
       const day = String(r.day_of_month).padStart(2, "0")
       const txDate = `${pendingMonth}-${day}`
+      const amount = pendingAmountFor(r)
       // 入金の定期項目は収入テーブルへ。以前は種別を見ずに常に支出として登録しており、
       // 「振込」等の入金がずっと未登録扱いのまま重複して支出計上されるバグがあった。
       const res = r.entry_type === "income"
         ? await fetch("/api/income", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ date: txDate, amount: r.amount, category: r.category, memo: r.memo, card_type: r.card_type, account_id: r.card_id }),
+            body: JSON.stringify({ date: txDate, amount, category: r.category, memo: r.memo, card_type: r.card_type, account_id: r.card_id }),
           })
         : await fetch("/api/transactions", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ date: txDate, card_id: r.card_id, category: r.category, amount: r.amount, memo: r.memo, source: "recurring" }),
+            body: JSON.stringify({ date: txDate, card_id: r.card_id, category: r.category, amount, memo: r.memo, source: "recurring" }),
           })
       if (res.ok) {
         setPendingRecurring(prev => prev.filter(p => p.id !== r.id))
+        setPendingAmountOverrides(prev => { const next = { ...prev }; delete next[r.id]; return next })
         setMessage({ type: "success", text: `「${r.category}」を登録しました` })
       } else {
         setMessage({ type: "error", text: "登録に失敗しました" })
@@ -307,7 +316,21 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                      <span className="text-xs font-semibold text-slate-300">¥{r.amount.toLocaleString("ja-JP")}</span>
+                      <div className="relative shrink-0">
+                        <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[11px] text-slate-500">¥</span>
+                        <input
+                          type="text" inputMode="numeric"
+                          value={pendingAmountFor(r).toLocaleString("ja-JP")}
+                          onChange={e => {
+                            const raw = e.target.value.replace(/,/g, "")
+                            if (raw === "" || /^\d+$/.test(raw)) {
+                              setPendingAmountOverrides(prev => ({ ...prev, [r.id]: raw }))
+                            }
+                          }}
+                          onClick={e => e.currentTarget.select()}
+                          className="w-20 text-right text-xs font-semibold text-slate-100 bg-slate-800 border border-slate-700 rounded pl-3.5 pr-1.5 py-1 outline-none focus:ring-1 focus:ring-blue-400"
+                        />
+                      </div>
                       <button onClick={() => handleSkipRecurring(r)} disabled={skippingId === r.id || confirmingId === r.id}
                         title={`${pendingMonth}はこの項目を対象外にする`}
                         className="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 px-2 py-1 rounded-lg font-semibold disabled:opacity-50 transition-colors">
@@ -464,7 +487,21 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                      <span className="text-xs font-semibold text-slate-300">¥{r.amount.toLocaleString("ja-JP")}</span>
+                      <div className="relative shrink-0">
+                        <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[11px] text-slate-500">¥</span>
+                        <input
+                          type="text" inputMode="numeric"
+                          value={pendingAmountFor(r).toLocaleString("ja-JP")}
+                          onChange={e => {
+                            const raw = e.target.value.replace(/,/g, "")
+                            if (raw === "" || /^\d+$/.test(raw)) {
+                              setPendingAmountOverrides(prev => ({ ...prev, [r.id]: raw }))
+                            }
+                          }}
+                          onClick={e => e.currentTarget.select()}
+                          className="w-20 text-right text-xs font-semibold text-slate-100 bg-slate-800 border border-slate-700 rounded pl-3.5 pr-1.5 py-1 outline-none focus:ring-1 focus:ring-blue-400"
+                        />
+                      </div>
                       <button onClick={() => handleSkipRecurring(r)} disabled={skippingId === r.id || confirmingId === r.id}
                         title={`${pendingMonth}はこの項目を対象外にする`}
                         className="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 px-2 py-1 rounded-lg font-semibold disabled:opacity-50 transition-colors">
