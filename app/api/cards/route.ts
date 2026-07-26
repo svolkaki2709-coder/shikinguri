@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { requireUser, unauthorized, forbidden, ownerFor } from "@/lib/session"
 
-const KINDS = ["card", "bank", "cash", "emoney"] as const
+const KINDS = ["card", "bank", "cash"] as const
 type Kind = (typeof KINDS)[number]
 
 export async function GET(req: NextRequest) {

@@ -7,7 +7,7 @@ import { useViewMode } from "@/components/ViewModeContext"
 
 interface Card { id: number; name: string; card_type: string; color: string; has_csv: boolean; kind?: string }
 
-const KIND_ICON: Record<string, string> = { card: "💳", bank: "🏦", cash: "💵", emoney: "📱" }
+const KIND_ICON: Record<string, string> = { card: "💳", bank: "🏦", cash: "💵" }
 interface ImportLog {
   id: number
   card_id: number

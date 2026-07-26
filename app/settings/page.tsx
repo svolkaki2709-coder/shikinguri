@@ -12,8 +12,7 @@ interface Card { id: number; name: string; card_type: string; color: string; has
 const ACCOUNT_KINDS: { key: string; label: string; icon: string }[] = [
   { key: "card", label: "カード", icon: "💳" },
   { key: "bank", label: "銀行", icon: "🏦" },
-  { key: "cash", label: "現金", icon: "💵" },
-  { key: "emoney", label: "電子マネー", icon: "📱" },
+  { key: "cash", label: "現金・電子マネー", icon: "💵" },
 ]
 interface Recurring { id: number; day_of_month: number; card_id: number; card_name: string; card_type: string; color: string; category: string; amount: number; memo: string; entry_type: string }
 interface Category { name: string }
@@ -575,7 +574,7 @@ function SettingsContent() {
                     className="w-full border rounded-lg px-3 py-2 text-sm bg-slate-900 text-slate-100">
                     {rUsageCards.map(c => (
                       <option key={c.id} value={c.id}>
-                        {c.kind === "bank" ? "🏦" : c.kind === "cash" ? "💵" : c.kind === "emoney" ? "📱" : "💳"} {c.name}
+                        {c.kind === "bank" ? "🏦" : c.kind === "cash" ? "💵" : "💳"} {c.name}
                       </option>
                     ))}
                   </select>
