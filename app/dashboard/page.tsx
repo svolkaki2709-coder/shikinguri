@@ -88,7 +88,7 @@ export default function DashboardPage() {
     setLoading(true)
     setApiError(null)
     Promise.all([
-      fetch(`/api/dashboard?month=${month}`).then(r => r.json()),
+      fetch(`/api/dashboard?month=${month}&view_type=${viewType}`).then(r => r.json()),
       fetch(`/api/budget?month=${month}`).then(r => r.json()),
       fetch(`/api/history?month=${month}`).then(r => r.json()),
       fetch(`/api/income?month=${month}&card_type=joint`).then(r => r.json()),
@@ -101,7 +101,12 @@ export default function DashboardPage() {
         setMonthly(d.monthly ?? [])
         setIncomeTotal(d.incomeTotal ?? 0)
         setBudgetRows(budgetData.budgets ?? [])
-        setRecentTx(((historyData.transactions ?? []) as TxRow[]).slice(0, 5))
+        // 履歴は個人/共同を問わず取得しているため、表示中のタブに絞ってから件数を切る
+        setRecentTx(
+          ((historyData.transactions ?? []) as TxRow[])
+            .filter(t => t.card_type === viewType)
+            .slice(0, 5)
+        )
         setJointIncomeTotal(
           ((jointIncomeData.incomes ?? []) as Array<{ amount: number }>)
             .filter(r => Number(r.amount) > 0)
@@ -111,7 +116,7 @@ export default function DashboardPage() {
       })
       .catch(e => setApiError(e.message))
       .finally(() => setLoading(false))
-  }, [month, refreshKey, defaultMonth])
+  }, [month, refreshKey, defaultMonth, viewType])
 
   useEffect(() => {
     if (tab === "assets") {

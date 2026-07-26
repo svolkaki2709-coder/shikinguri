@@ -12,6 +12,8 @@ export async function GET(req: NextRequest) {
     const month =
       searchParams.get("month") ??
       `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+    // 個人/共同トグルに連動させる（カテゴリ別内訳が両方を合算していた不具合）
+    const viewJoint = searchParams.get("view_type") === "joint"
 
     const [monthly, cardSummary, categoryBreakdown, incomeTotal, latestAssets, budgetVsActual] =
       await Promise.all([
@@ -45,16 +47,20 @@ export async function GET(req: NextRequest) {
           GROUP BY c.id, c.name, c.card_type, c.color, c.sort_order
           ORDER BY c.sort_order
         `,
-        // 当月カテゴリ別内訳
-        sql`
-          SELECT category, SUM(amount) AS amount
-          FROM transactions
-          WHERE TO_CHAR(date, 'YYYY-MM') = ${month}
-            AND (owner_user_id IS NULL OR owner_user_id = ${me.id})
-          GROUP BY category
-          ORDER BY amount DESC
-          LIMIT 10
-        `,
+        // 当月カテゴリ別内訳（個人/共同トグルで絞る）
+        viewJoint
+          ? sql`
+              SELECT category, SUM(amount) AS amount
+              FROM transactions
+              WHERE TO_CHAR(date, 'YYYY-MM') = ${month} AND owner_user_id IS NULL
+              GROUP BY category ORDER BY amount DESC LIMIT 10
+            `
+          : sql`
+              SELECT category, SUM(amount) AS amount
+              FROM transactions
+              WHERE TO_CHAR(date, 'YYYY-MM') = ${month} AND owner_user_id = ${me.id}
+              GROUP BY category ORDER BY amount DESC LIMIT 10
+            `,
         // 当月の個人収入合計（給与源泉税などのマイナス行は額面表示のため除外）
         sql`
           SELECT COALESCE(SUM(amount), 0) AS total
