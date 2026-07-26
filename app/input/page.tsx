@@ -326,7 +326,7 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
                               setPendingAmountOverrides(prev => ({ ...prev, [r.id]: raw }))
                             }
                           }}
-                          onClick={e => e.currentTarget.select()}
+                          onFocus={e => e.currentTarget.select()}
                           className="w-20 text-right text-xs font-semibold text-slate-100 bg-slate-800 border border-slate-700 rounded pl-3.5 pr-1.5 py-1 outline-none focus:ring-1 focus:ring-blue-400"
                         />
                       </div>
@@ -495,7 +495,7 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
                               setPendingAmountOverrides(prev => ({ ...prev, [r.id]: raw }))
                             }
                           }}
-                          onClick={e => e.currentTarget.select()}
+                          onFocus={e => e.currentTarget.select()}
                           className="w-20 text-right text-xs font-semibold text-slate-100 bg-slate-800 border border-slate-700 rounded pl-3.5 pr-1.5 py-1 outline-none focus:ring-1 focus:ring-blue-400"
                         />
                       </div>
