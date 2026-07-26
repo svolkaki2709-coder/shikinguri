@@ -45,9 +45,10 @@ const GROUP_COLORS: Record<string, { header: string; row: string; text: string; 
   投資: { header: "bg-purple-600 text-white", row: "bg-purple-500/10", text: "text-purple-300", border: "border-l-purple-400", progress: "bg-purple-500" },
   貯蓄: { header: "bg-teal-600 text-white",   row: "bg-teal-500/10",   text: "text-teal-300",   border: "border-l-teal-400",   progress: "bg-teal-500"   },
   立替: { header: "bg-orange-500 text-white", row: "bg-orange-500/10", text: "text-orange-300", border: "border-l-orange-400", progress: "bg-orange-400" },
+  税金: { header: "bg-rose-600 text-white",   row: "bg-rose-500/10",   text: "text-rose-300",   border: "border-l-rose-400",   progress: "bg-rose-500"   },
 }
 
-const GROUP_ORDER = ["収入", "支出", "振替", "投資", "貯蓄", "立替"]
+const GROUP_ORDER = ["収入", "支出", "振替", "投資", "貯蓄", "立替", "税金"]
 
 // ─── 型定義 ─────────────────────────────────────────────────────
 interface BudgetRow {
