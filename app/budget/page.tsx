@@ -177,7 +177,7 @@ function BudgetContent() {
   const [yearlyLoading, setYearlyLoading] = useState(true)
   const [months, setMonths] = useState<string[]>([])
   const [categories, setCategories] = useState<CategoryData[]>([])
-  const [incomeByMonth, setIncomeByMonth] = useState<Record<string, number>>({})
+  const [incomeByMonth, setIncomeByMonth] = useState<Record<string, { self: number; joint: number }>>({})
   const [rangeFrom, setRangeFrom] = useState("01")
   const [rangeTo, setRangeTo] = useState(String(now.getMonth() + 1).padStart(2, "0"))
 
@@ -327,8 +327,8 @@ function BudgetContent() {
   }, [yearFiltered])
 
   const monthlyIncome = useMemo(() =>
-    months.map(m => incomeByMonth[m] ?? 0),
-    [months, incomeByMonth]
+    months.map(m => incomeByMonth[m]?.[yearCardTypeFilter] ?? 0),
+    [months, incomeByMonth, yearCardTypeFilter]
   )
 
   // ─── 年次: 余剰計算（収入 − 振替以外の支出系） ────────────────
@@ -374,9 +374,8 @@ function BudgetContent() {
       point["予算"] = yearFiltered
         .filter(r => r.groupType !== "収入" && r.groupType !== "振替" && r.groupType !== "立替")
         .reduce((s, r) => s + (r.byMonth[m]?.budget ?? 0), 0)
-      if (yearCardTypeFilter === "self") {
-        point["収入"] = incomeByMonth[m] ?? 0
-      }
+      // 個人/共同を混同しないよう、選択中のタブに合う入金額だけをグラフに出す
+      point["収入"] = incomeByMonth[m]?.[yearCardTypeFilter] ?? 0
       return point
     })
   }, [months, yearGroups, yearFiltered, incomeByMonth, yearCardTypeFilter])

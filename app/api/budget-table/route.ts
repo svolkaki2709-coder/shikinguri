@@ -105,13 +105,17 @@ export async function GET(req: NextRequest) {
     `,
   ])
 
-  // ---- 収入月別合計（thead表示用）: 給与源泉税など負値を除き額面で集計 ----
-  const incomeByMonth: Record<string, number> = {}
+  // ---- 収入月別合計（thead・グラフ表示用）: 給与源泉税など負値を除き額面で集計 ----
+  // card_type別に分ける。以前は個人/共同を合算しており、個人タブで見ても
+  // 共同の入金まで含んだ数字がグラフに出てしまっていた。
+  const incomeByMonth: Record<string, { self: number; joint: number }> = {}
   for (const r of incomeActualRows) {
     const actual = Number(r.actual)
     if (actual <= 0) continue
     const key = r.month as string
-    incomeByMonth[key] = (incomeByMonth[key] ?? 0) + actual
+    if (!incomeByMonth[key]) incomeByMonth[key] = { self: 0, joint: 0 }
+    if (r.card_type === "joint") incomeByMonth[key].joint += actual
+    else incomeByMonth[key].self += actual
   }
 
   // ---- カテゴリ一覧（group_type, sort_order, sign 付き） ----
