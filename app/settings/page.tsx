@@ -69,6 +69,7 @@ function SettingsContent() {
   // 定期支出・入金フォーム
   const [rEntryType, setREntryType] = useState<"expense" | "income">("expense")
   const [rUsageType, setRUsageType] = useState<"self" | "joint">("self")
+  const [rCardId, setRCardId] = useState<number | null>(null)
   const [rDay, setRDay] = useState("1")
   const [rCategory, setRCategory] = useState("")
   const [rAmount, setRAmount] = useState("")
@@ -163,6 +164,15 @@ function SettingsContent() {
     }
   }, [rEntryType, rUsageType, categories])
 
+  // 個人/共同を切り替えたら、その区分の支払方法一覧に合わせて選択をリセットする
+  const rUsageCards = cards.filter(c => c.card_type === rUsageType)
+  useEffect(() => {
+    if (!rUsageCards.some(c => c.id === rCardId)) {
+      setRCardId(rUsageCards[0]?.id ?? null)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rUsageType, cards])
+
   // 予算タブ削除済み（予算管理ページからインライン編集）
   // useEffect(() => { if (tab === "budget") refreshBudgets() }, [budgetViewMonth, tab])
 
@@ -207,9 +217,7 @@ function SettingsContent() {
 
   async function handleAddRecurring() {
     if (!rCategory || !rAmount) return
-    // 個人/共同から対応カードを自動選択
-    const card = cards.find(c => c.card_type === rUsageType)
-    if (!card) {
+    if (!rCardId) {
       alert(`${rUsageType === "joint" ? "共同" : "個人"}の支払方法がありません。先に「カテゴリ」タブの口座・支払方法から追加してください。`)
       return
     }
@@ -219,7 +227,7 @@ function SettingsContent() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         day_of_month: Number(rDay),
-        card_id: card.id,
+        card_id: rCardId,
         category: rCategory,
         amount: Number(rAmount.replace(/,/g, "")),
         memo: rMemo,
@@ -554,6 +562,26 @@ function SettingsContent() {
                 </button>
               </div>
 
+              {/* 支払方法 */}
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block">支払方法</label>
+                {rUsageCards.length === 0 ? (
+                  <p className="text-xs text-amber-400 bg-amber-500/10 rounded-lg px-3 py-2">
+                    {rUsageType === "joint" ? "共同" : "個人"}の支払方法がありません。
+                    「カテゴリ」タブの口座・支払方法から追加してください。
+                  </p>
+                ) : (
+                  <select value={rCardId ?? ""} onChange={e => setRCardId(Number(e.target.value))}
+                    className="w-full border rounded-lg px-3 py-2 text-sm bg-slate-900 text-slate-100">
+                    {rUsageCards.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.kind === "bank" ? "🏦" : c.kind === "cash" ? "💵" : c.kind === "emoney" ? "📱" : "💳"} {c.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
               {/* 引き落とし日 */}
               <div>
                 <label className="text-xs text-slate-400 mb-1 block">引き落とし日</label>
@@ -611,7 +639,7 @@ function SettingsContent() {
                   className="w-full border rounded-lg px-3 py-2 text-sm text-slate-100" />
               </div>
 
-              <button onClick={handleAddRecurring} disabled={rSaving || !rCategory || !rAmount}
+              <button onClick={handleAddRecurring} disabled={rSaving || !rCategory || !rAmount || !rCardId}
                 className="w-full bg-blue-600 text-white rounded-lg py-2.5 text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors">
                 {rSaving ? "追加中..." : "定期を追加"}
               </button>
@@ -642,7 +670,11 @@ function SettingsContent() {
                           </span>
                           <span className="text-sm font-medium text-slate-100">{r.category}</span>
                         </div>
-                        <p className="text-xs text-slate-400">{r.day_of_month}日{r.memo && ` / ${r.memo}`}</p>
+                        <p className="text-xs text-slate-400">
+                          {r.day_of_month}日
+                          {r.card_name && ` · ${r.card_name}`}
+                          {r.memo && ` / ${r.memo}`}
+                        </p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <span className="text-sm font-semibold text-slate-300">{toJPY(r.amount)}</span>
