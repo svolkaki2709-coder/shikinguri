@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
 import { useViewMode } from "@/components/ViewModeContext"
+import { SplitTransactionModal, type SplitTarget } from "@/components/SplitTransactionModal"
 
 interface Card { id: number; name: string; card_type: string; color: string }
 interface Transaction {
@@ -46,6 +47,7 @@ function HistoryContent() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(false)
   const [quickEditId, setQuickEditId] = useState<number | null>(null)
+  const [splitTarget, setSplitTarget] = useState<SplitTarget | null>(null)
 
   const [month, setMonthState] = useState(searchParams.get("month") ?? defaultMonth)
   const [cardId, setCardId] = useState(searchParams.get("card_id") ?? "")
@@ -411,6 +413,11 @@ function HistoryContent() {
                       <td className="px-3 py-1.5 text-right font-semibold text-slate-100 whitespace-nowrap">{toJPY(t.amount)}</td>
                       <td className="px-3 py-1.5 text-center">
                         <div className="flex items-center justify-center gap-2">
+                          {t.source !== "income" && (
+                            <button onClick={() => setSplitTarget(t)}
+                              className="text-slate-600 hover:text-amber-400 text-sm leading-none"
+                              title="立替分などを切り分ける">⑂</button>
+                          )}
                           <button onClick={() => openEditModal(t)}
                             className="text-slate-600 hover:text-blue-400 text-sm leading-none" title="編集">✏</button>
                           <button onClick={() => handleDelete(t.id, t.source)}
@@ -474,6 +481,11 @@ function HistoryContent() {
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <span className="text-sm font-semibold text-slate-100">{toJPY(t.amount)}</span>
+                    {t.source !== "income" && (
+                      <button onClick={() => setSplitTarget(t)}
+                        className="text-slate-600 hover:text-amber-400 transition-colors text-sm leading-none w-5 text-center"
+                        title="立替分などを切り分ける">⑂</button>
+                    )}
                     <button onClick={() => openEditModal(t)}
                       className="text-slate-600 hover:text-blue-400 transition-colors text-sm leading-none w-6 text-center" title="編集">✏</button>
                     <button onClick={() => handleDelete(t.id, t.source)}
@@ -490,6 +502,16 @@ function HistoryContent() {
         )}
       </div>
       <BottomNav />
+
+      {/* 分割モーダル */}
+      {splitTarget && (
+        <SplitTransactionModal
+          target={splitTarget}
+          categories={categoryOptionsFor(splitTarget.card_type, splitTarget.category)}
+          onClose={() => setSplitTarget(null)}
+          onDone={() => { setSplitTarget(null); fetchData() }}
+        />
+      )}
 
       {/* 編集モーダル */}
       {editingTransaction && (

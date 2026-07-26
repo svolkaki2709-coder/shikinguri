@@ -144,8 +144,7 @@ function BudgetContent() {
   }
   const [monthlyLoading, setMonthlyLoading] = useState(true)
   const [budgets, setBudgets] = useState<BudgetRow[]>([])
-  const [incomeTotal, setIncomeTotal] = useState(0)
-  const [jointIncomeTotal, setJointIncomeTotal] = useState(0)
+
 
   // ── 年次タブ用 state ──
   const currentYear = now.getFullYear()
@@ -243,24 +242,10 @@ function BudgetContent() {
   // ─── データ取得: 月次 ──────────────────────────────────────────
   useEffect(() => {
     setMonthlyLoading(true)
-    Promise.all([
-      fetch(`/api/budget?month=${month}`).then(r => r.json()),
-      fetch(`/api/income?month=${month}&card_type=self`).then(r => r.json()),
-      fetch(`/api/income?month=${month}&card_type=joint`).then(r => r.json()),
-    ]).then(([budgetData, incomeData, jointIncomeData]) => {
-      setBudgets(budgetData.budgets ?? [])
-      // 給与源泉税など負値のincomeを除き、額面（支給ベース）で表示
-      setIncomeTotal(
-        ((incomeData.incomes ?? []) as Array<{ amount: number }>)
-          .filter(r => r.amount > 0)
-          .reduce((s, r) => s + r.amount, 0)
-      )
-      setJointIncomeTotal(
-        ((jointIncomeData.incomes ?? []) as Array<{ amount: number }>)
-          .filter(r => r.amount > 0)
-          .reduce((s, r) => s + r.amount, 0)
-      )
-    }).finally(() => setMonthlyLoading(false))
+    fetch(`/api/budget?month=${month}`)
+      .then(r => r.json())
+      .then(budgetData => setBudgets(budgetData.budgets ?? []))
+      .finally(() => setMonthlyLoading(false))
   }, [month])
 
   // ─── データ取得: 年次 ──────────────────────────────────────────
@@ -312,6 +297,8 @@ function BudgetContent() {
   const selfBudget = selfRows.filter(r => getEffectiveSign(r) === -1).reduce((s, r) => s + r.budget, 0)
   const jointBudget = jointRows.filter(r => getEffectiveSign(r) === -1).reduce((s, r) => s + r.budget, 0)
   // 個人: 収入 - 個人支出、共同: 入金 - 共同支出（入金があれば入金ベース、なければ予算ベース）
+  const incomeTotal = selfRows.filter(r => r.groupType === "収入").reduce((s, r) => s + r.actual, 0)
+  const jointIncomeTotal = jointRows.filter(r => r.groupType === "収入").reduce((s, r) => s + r.actual, 0)
   const selfBalance = incomeTotal - selfActual
   const jointBalance = jointIncomeTotal > 0 ? jointIncomeTotal - jointActual : jointBudget - jointActual
 
@@ -542,7 +529,10 @@ function BudgetContent() {
           return sg === -1 ? s + b.actual : sg === 1 ? s - b.actual : s
         }, 0)
     // 収入グループは実績が予算を上回るほど良い（黒字）ので実績-予算、それ以外は予算-実績（残額）
-    const gDiff = moreIsBetter(group) ? gActual - gBudget : gBudget - gActual
+    // 常に「実績 − 予算」。プラス＝予算より多く出入りした、で読み方を統一する。
+    // 支出系はプラスが使いすぎ（悪い）、収入・投資はプラスが良い。
+    const gDiff = gActual - gBudget
+    const gBad = moreIsBetter(group) ? gDiff < 0 : gDiff > 0
 
     return (
       <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 overflow-hidden">
@@ -552,8 +542,10 @@ function BudgetContent() {
           <div className="flex gap-3 text-xs font-semibold">
             <span>予算 {toJPY(gBudget)}</span>
             <span>実績 {toJPY(gActual)}</span>
-            <span className={gDiff < 0 ? "text-red-200" : "opacity-90"}>
-              {gDiff >= 0 ? "+" : ""}{toJPY(gDiff)}
+            <span className={gBad
+              ? "bg-red-500 text-white px-1.5 py-0.5 rounded font-bold"
+              : "opacity-90"}>
+              {gDiff >= 0 ? "+" : "−"}{toJPY(Math.abs(gDiff))}
             </span>
           </div>
         </div>
@@ -1018,9 +1010,9 @@ function BudgetContent() {
                       const groupYearActual = signAwareSum(r => r.yearActual)
                       const isIncomeGroup = moreIsBetter(group)
                       // 収入・投資グループ: 実績 > 予算 = 良い、その他: 予算 > 実績 = 良い
-                      const groupDiff = isIncomeGroup
-                        ? groupYearActual - groupYearBudget
-                        : groupYearBudget - groupYearActual
+                      // 実績 − 予算。プラス＝予算より多く出入りした
+                      const groupDiff = groupYearActual - groupYearBudget
+                      const groupBad = isIncomeGroup ? groupDiff < 0 : groupDiff > 0
 
                       return (
                         <>
@@ -1032,22 +1024,23 @@ function BudgetContent() {
                             {months.map(m => {
                               const mBudget = signAwareSum(r => r.byMonth[m]?.budget ?? 0)
                               const mActual = signAwareSum(r => r.byMonth[m]?.actual ?? 0)
-                              const diff = isIncomeGroup ? mActual - mBudget : mBudget - mActual
+                              const diff = mActual - mBudget
+                              const diffBad = isIncomeGroup ? diff < 0 : diff > 0
                               return (
                                 <td key={m} className="text-right px-2 py-1 font-semibold">
                                   {viewMode === "budget" && <span className="opacity-80">{toJPYShort(mBudget)}</span>}
                                   {viewMode === "actual" && <span>{toJPYShort(mActual)}</span>}
                                   {viewMode === "diff" && (
-                                    <span className={diff < 0 ? "text-red-200" : "opacity-80"}>
-                                      {diff >= 0 ? "+" : ""}{toJPYShort(diff)}
+                                    <span className={diffBad ? "text-red-200 font-bold" : "opacity-80"}>
+                                      {diff >= 0 ? "+" : "−"}{toJPYShort(Math.abs(diff))}
                                     </span>
                                   )}
                                   {viewMode === "both" && (
                                     <span className="text-[10px]">
                                       <span>{toJPYShort(mActual)}</span>
                                       <br />
-                                      <span className={diff < 0 ? "text-red-200" : "opacity-70"}>
-                                        {diff >= 0 ? "+" : ""}{toJPYShort(diff)}
+                                      <span className={diffBad ? "text-red-200 font-bold" : "opacity-70"}>
+                                        {diff >= 0 ? "+" : "−"}{toJPYShort(Math.abs(diff))}
                                       </span>
                                     </span>
                                   )}
@@ -1058,16 +1051,16 @@ function BudgetContent() {
                               {viewMode === "budget" && toJPYShort(groupYearBudget)}
                               {viewMode === "actual" && toJPYShort(groupYearActual)}
                               {viewMode === "diff" && (
-                                <span className={groupDiff < 0 ? "text-red-200" : ""}>
-                                  {groupDiff >= 0 ? "+" : ""}{toJPYShort(groupDiff)}
+                                <span className={groupBad ? "text-red-200 font-bold" : ""}>
+                                  {groupDiff >= 0 ? "+" : "−"}{toJPYShort(Math.abs(groupDiff))}
                                 </span>
                               )}
                               {viewMode === "both" && (
                                 <span className="text-[10px]">
                                   <span>{toJPYShort(groupYearActual)}</span>
                                   <br />
-                                  <span className={groupDiff < 0 ? "text-red-200" : "opacity-80"}>
-                                    {groupDiff >= 0 ? "+" : ""}{toJPYShort(groupDiff)}
+                                  <span className={groupBad ? "text-red-200 font-bold" : "opacity-80"}>
+                                    {groupDiff >= 0 ? "+" : "−"}{toJPYShort(Math.abs(groupDiff))}
                                   </span>
                                 </span>
                               )}
@@ -1076,16 +1069,17 @@ function BudgetContent() {
                             {(() => {
                               const rBudget = signAwareSum(r => rangeMonths.reduce((s, m) => s + (r.byMonth[m]?.budget ?? 0), 0))
                               const rActual = signAwareSum(r => rangeMonths.reduce((s, m) => s + (r.byMonth[m]?.actual ?? 0), 0))
-                              const rDiff = isIncomeGroup ? rActual - rBudget : rBudget - rActual
+                              const rDiff = rActual - rBudget
+                              const rDiffBad = isIncomeGroup ? rDiff < 0 : rDiff > 0
                               return (
                                 <td className="text-right px-3 py-1 font-bold bg-indigo-900/30">
                                   {viewMode === "budget" && toJPYShort(rBudget)}
                                   {viewMode === "actual" && toJPYShort(rActual)}
-                                  {viewMode === "diff" && <span className={rDiff < 0 ? "text-red-200" : ""}>{rDiff >= 0 ? "+" : ""}{toJPYShort(rDiff)}</span>}
+                                  {viewMode === "diff" && <span className={rDiffBad ? "text-red-200 font-bold" : ""}>{rDiff >= 0 ? "+" : "−"}{toJPYShort(Math.abs(rDiff))}</span>}
                                   {viewMode === "both" && (
                                     <span className="text-[10px]">
                                       <span>{toJPYShort(rActual)}</span><br />
-                                      <span className={rDiff < 0 ? "text-red-200" : "opacity-80"}>{rDiff >= 0 ? "+" : ""}{toJPYShort(rDiff)}</span>
+                                      <span className={rDiffBad ? "text-red-200 font-bold" : "opacity-80"}>{rDiff >= 0 ? "+" : "−"}{toJPYShort(Math.abs(rDiff))}</span>
                                     </span>
                                   )}
                                 </td>

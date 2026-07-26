@@ -84,6 +84,43 @@ export async function GET(req: NextRequest) {
     }
   })
 
+  // 予算が無くても実績があるカテゴリを行として補う。
+  // 予実画面は budgets テーブルを起点に組み立てているため、その月に予算レコードが
+  // 解決しないカテゴリ（例: 単発で登録した臨時収入）は、明細があるのに画面から
+  // 丸ごと消えてしまい、上部の合計と グループカードの数字が食い違っていた。
+  const seen = new Set(rows.map(r => `${r.category}__${r.cardType}`))
+  const catRows = await sql<{
+    name: string; card_type: string; group_type: string | null; sort_order: number | null; sign: string | null
+  }>`
+    SELECT name, card_type, group_type, sort_order, sign FROM categories
+    WHERE (owner_user_id IS NULL OR owner_user_id = ${me.id})
+  `
+  const catMap = new Map(catRows.map(c => [`${c.name}__${c.card_type}`, c]))
+
+  for (const [key, rawActual] of Object.entries(actualMap)) {
+    if (seen.has(key) || !rawActual) continue
+    const sep = key.lastIndexOf("__")
+    const category = key.slice(0, sep)
+    const cardType = key.slice(sep + 2)
+    if (cardType !== "self" && cardType !== "joint") continue
+
+    const c = catMap.get(key)
+    const effSign = c?.sign === "plus" ? 1 : c?.sign === "minus" ? -1
+      : c?.group_type === "収入" ? 1 : c?.group_type === "振替" ? 0 : -1
+    rows.push({
+      category,
+      cardType,
+      budget: 0,
+      actual: effSign === -1 && rawActual < 0 ? Math.abs(rawActual) : rawActual,
+      isMonthly: false,
+      isFromMonth: false,
+      recordMonth: null,
+      groupType: c?.group_type ?? null,
+      sortOrder: c?.sort_order ?? null,
+      sign: c?.sign ?? null,
+    })
+  }
+
   // 全デフォルト一覧も返す（設定UI用）
   const defaults = await sql`
     SELECT category, card_type, amount FROM budgets
