@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { requireUser, unauthorized, forbidden } from "@/lib/session"
+import { seedPersonalSpace } from "@/lib/seed"
 
 interface MemberRow {
   id: number
@@ -24,9 +25,19 @@ export async function GET() {
     SELECT id, email, display_name, role, is_active, created_at::text
     FROM users ORDER BY id
   `
+  // 自分の個人スペースが使える状態か（カテゴリと支払方法があるか）
+  const [{ cat, acc }] = await sql<{ cat: number; acc: number }>`
+    SELECT
+      (SELECT COUNT(*) FROM categories WHERE owner_user_id = ${me.id})::int AS cat,
+      (SELECT COUNT(*) FROM cards      WHERE owner_user_id = ${me.id})::int AS acc
+  `
   return NextResponse.json({
     members,
-    me: { id: me.id, isOwner: await isOwner(me.id) },
+    me: {
+      id: me.id,
+      isOwner: await isOwner(me.id),
+      personal: { categories: cat, accounts: acc, ready: cat > 0 && acc > 0 },
+    },
   })
 }
 
@@ -52,7 +63,10 @@ export async function POST(req: NextRequest) {
     VALUES (${addr}, ${display_name?.trim() || addr}, 'member')
     RETURNING id, email, display_name, role, is_active, created_at::text
   `
-  return NextResponse.json({ member: created })
+  // 招待した相手がログインしてすぐ個人タブを使えるよう、
+  // その人専用のカテゴリと支払方法を用意しておく（中身は空・こちらからは見えない）
+  const seed = await seedPersonalSpace(created.id)
+  return NextResponse.json({ member: created, seed })
 }
 
 // 有効／停止の切り替え、表示名の変更

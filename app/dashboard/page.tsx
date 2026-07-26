@@ -152,15 +152,10 @@ export default function DashboardPage() {
   const budgetRemaining = budgetTotal - budgetActual
   const budgetUsagePct = budgetTotal > 0 ? (budgetActual / budgetTotal) * 100 : 0
 
-  // 月の経過ペース（当月のみ）
-  const isCurrentMonth = month === defaultMonth
-  const daysInMonth = (() => { const [y, mo] = month.split("-").map(Number); return new Date(y, mo, 0).getDate() })()
-  const monthElapsedPct = isCurrentMonth ? (now.getDate() / daysInMonth) * 100 : 100
-
-  // 警戒カテゴリ: 予算あり＆消化80%以上（超過含む）を消化率降順で上位3件
-  const warnCategories = viewBudgetRows
-    .filter(b => b.budget > 0 && b.actual / b.budget >= 0.8)
-    .sort((a, b) => b.actual / b.budget - a.actual / a.budget)
+  // 予算を超えたカテゴリ（超過額の大きい順に上位3件）
+  const overCategories = viewBudgetRows
+    .filter(b => b.budget > 0 && b.actual > b.budget)
+    .sort((a, b) => (b.actual - b.budget) - (a.actual - a.budget))
     .slice(0, 3)
 
   const tabs: { key: Tab; label: string }[] = [
@@ -170,58 +165,55 @@ export default function DashboardPage() {
 
   const isPC = mode === "pc"
 
-  // ─── 予算残額ヒーローカード ───────────────────────────────────
+  // ─── 予実サマリーカード ───────────────────────────────────────
+  // CSVはその月が終わってから取り込むため、「今月あと使える額」のような
+  // 先を見る指標ではなく、締まった月の結果として見せる。
   const BudgetHeroCard = () => {
     if (budgetTotal <= 0) return null
     const over = budgetRemaining < 0
-    const paceOver = isCurrentMonth && budgetUsagePct > monthElapsedPct + 5
     return (
-      <div className={`rounded-xl shadow-sm p-4 ${over ? "bg-red-500/10 border border-red-500/30" : "bg-slate-900"}`}>
+      <div className={`rounded-xl shadow-sm p-4 ${over ? "bg-red-500/10 border border-red-500/30" : "bg-slate-900 border border-slate-800"}`}>
         <div className="flex items-baseline justify-between mb-1">
           <p className="text-xs text-slate-400">
-            {isCurrentMonth ? "今月あと使える額" : `${month} の予算残額`}
+            {month.replace("-", "年")}月の予算差引
             <span className="ml-1 text-slate-500">（{viewType === "self" ? "個人" : "共同"}）</span>
           </p>
           <Link href={`/budget?month=${month}&ct=${viewType}`} className="text-[11px] text-blue-400 hover:underline">予実へ ›</Link>
         </div>
-        <p className={`text-3xl font-bold ${over ? "text-red-400" : "text-slate-100"}`}>
-          {over ? "−" : ""}{toJPY(Math.abs(budgetRemaining))}
-        </p>
-        <div className="mt-3 relative">
+        <div className="flex items-baseline gap-2">
+          <p className={`text-3xl font-bold ${over ? "text-red-400" : "text-green-400"}`}>
+            {over ? "−" : "+"}{toJPY(Math.abs(budgetRemaining))}
+          </p>
+          <span className={`text-sm font-semibold ${over ? "text-red-400" : "text-green-400"}`}>
+            {over ? "超過" : "予算内"}
+          </span>
+        </div>
+        <div className="mt-3">
           <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
             <div
-              className={`h-2.5 rounded-full transition-all ${over ? "bg-red-400" : paceOver ? "bg-amber-400" : "bg-blue-500"}`}
+              className={`h-2.5 rounded-full transition-all ${over ? "bg-red-400" : "bg-green-500"}`}
               style={{ width: `${Math.min(budgetUsagePct, 100)}%` }}
             />
           </div>
-          {/* 月の経過マーカー */}
-          {isCurrentMonth && (
-            <div className="absolute top-[-2px] h-3.5 w-0.5 bg-gray-400 rounded" style={{ left: `${monthElapsedPct}%` }} />
-          )}
         </div>
-        <div className="flex justify-between mt-1.5 text-[11px] text-slate-400">
-          <span>消化 {toJPY(budgetActual)} / 予算 {toJPY(budgetTotal)}（{Math.round(budgetUsagePct)}%）</span>
-          {isCurrentMonth && <span>月の経過 {Math.round(monthElapsedPct)}%</span>}
-        </div>
-        {paceOver && !over && (
-          <p className="mt-1.5 text-[11px] text-amber-400">⚠️ 月の経過よりペースが速めです</p>
-        )}
+        <p className="mt-1.5 text-[11px] text-slate-400">
+          実績 {toJPY(budgetActual)} / 予算 {toJPY(budgetTotal)}
+          <span className="ml-1">（{Math.round(budgetUsagePct)}%）</span>
+        </p>
 
-        {/* 警戒カテゴリ */}
-        {warnCategories.length > 0 && (
+        {/* 予算を超えたカテゴリ */}
+        {overCategories.length > 0 && (
           <div className="mt-3 pt-2.5 border-t border-slate-800 space-y-1.5">
-            {warnCategories.map(b => {
-              const pct = Math.round((b.actual / b.budget) * 100)
-              const isOver = pct > 100
-              return (
-                <div key={b.category} className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400 truncate">{isOver ? "🔴" : "🟡"} {b.category}</span>
-                  <span className={`font-semibold shrink-0 ml-2 ${isOver ? "text-red-400" : "text-amber-400"}`}>
-                    {pct}%{isOver ? `（+${toJPY(b.actual - b.budget)}超過）` : ""}
-                  </span>
-                </div>
-              )
-            })}
+            <p className="text-[11px] font-semibold text-slate-500">予算を超えたカテゴリ</p>
+            {overCategories.map(b => (
+              <div key={b.category} className="flex items-center justify-between text-xs">
+                <span className="text-slate-400 truncate">🔴 {b.category}</span>
+                <span className="font-semibold shrink-0 ml-2 text-red-400">
+                  +{toJPY(b.actual - b.budget)}
+                  <span className="text-slate-500 ml-1">（{Math.round((b.actual / b.budget) * 100)}%）</span>
+                </span>
+              </div>
+            ))}
           </div>
         )}
       </div>

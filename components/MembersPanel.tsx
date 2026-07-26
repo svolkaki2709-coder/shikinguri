@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react"
 
+interface Personal { categories: number; accounts: number; ready: boolean }
+
 interface Member {
   id: number
   email: string
@@ -14,6 +16,8 @@ export function MembersPanel({ isPC }: { isPC: boolean }) {
   const [members, setMembers] = useState<Member[]>([])
   const [meId, setMeId] = useState<number | null>(null)
   const [isOwner, setIsOwner] = useState(false)
+  const [personal, setPersonal] = useState<Personal | null>(null)
+  const [seeding, setSeeding] = useState(false)
   const [loading, setLoading] = useState(true)
   const [email, setEmail] = useState("")
   const [name, setName] = useState("")
@@ -27,6 +31,7 @@ export function MembersPanel({ isPC }: { isPC: boolean }) {
       setMembers(d.members ?? [])
       setMeId(d.me?.id ?? null)
       setIsOwner(!!d.me?.isOwner)
+      setPersonal(d.me?.personal ?? null)
     } catch {
       setMsg({ type: "err", text: "メンバー情報の取得に失敗しました" })
     } finally {
@@ -34,6 +39,24 @@ export function MembersPanel({ isPC }: { isPC: boolean }) {
     }
   }
   useEffect(() => { load() }, [])
+
+  async function handleSeedPersonal() {
+    setSeeding(true)
+    try {
+      const res = await fetch("/api/setup", { method: "POST" })
+      const d = await res.json()
+      if (!res.ok) { setMsg({ type: "err", text: "初期設定に失敗しました" }); return }
+      setMsg({
+        type: "ok",
+        text: d.seeded
+          ? `個人用のカテゴリ${d.categories}件と支払方法を作成しました`
+          : "すでに設定済みです",
+      })
+      load()
+    } finally {
+      setSeeding(false)
+    }
+  }
 
   async function handleAdd() {
     if (!email.trim()) return
@@ -48,7 +71,11 @@ export function MembersPanel({ isPC }: { isPC: boolean }) {
       const d = await res.json()
       if (!res.ok) { setMsg({ type: "err", text: d.error ?? "追加に失敗しました" }); return }
       setEmail(""); setName("")
-      setMsg({ type: "ok", text: `${d.member.email} を招待しました。相手がこのアドレスのGoogleアカウントでログインすると共同データを閲覧できます。` })
+      setMsg({
+        type: "ok",
+        text: `${d.member.email} を招待しました。相手がこのアドレスのGoogleアカウントでログインすれば、すぐに共同データを使えます。`
+          + (d.seed?.seeded ? `個人用のカテゴリ${d.seed.categories}件も用意しました（中身は空で、あなたからは見えません）。` : ""),
+      })
       load()
     } finally {
       setSaving(false)
@@ -126,6 +153,25 @@ export function MembersPanel({ isPC }: { isPC: boolean }) {
           </div>
         )}
       </div>
+
+      {/* 自分の個人スペース */}
+      {personal && !personal.ready && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 space-y-2">
+          <p className="text-sm font-bold text-amber-300">個人スペースの初期設定</p>
+          <p className="text-xs text-amber-200/80">
+            あなたの「個人」タブには
+            {personal.categories === 0 && "カテゴリ"}
+            {personal.categories === 0 && personal.accounts === 0 && "も"}
+            {personal.accounts === 0 && "支払方法"}
+            がまだありません。このままでは個人の支出を記録できないため、
+            よく使うカテゴリと「現金orPayPay」を作成します。
+          </p>
+          <button onClick={handleSeedPersonal} disabled={seeding}
+            className="bg-amber-500 text-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-amber-600 disabled:opacity-40 transition-colors">
+            {seeding ? "作成中..." : "個人用の初期セットを作成"}
+          </button>
+        </div>
+      )}
 
       {/* 一覧 */}
       <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 overflow-hidden">
