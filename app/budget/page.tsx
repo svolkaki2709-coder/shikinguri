@@ -298,16 +298,14 @@ function BudgetContent() {
   // サマリー計算（選択中の cardTypeFilter に連動）
   const selfRows = budgets.filter(b => b.cardType === "self")
   const jointRows = budgets.filter(b => b.cardType === "joint")
-  // 支出のみ（sign=-1）の実績・予算合計（収入カテゴリを除外）
-  const selfActual = selfRows.filter(r => getEffectiveSign(r) === -1).reduce((s, r) => s + r.actual, 0)
-  const jointActual = jointRows.filter(r => getEffectiveSign(r) === -1).reduce((s, r) => s + r.actual, 0)
-  const selfBudget = selfRows.filter(r => getEffectiveSign(r) === -1).reduce((s, r) => s + r.budget, 0)
-  const jointBudget = jointRows.filter(r => getEffectiveSign(r) === -1).reduce((s, r) => s + r.budget, 0)
-  // 個人: 収入 - 個人支出、共同: 入金 - 共同支出（入金があれば入金ベース、なければ予算ベース）
+  // 支出グループのみの実績・予算合計（投資・貯蓄・税金・立替等は上部サマリーに含めない）
+  const isPureExpense = (r: BudgetRow) => getEffectiveSign(r) === -1 && (r.groupType ?? "支出") === "支出"
+  const selfActual = selfRows.filter(isPureExpense).reduce((s, r) => s + r.actual, 0)
+  const jointActual = jointRows.filter(isPureExpense).reduce((s, r) => s + r.actual, 0)
+  const selfBudget = selfRows.filter(isPureExpense).reduce((s, r) => s + r.budget, 0)
+  const jointBudget = jointRows.filter(isPureExpense).reduce((s, r) => s + r.budget, 0)
   const incomeTotal = selfRows.filter(r => r.groupType === "収入").reduce((s, r) => s + r.actual, 0)
   const jointIncomeTotal = jointRows.filter(r => r.groupType === "収入").reduce((s, r) => s + r.actual, 0)
-  const selfBalance = incomeTotal - selfActual
-  const jointBalance = jointIncomeTotal > 0 ? jointIncomeTotal - jointActual : jointBudget - jointActual
   // 予実差: 支出予算に対して実績がどれだけ余ったか（プラス=予算内、マイナス=超過）
   const selfVariance = selfBudget - selfActual
   const jointVariance = jointBudget - jointActual
