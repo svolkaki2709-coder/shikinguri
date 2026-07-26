@@ -281,6 +281,30 @@ function SettingsContent() {
     setRecurring(prev => prev.filter(r => r.id !== id))
   }
 
+  const [editingRecurringId, setEditingRecurringId] = useState<number | null>(null)
+  const [editRecurringCategory, setEditRecurringCategory] = useState("")
+
+  function recurringCategoryOptions(cardType: string, isIncome: boolean) {
+    return categoryRows
+      .filter(c => c.card_type === cardType)
+      .filter(c => {
+        const sign = c.sign ?? (c.group_type === "収入" ? "plus" : c.group_type === "振替" ? "neutral" : "minus")
+        return isIncome ? sign === "plus" : sign !== "plus"
+      })
+      .map(c => c.name)
+  }
+
+  async function handleSaveRecurringCategory(id: number) {
+    if (!editRecurringCategory) return
+    await fetch("/api/recurring", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, category: editRecurringCategory }),
+    })
+    setRecurring(prev => prev.map(r => r.id === id ? { ...r, category: editRecurringCategory } : r))
+    setEditingRecurringId(null)
+  }
+
   async function handleSaveBudget() {
     if (!budgetCategory || !budgetAmount) return
     setBudgetSaving(true)
@@ -689,6 +713,7 @@ function SettingsContent() {
                   const isIncome = r.entry_type === "income"
                   const usageLabel = r.card_type === "joint" ? "共同" : "個人"
                   const usageColor = r.card_type === "joint" ? "#f59e0b" : "#6366f1"
+                  const isEditingCat = editingRecurringId === r.id
                   return (
                     <div key={r.id} className="flex items-center px-4 py-2.5 border-b last:border-0">
                       <div className="flex-1 min-w-0">
@@ -700,7 +725,26 @@ function SettingsContent() {
                             style={{ backgroundColor: usageColor }}>
                             {usageLabel}
                           </span>
-                          <span className="text-sm font-medium text-slate-100">{r.category}</span>
+                          {isEditingCat ? (
+                            <div className="flex items-center gap-1">
+                              <select value={editRecurringCategory} onChange={e => setEditRecurringCategory(e.target.value)}
+                                className="text-xs border border-slate-700 rounded px-1.5 py-0.5 bg-slate-900 text-slate-100 outline-none focus:ring-1 focus:ring-blue-400">
+                                {recurringCategoryOptions(r.card_type, isIncome).map(c => <option key={c} value={c}>{c}</option>)}
+                                {!recurringCategoryOptions(r.card_type, isIncome).includes(r.category) && <option value={r.category}>{r.category}</option>}
+                              </select>
+                              <button onClick={() => handleSaveRecurringCategory(r.id)}
+                                className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-0.5 rounded font-semibold">保存</button>
+                              <button onClick={() => setEditingRecurringId(null)}
+                                className="text-xs text-slate-500 hover:text-slate-300 px-1">キャンセル</button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => { setEditingRecurringId(r.id); setEditRecurringCategory(r.category) }}
+                              className="text-sm font-medium text-slate-100 hover:text-blue-400 hover:underline"
+                              title="クリックしてカテゴリを変更">
+                              {r.category}
+                            </button>
+                          )}
                         </div>
                         <p className="text-xs text-slate-400">
                           {r.day_of_month}日
