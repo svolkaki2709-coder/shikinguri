@@ -3,6 +3,9 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* アプリは常時ダーク配色。ネイティブのselectポップアップ・日付ピッカー等を
+     ブラウザのダークUIで描画させる（Tailwindの背景・文字色クラスはoption一覧に伝播しないため） */
+  color-scheme: dark;
 }
 
 @theme inline {
