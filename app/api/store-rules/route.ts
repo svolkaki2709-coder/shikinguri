@@ -8,19 +8,48 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url)
   const q = searchParams.get("q") ?? ""
+  const cardType = searchParams.get("card_type")
+  // card_type 未指定時は互換のため個人+共同を両方返す。指定時はそのスコープのみに絞る。
+  const ownerFilter = cardType === "joint" ? null : cardType === "self" ? me.id : undefined
 
-  const rows = q
-    ? await sql`
-        SELECT id, keyword, category FROM store_category_rules
-        WHERE (owner_user_id IS NULL OR owner_user_id = ${me.id})
-          AND (keyword ILIKE ${"%" + q + "%"} OR category ILIKE ${"%" + q + "%"})
-        ORDER BY keyword LIMIT 100
-      `
-    : await sql`
-        SELECT id, keyword, category FROM store_category_rules
-        WHERE (owner_user_id IS NULL OR owner_user_id = ${me.id})
-        ORDER BY keyword LIMIT 300
-      `
+  const rows = ownerFilter === undefined
+    ? (q
+        ? await sql`
+            SELECT id, keyword, category FROM store_category_rules
+            WHERE (owner_user_id IS NULL OR owner_user_id = ${me.id})
+              AND (keyword ILIKE ${"%" + q + "%"} OR category ILIKE ${"%" + q + "%"})
+            ORDER BY keyword LIMIT 100
+          `
+        : await sql`
+            SELECT id, keyword, category FROM store_category_rules
+            WHERE (owner_user_id IS NULL OR owner_user_id = ${me.id})
+            ORDER BY keyword LIMIT 300
+          `)
+    : ownerFilter === null
+    ? (q
+        ? await sql`
+            SELECT id, keyword, category FROM store_category_rules
+            WHERE owner_user_id IS NULL
+              AND (keyword ILIKE ${"%" + q + "%"} OR category ILIKE ${"%" + q + "%"})
+            ORDER BY keyword LIMIT 100
+          `
+        : await sql`
+            SELECT id, keyword, category FROM store_category_rules
+            WHERE owner_user_id IS NULL
+            ORDER BY keyword LIMIT 300
+          `)
+    : (q
+        ? await sql`
+            SELECT id, keyword, category FROM store_category_rules
+            WHERE owner_user_id = ${ownerFilter}
+              AND (keyword ILIKE ${"%" + q + "%"} OR category ILIKE ${"%" + q + "%"})
+            ORDER BY keyword LIMIT 100
+          `
+        : await sql`
+            SELECT id, keyword, category FROM store_category_rules
+            WHERE owner_user_id = ${ownerFilter}
+            ORDER BY keyword LIMIT 300
+          `)
 
   return NextResponse.json({ rules: rows })
 }

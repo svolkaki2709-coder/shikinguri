@@ -288,9 +288,8 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
         {/* ═══ 支出タブ ═══ */}
         {mainTab === "expense" && (
           <>
-            {/* 定期支出候補 */}
-            {(pendingExpense.length > 0 || pendingMonth !== currentMonth) && (
-              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 space-y-2">
+            {/* 定期支出候補（未登録が0件でも月切り替えは常に出す） */}
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-semibold text-amber-300">📋 定期支出（未登録）</p>
                   <div className="flex items-center gap-1 text-amber-300">
@@ -343,8 +342,7 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
                     </div>
                   </div>
                 ))}
-              </div>
-            )}
+            </div>
 
             {/* 支出フォーム */}
             <form onSubmit={handleSubmit} className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-4 space-y-4">
@@ -459,9 +457,8 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
         {/* ═══ 収入タブ ═══ */}
         {mainTab === "income" && (
           <div className="space-y-3">
-            {/* 定期入金候補 */}
-            {(pendingIncome.length > 0 || pendingMonth !== currentMonth) && (
-              <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3 space-y-2">
+            {/* 定期入金候補（未登録が0件でも月切り替えは常に出す） */}
+            <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-semibold text-green-300">📋 定期入金（未登録）</p>
                   <div className="flex items-center gap-1 text-green-300">
@@ -514,8 +511,7 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
                     </div>
                   </div>
                 ))}
-              </div>
-            )}
+            </div>
 
             {/* 収入フォーム */}
             <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-4 space-y-4">

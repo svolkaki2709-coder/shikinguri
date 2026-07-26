@@ -181,7 +181,7 @@ function SettingsContent() {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab])
+  }, [tab, catViewType])
 
   // 定期フォームの種別・用途変更時にカテゴリをリセット
   useEffect(() => {
@@ -429,7 +429,7 @@ function SettingsContent() {
   }
 
   async function fetchStoreRules(q = "") {
-    const data = await fetch(`/api/store-rules?q=${encodeURIComponent(q)}`).then(r => r.json())
+    const data = await fetch(`/api/store-rules?q=${encodeURIComponent(q)}&card_type=${catViewType}`).then(r => r.json())
     setStoreRules(data.rules ?? [])
   }
 
