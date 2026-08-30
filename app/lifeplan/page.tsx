@@ -7,7 +7,7 @@ import { BottomNav } from "@/components/BottomNav"
 import { useViewMode } from "@/components/ViewModeContext"
 import { LIFE_EVENT_TEMPLATES, STREAM_TEMPLATES } from "@/lib/lifeEventTemplates"
 import { toMan, fmtMan, manToYen, yenToManStr } from "@/lib/money"
-import { LifePlanTools, type ToolRow } from "@/components/LifePlanTools"
+import { LifePlanTools, type ToolRow, type PayslipHints } from "@/components/LifePlanTools"
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer, ReferenceLine,
@@ -95,6 +95,7 @@ function LifePlanContent() {
   const [events, setEvents] = useState<LifeEvent[]>([])
   const [tools, setTools] = useState<ToolRow[]>([])
   const [hints, setHints] = useState<ActualHints | null>(null)
+  const [payslipHints, setPayslipHints] = useState<PayslipHints | null>(null)
   const [msg, setMsg] = useState("")
 
   const focusAndSelect = useCallback((el: HTMLInputElement | null) => {
@@ -133,6 +134,7 @@ function LifePlanContent() {
         member_id: t.member_id == null ? null : Number(t.member_id),
       })))
       setHints(d.actualHints ?? null)
+      setPayslipHints(d.payslipHints ?? null)
     } finally {
       setLoading(false)
     }
@@ -325,6 +327,7 @@ function LifePlanContent() {
               <LifePlanTools
                 settings={settings} members={members} streams={streams} events={events}
                 tools={tools} scope={scope} onChanged={load} flash={flash}
+                payslipHints={payslipHints}
               />
             )}
             {tab === "settings" && (

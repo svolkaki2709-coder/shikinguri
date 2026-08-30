@@ -2,7 +2,10 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { fmtMan, manToYen, fmtYen } from "@/lib/money"
-import { calcMortgage, calcPension, calcInsuranceNeed, calcSurvivorPension, monthlyPayment } from "@/lib/fpCalc"
+import {
+  calcMortgage, calcPension, calcInsuranceNeed, calcSurvivorPension, monthlyPayment,
+  REMUNERATION_CAP, QUALIFYING_MONTHS, SPOUSE_BONUS_MONTHS, SPOUSE_BONUS_ANNUAL,
+} from "@/lib/fpCalc"
 
 const INPUT_CLS =
   "border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm bg-slate-900 text-slate-100 outline-none focus:ring-2 focus:ring-blue-500"
@@ -12,6 +15,13 @@ export interface ToolStream { id: number; kind: "income" | "expense"; name: stri
 export interface ToolEvent { id: number; category: string; amount: number; repeat_years: number; kind: string }
 export interface ToolRow { id: number; tool: string; member_id: number | null; params: Record<string, string> }
 export interface ToolSettings { start_year: number; years: number; initial_savings: number; initial_investment: number }
+/** 給与明細の厚生年金保険料から逆算した標準報酬月額 */
+export interface PayslipHints {
+  standardMonthly: number
+  annualEquivalent: number
+  months: number
+  latestMonth: string
+}
 
 interface Props {
   settings: ToolSettings
@@ -22,6 +32,7 @@ interface Props {
   scope: string
   onChanged: () => void
   flash: (s: string) => void
+  payslipHints?: PayslipHints | null
 }
 
 type ToolKey = "mortgage" | "pension" | "insurance"
@@ -351,7 +362,7 @@ function MortgageTool({ settings, tools, scope, onChanged, flash }: Props) {
 // ═══════════════════════════════════════════════════════════════
 // 公的年金
 // ═══════════════════════════════════════════════════════════════
-function PensionTool({ members, tools, scope, onChanged, flash }: Props) {
+function PensionTool({ members, tools, scope, onChanged, flash, payslipHints }: Props) {
   const [memberId, setMemberId] = useState<number | null>(members[0]?.id ?? null)
   const member = members.find(m => m.id === memberId) ?? null
   const saved = tools.find(t => t.tool === "pension" && t.member_id === memberId)?.params ?? {}
@@ -362,6 +373,8 @@ function PensionTool({ members, tools, scope, onChanged, flash }: Props) {
     workTo: saved.workTo ?? "65",
     basicMonths: saved.basicMonths ?? "480",
     startAge: saved.startAge ?? "65",
+    monthsBefore2003: saved.monthsBefore2003 ?? "0",
+    incomeBefore2003: saved.incomeBefore2003 ?? "0",
   })
   const [busy, setBusy] = useState(false)
 
@@ -375,29 +388,39 @@ function PensionTool({ members, tools, scope, onChanged, flash }: Props) {
         workTo: p.workTo ?? "65",
         basicMonths: p.basicMonths ?? "480",
         startAge: p.startAge ?? "65",
+        monthsBefore2003: p.monthsBefore2003 ?? "0",
+        incomeBefore2003: p.incomeBefore2003 ?? "0",
       })
     }
   }, [memberId, tools])
 
-  const enrolledMonths = Math.max(0, (Number(f.workTo) - Number(f.workFrom)) * 12)
+  // 厚生年金の加入月数のうち、2003年3月以前は別計算になるので差し引く
+  const totalMonths = Math.max(0, (Number(f.workTo) - Number(f.workFrom)) * 12)
+  const monthsOld = Math.min(Number(f.monthsBefore2003) || 0, totalMonths)
+  const enrolledMonths = totalMonths - monthsOld
 
-  const r = useMemo(() => calcPension({
+  const baseInput = useMemo(() => ({
     avgAnnualIncome: manToYen(f.income),
     enrolledMonths,
     basicMonths: Number(f.basicMonths) || 0,
-    startAge: Number(f.startAge) || 65,
-  }), [f, enrolledMonths])
+    monthsBefore2003: monthsOld,
+    avgMonthlyBefore2003: manToYen(f.incomeBefore2003) / 12,
+  }), [f.income, f.basicMonths, f.incomeBefore2003, enrolledMonths, monthsOld])
+
+  const r = useMemo(
+    () => calcPension({ ...baseInput, startAge: Number(f.startAge) || 65 }),
+    [baseInput, f.startAge]
+  )
 
   // 受給開始年齢による比較
-  const ageCompare = useMemo(() => [60, 65, 70, 75].map(age => ({
-    age,
-    result: calcPension({
-      avgAnnualIncome: manToYen(f.income),
-      enrolledMonths,
-      basicMonths: Number(f.basicMonths) || 0,
-      startAge: age,
-    }),
-  })), [f.income, f.basicMonths, enrolledMonths])
+  const ageCompare = useMemo(
+    () => [60, 65, 70, 75].map(age => ({ age, result: calcPension({ ...baseInput, startAge: age }) })),
+    [baseInput]
+  )
+
+  // 加給年金: 厚生年金20年以上＋65歳未満の配偶者がいると、配偶者が65歳になるまで加算される
+  const spouse = members.find(m => m.relation === "配偶者") ?? null
+  const spouseBonusEligible = totalMonths >= SPOUSE_BONUS_MONTHS && spouse != null
 
   async function register() {
     if (!member) return
@@ -437,6 +460,30 @@ function PensionTool({ members, tools, scope, onChanged, flash }: Props) {
         ここでは平均年収から概算します。
       </Note>
 
+      {/* 給与明細の実績から標準報酬月額を取り込む */}
+      {payslipHints && (
+        <div className="bg-slate-900 rounded-xl border border-slate-800 p-4 space-y-2">
+          <h4 className="text-xs font-semibold text-slate-300">給与明細の実績から取り込む</h4>
+          <p className="text-[11px] text-slate-500 leading-relaxed">
+            年金額は額面給与ではなく<span className="text-slate-300">標準報酬月額</span>で決まります。
+            取り込み済みの給与明細（{payslipHints.latestMonth}・{payslipHints.months}ヶ月分）の
+            厚生年金保険料から逆算しました。
+          </p>
+          <div className="bg-slate-800 rounded-lg p-3">
+            <ResultRow label="標準報酬月額" value={fmtYen(payslipHints.standardMonthly)} />
+            <ResultRow label="年収換算（賞与なし）" value={`${fmtMan(payslipHints.annualEquivalent)}万円`} strong />
+          </div>
+          <button onClick={() => setF({ ...f, income: String(Math.round(payslipHints.annualEquivalent / 10000)) })}
+            className="w-full bg-slate-800 text-slate-300 rounded-lg py-2 text-xs hover:bg-slate-700 transition-colors">
+            この年収換算を「平均年収」に反映する
+          </button>
+          <p className="text-[10px] text-slate-500 leading-relaxed">
+            現在の水準が定年まで続いた場合の試算になります。若い頃の給与はこれより低いのが普通なので、
+            生涯平均としては少し低めに直すと実態に近づきます。賞与がある場合は年収に加えてください
+          </p>
+        </div>
+      )}
+
       <div className="bg-slate-900 rounded-xl border border-slate-800 p-4 space-y-3">
         <Field label="対象者">
           <select value={memberId ?? ""} onChange={e => setMemberId(Number(e.target.value))}
@@ -464,9 +511,72 @@ function PensionTool({ members, tools, scope, onChanged, flash }: Props) {
         <Field label="国民年金の納付月数" hint="40年間すべて納付なら480ヶ月（満額）。未納・免除期間があれば減らす">
           <NumInput value={f.basicMonths} onChange={v => setF({ ...f, basicMonths: v })} suffix="ヶ月" />
         </Field>
+
+        <details className="bg-slate-800 rounded-lg px-3 py-2">
+          <summary className="text-[11px] text-slate-400 cursor-pointer">
+            2003年3月以前にも働いていた場合（計算式が違います）
+          </summary>
+          <div className="pt-2.5 space-y-2.5">
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              2003年4月に総報酬制が導入され、それ以前は<span className="text-slate-400">賞与が年金額に反映されない</span>
+              代わりに乗率が高く設定されています（7.125/1000。以降は5.481/1000）。
+              2003年4月より後に就職した方は0のままで構いません。
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="2003年3月以前の加入月数">
+                <NumInput value={f.monthsBefore2003} onChange={v => setF({ ...f, monthsBefore2003: v })} suffix="ヶ月" />
+              </Field>
+              <Field label="当時の平均年収（万円）" hint="賞与を含まない月給×12">
+                <NumInput value={f.incomeBefore2003} onChange={v => setF({ ...f, incomeBefore2003: v })} suffix="万円" />
+              </Field>
+            </div>
+          </div>
+        </details>
+
         <p className="text-[10px] text-slate-500">
-          厚生年金の加入期間：{Math.floor(enrolledMonths / 12)}年（{enrolledMonths}ヶ月）
+          厚生年金の加入期間：{Math.floor(totalMonths / 12)}年（{totalMonths}ヶ月）
+          {monthsOld > 0 && ` / うち2003年3月以前 ${monthsOld}ヶ月`}
         </p>
+      </div>
+
+      {/* 制度上の条件チェック */}
+      <div className="space-y-2">
+        {!r.qualified && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+            <p className="text-[11px] text-red-200/90 leading-relaxed">
+              <span className="font-semibold text-red-300">受給資格期間が足りません。</span>
+              年金を受け取るには加入期間が通算<span className="font-semibold">10年（120ヶ月）</span>必要です
+              （現在 {r.qualifyingMonths}ヶ月）。2017年8月に25年から10年へ短縮されました。
+            </p>
+          </div>
+        )}
+        {r.cappedMonthly >= REMUNERATION_CAP && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+            <p className="text-[11px] text-amber-200/90 leading-relaxed">
+              <span className="font-semibold text-amber-300">標準報酬月額が上限に達しています。</span>
+              厚生年金の標準報酬月額は{fmtYen(REMUNERATION_CAP)}（32等級）が上限で、
+              これを超える給与をもらっても保険料も年金額もこれ以上は増えません。
+            </p>
+          </div>
+        )}
+        {spouseBonusEligible && (
+          <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+            <p className="text-[11px] text-green-200/90 leading-relaxed">
+              <span className="font-semibold text-green-300">加給年金の対象になりそうです。</span>
+              厚生年金の加入が20年（240ヶ月）以上あり、65歳未満の配偶者（{spouse?.name}）がいる場合、
+              配偶者が65歳になるまで<span className="font-semibold">年{fmtMan(SPOUSE_BONUS_ANNUAL)}万円</span>が加算されます。
+              期間限定の加算なので、下の年金額には含めていません。
+            </p>
+          </div>
+        )}
+        {totalMonths > 0 && totalMonths < SPOUSE_BONUS_MONTHS && spouse && (
+          <div className="bg-slate-800 rounded-lg p-3">
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              厚生年金の加入があと{SPOUSE_BONUS_MONTHS - totalMonths}ヶ月で20年に達すると、
+              配偶者が65歳になるまで加給年金（年{fmtMan(SPOUSE_BONUS_ANNUAL)}万円）が付きます。
+            </p>
+          </div>
+        )}
       </div>
 
       {/* 結果 */}

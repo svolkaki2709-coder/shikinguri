@@ -130,16 +130,28 @@ export function calcMortgage(p: MortgageInput): MortgageResult {
 
 /** 老齢基礎年金の満額（2024年度・年額） */
 export const BASIC_PENSION_FULL = 816000
-/** 報酬比例部分の給付乗率（2003年4月以降の総報酬制） */
+/** 報酬比例部分の給付乗率（2003年4月〜の総報酬制。賞与も算定対象） */
 const KOUSEI_COEF = 5.481 / 1000
-/** 標準報酬月額の上限 */
-const REMUNERATION_CAP = 650000
+/** 同（2003年3月以前。賞与が算定対象外だったぶん乗率が高い） */
+const KOUSEI_COEF_OLD = 7.125 / 1000
+/** 厚生年金の標準報酬月額の上限（32等級・2020年9月〜） */
+export const REMUNERATION_CAP = 650000
+/** 年金を受け取るのに必要な加入期間（月） */
+export const QUALIFYING_MONTHS = 120
+/** 加給年金の対象になる厚生年金の加入期間（月） */
+export const SPOUSE_BONUS_MONTHS = 240
+/** 加給年金の年額（配偶者分・2024年度、特別加算込み） */
+export const SPOUSE_BONUS_ANNUAL = 408100
 
 export interface PensionInput {
   avgAnnualIncome: number  // 生涯の平均年収（円・賞与込み）
-  enrolledMonths: number   // 厚生年金の加入月数
+  enrolledMonths: number   // 厚生年金の加入月数（2003年4月以降）
   basicMonths: number      // 国民年金の納付月数（最大480ヶ月＝40年）
   startAge: number         // 受給開始年齢（60〜75）
+  /** 2003年3月以前の厚生年金加入月数（総報酬制の前は計算式が違う） */
+  monthsBefore2003?: number
+  /** 2003年3月以前の平均標準報酬月額（賞与を含まない月給ベース） */
+  avgMonthlyBefore2003?: number
 }
 
 export interface PensionResult {
@@ -151,12 +163,25 @@ export interface PensionResult {
   rate: number
   /** 65歳受給の場合の合計（比較用） */
   baseTotal: number
+  /** 標準報酬月額（上限適用後）。上限に張り付いているかの確認用 */
+  cappedMonthly: number
+  /** 加入期間が10年（120月）に届いており、そもそも年金を受け取れるか */
+  qualified: boolean
+  /** 受給資格期間としてカウントした月数 */
+  qualifyingMonths: number
 }
 
 export function calcPension(p: PensionInput): PensionResult {
   const avgMonthly = Math.min(p.avgAnnualIncome / 12, REMUNERATION_CAP)
   const basic = BASIC_PENSION_FULL * (Math.min(p.basicMonths, 480) / 480)
-  const kousei = avgMonthly * KOUSEI_COEF * p.enrolledMonths
+
+  // 2003年4月の総報酬制導入で計算式が変わっている。
+  // それ以前は賞与が年金額に反映されない代わりに乗率が高い（7.125/1000）。
+  const monthsOld = p.monthsBefore2003 ?? 0
+  const avgMonthlyOld = Math.min(p.avgMonthlyBefore2003 ?? 0, REMUNERATION_CAP)
+  const kousei =
+    avgMonthly * KOUSEI_COEF * p.enrolledMonths +
+    avgMonthlyOld * KOUSEI_COEF_OLD * monthsOld
 
   // 繰上げ 月0.4%減 / 繰下げ 月0.7%増（2022年4月以降のルール）
   let rate = 1
@@ -165,6 +190,10 @@ export function calcPension(p: PensionInput): PensionResult {
   rate = Math.max(0, rate)
 
   const total = (basic + kousei) * rate
+  // 受給資格期間は「国民年金の納付済期間＋厚生年金の加入期間」で見る。
+  // 厚生年金の加入中は国民年金にも同時加入しているため、重複しないよう大きい方を採る。
+  const qualifyingMonths = Math.max(p.basicMonths, p.enrolledMonths + monthsOld)
+
   return {
     basic: basic * rate,
     kousei: kousei * rate,
@@ -172,6 +201,9 @@ export function calcPension(p: PensionInput): PensionResult {
     monthly: total / 12,
     rate,
     baseTotal: basic + kousei,
+    cappedMonthly: avgMonthly,
+    qualified: qualifyingMonths >= QUALIFYING_MONTHS,
+    qualifyingMonths,
   }
 }
 

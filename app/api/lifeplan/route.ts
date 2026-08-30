@@ -69,8 +69,32 @@ export async function GET(req: NextRequest) {
       : sql`SELECT savings_balance, investment_balance FROM assets WHERE owner_user_id = ${me.id} ORDER BY month DESC LIMIT 1`,
   ])
 
+  // ── 給与明細から年金の計算材料を作る ──────────────────────
+  // 厚生年金保険料（個人負担）＝ 標準報酬月額 × 9.15%（18.3%の労使折半）
+  // なので、控除額から標準報酬月額を逆算できる。年金額はこの標準報酬額で決まるため、
+  // 額面給与を手入力するより正確な見込額が出せる。
+  // 給与明細は常に個人データなので、共同スコープで見ていても本人の実績を使う。
+  const payslips = await sql<{ payment_month: string; pension: number }>`
+    SELECT payment_month, pension FROM payslip_details
+    WHERE owner_user_id = ${me.id} AND pension IS NOT NULL AND pension > 0
+    ORDER BY payment_month DESC LIMIT 12
+  `
+  let payslipHints: {
+    standardMonthly: number; annualEquivalent: number; months: number; latestMonth: string
+  } | null = null
+  if (payslips.length > 0) {
+    const standardMonthly = Math.round(Number(payslips[0].pension) / 0.0915 / 1000) * 1000
+    payslipHints = {
+      standardMonthly,
+      annualEquivalent: standardMonthly * 12,
+      months: payslips.length,
+      latestMonth: payslips[0].payment_month,
+    }
+  }
+
   return NextResponse.json({
     settings: settingsRows[0] ?? null,
+    payslipHints,
     members,
     streams,
     events,
