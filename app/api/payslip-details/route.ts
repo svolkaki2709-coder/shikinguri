@@ -33,6 +33,8 @@ export async function POST(req: NextRequest) {
     income_tax,
     resident_tax,
     health_insurance,
+    nursing_insurance,
+    childcare_contribution,
     pension,
     employment_insurance,
     travel_reimbursement,
@@ -59,6 +61,8 @@ export async function POST(req: NextRequest) {
           income_tax           = ${income_tax ?? null},
           resident_tax         = ${resident_tax ?? null},
           health_insurance     = ${health_insurance ?? null},
+          nursing_insurance    = ${nursing_insurance ?? null},
+          childcare_contribution = ${childcare_contribution ?? null},
           pension              = ${pension ?? null},
           employment_insurance = ${employment_insurance ?? null},
           travel_reimbursement = ${travel_reimbursement ?? null},
@@ -73,14 +77,16 @@ export async function POST(req: NextRequest) {
     : await sql`
         INSERT INTO payslip_details (
           payment_month, gross_pay, net_pay, income_tax, resident_tax,
-          health_insurance, pension, employment_insurance,
+          health_insurance, nursing_insurance, childcare_contribution,
+          pension, employment_insurance,
           travel_reimbursement, nontaxable_commute, taxable_commute,
           total_deduction, year_end_adjustment, owner_user_id, updated_at
         ) VALUES (
           ${payment_month},
           ${gross_pay ?? null}, ${net_pay ?? null},
           ${income_tax ?? null}, ${resident_tax ?? null},
-          ${health_insurance ?? null}, ${pension ?? null}, ${employment_insurance ?? null},
+          ${health_insurance ?? null}, ${nursing_insurance ?? null}, ${childcare_contribution ?? null},
+          ${pension ?? null}, ${employment_insurance ?? null},
           ${travel_reimbursement ?? null}, ${nontaxable_commute ?? null}, ${taxable_commute ?? null},
           ${total_deduction ?? null}, ${year_end_adjustment ?? null}, ${me.id},
           NOW()

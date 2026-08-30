@@ -12,6 +12,8 @@ interface ParsedPayslip {
   incomeTax: number | null
   residentTax: number | null
   healthInsurance: number | null
+  nursingInsurance: number | null
+  childcareContribution: number | null
   pension: number | null
   employmentInsurance: number | null
   travelReimbursement: number | null
@@ -87,6 +89,8 @@ export default function ImportPayslipPage() {
     return (result.incomeTax ?? 0)
       + (result.residentTax ?? 0)
       + (result.healthInsurance ?? 0)
+      + (result.nursingInsurance ?? 0)
+      + (result.childcareContribution ?? 0)
       + (result.pension ?? 0)
       + (result.employmentInsurance ?? 0)
       + deductionAdjTotal
@@ -235,6 +239,8 @@ export default function ImportPayslipPage() {
         income_tax:          result.incomeTax,
         resident_tax:        result.residentTax,
         health_insurance:    result.healthInsurance,
+        nursing_insurance:   result.nursingInsurance,
+        childcare_contribution: result.childcareContribution,
         pension:             result.pension,
         employment_insurance: result.employmentInsurance,
         travel_reimbursement: result.travelReimbursement,
@@ -478,6 +484,8 @@ export default function ImportPayslipPage() {
                 <EditableRow label="所得税" field="incomeTax" color="text-red-400" />
                 <EditableRow label="住民税" field="residentTax" color="text-red-400" />
                 <EditableRow label="健康保険料" field="healthInsurance" color="text-red-400" />
+                <EditableRow label="介護保険料" field="nursingInsurance" color="text-red-400" />
+                <EditableRow label="子ども・子育て支援金" field="childcareContribution" color="text-red-400" />
                 <EditableRow label="厚生年金保険料" field="pension" color="text-red-400" />
                 <EditableRow label="雇用保険料" field="employmentInsurance" color="text-red-400" />
 

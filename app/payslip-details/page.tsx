@@ -14,6 +14,8 @@ interface PayslipDetail {
   income_tax: number | null
   resident_tax: number | null
   health_insurance: number | null
+  nursing_insurance: number | null
+  childcare_contribution: number | null
   pension: number | null
   employment_insurance: number | null
   travel_reimbursement: number | null
@@ -67,6 +69,16 @@ const TAX_NOTES = [
     color: "text-blue-400",
     note: "賃金総額×0.6%（労働者負担分）。失業給付・育児休業給付などの財源。",
   },
+  {
+    label: "介護保険料",
+    color: "text-blue-400",
+    note: "40歳の誕生日の前日が属する月から65歳まで、健康保険料と一緒に徴収される（標準報酬月額×約1.6%を会社と折半）。40歳未満は0円。",
+  },
+  {
+    label: "子ども・子育て支援金",
+    color: "text-blue-400",
+    note: "2026年4月開始。児童手当の拡充などの財源として、健康保険料と一緒に徴収される。料率は段階的に引き上げ予定。",
+  },
 ]
 
 type FormulaType = "income_tax" | "resident_tax" | "health_insurance" | "pension" | "employment_insurance" | "total_deduction"
@@ -83,11 +95,13 @@ function FormulaModal({ target, onClose }: { target: FormulaTarget; onClose: () 
   const tr = row.travel_reimbursement ?? 0
   const taxable = g - nc - tr
   const hi = row.health_insurance ?? 0
+  const ni = row.nursing_insurance ?? 0
+  const cc = row.childcare_contribution ?? 0
   const pe = row.pension ?? 0
   const ei = row.employment_insurance ?? 0
   const it = row.income_tax ?? 0
   const rt = row.resident_tax ?? 0
-  const socialTotal = hi + pe + ei
+  const socialTotal = hi + ni + cc + pe + ei
 
   const rate = (n: number, base: number) =>
     base > 0 ? `${((n / base) * 100).toFixed(2)}%` : "—"
@@ -140,11 +154,13 @@ function FormulaModal({ target, onClose }: { target: FormulaTarget; onClose: () 
     ]
   } else if (type === "total_deduction") {
     title = "控除合計の内訳"
-    const total = it + rt + hi + pe + ei
+    const total = it + rt + hi + ni + cc + pe + ei
     steps = [
       { label: "所得税", value: `${it.toLocaleString()}円（${rate(it, taxable)}）` },
       { label: "住民税", value: `${rt.toLocaleString()}円（${rate(rt, taxable)}）` },
       { label: "健康保険料", value: `${hi.toLocaleString()}円（${rate(hi, taxable)}）` },
+      ...(ni > 0 ? [{ label: "介護保険料", value: `${ni.toLocaleString()}円（${rate(ni, taxable)}）` }] : []),
+      ...(cc > 0 ? [{ label: "子ども・子育て支援金", value: `${cc.toLocaleString()}円（${rate(cc, taxable)}）` }] : []),
       { label: "厚生年金保険料", value: `${pe.toLocaleString()}円（${rate(pe, taxable)}）` },
       { label: "雇用保険料", value: `${ei.toLocaleString()}円（${rate(ei, taxable)}）` },
       { label: "控除合計", value: `${total.toLocaleString()}円`, highlight: true },

@@ -11,6 +11,8 @@ interface ParsedPayslip {
   incomeTax: number | null       // 所得税
   residentTax: number | null     // 住民税
   healthInsurance: number | null // 健康保険料
+  nursingInsurance: number | null // 介護保険料（40歳以上。未満は0で明細に載る）
+  childcareContribution: number | null // 子ども・子育て支援金（2026年4月開始）
   pension: number | null         // 厚生年金保険料
   employmentInsurance: number | null // 雇用保険料
   travelReimbursement: number | null // 営業交通費（立替）
@@ -146,6 +148,16 @@ function parsePayslipText(text: string): ParsedPayslip {
     ? Array.from(住民税ActualKey).map(c => c.codePointAt(0)?.toString(16).toUpperCase().padStart(4, "0")).join(",")
     : "not-found"
 
+  // 表記ゆれのある項目は正規表現でキーを探す。
+  // 「子ども・子育て支援金」は中黒の有無や「拠出金」表記など明細によって差がある。
+  const pick = (...patterns: RegExp[]): number | null => {
+    for (const p of patterns) {
+      const key = Object.keys(val).find(k => p.test(k))
+      if (key !== undefined) return val[key]
+    }
+    return null
+  }
+
   return {
     paymentMonth,
     netPay:              val["差引総支給額"] ?? null,
@@ -153,6 +165,8 @@ function parsePayslipText(text: string): ParsedPayslip {
     incomeTax:           val["所得税"]          ?? null,
     residentTax:         val["住民税"] ?? null,
     healthInsurance:     val["健康保険料"]       ?? null,
+    nursingInsurance:      pick(/介護/),
+    childcareContribution: pick(/子ども.*子育て|子育て(支援|拠出)/),
     pension:             val["厚生年金保険料"]   ?? null,
     employmentInsurance: val["雇用保険料"]       ?? null,
     travelReimbursement: val["営業交通費"]       ?? null,
