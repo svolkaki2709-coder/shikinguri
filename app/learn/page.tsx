@@ -8,6 +8,7 @@ import {
   BENEFITS, CATEGORIES, LEVEL_LABEL,
   type Benefit, type HouseholdContext, type BenefitCategory, type RelevanceLevel,
 } from "@/lib/benefits"
+import { ActionPlanTab } from "@/components/ActionPlan"
 
 interface Member { id: number; name: string; birth_year: number; relation: string }
 interface Stream { kind: string; name: string; annual_amount: number }
@@ -23,6 +24,7 @@ export default function LearnPage() {
   const [loading, setLoading] = useState(true)
   const [openId, setOpenId] = useState<string | null>(null)
   const [catFilter, setCatFilter] = useState<BenefitCategory | "all">("all")
+  const [tab, setTab] = useState<"actions" | "browse">("actions")
 
   useEffect(() => {
     // 家族構成は世帯共通のものを使う。給与は個人の実績から取る。
@@ -88,6 +90,20 @@ export default function LearnPage() {
       <PageHeader title="制度ガイド" />
       <main className={isPC ? "max-w-4xl mx-auto px-6 py-4 space-y-4" : "max-w-md mx-auto px-4 py-2 space-y-3"}>
 
+        <div className="flex rounded-xl bg-slate-800 p-1 gap-0.5">
+          {([["actions", "🎯 やること"], ["browse", "📚 制度を調べる"]] as const).map(([k, label]) => (
+            <button key={k} onClick={() => setTab(k)}
+              className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                tab === k ? "bg-slate-900 shadow-sm text-blue-400" : "text-slate-400"
+              }`}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {tab === "actions" && <ActionPlanTab />}
+
+        {tab === "browse" && (<>
         <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">
           <p className="text-xs text-blue-200/90 leading-relaxed">
             年金・社会保険・給付金・控除は、
@@ -178,6 +194,7 @@ export default function LearnPage() {
             </p>
           </>
         )}
+        </>)}
       </main>
       <BottomNav />
     </div>
