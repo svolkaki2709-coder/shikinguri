@@ -18,6 +18,7 @@ const mainItems = [
 // 「その他」シート内の項目
 const moreItems = [
   { href: "/lifeplan", label: "ライフプラン（将来の資金繰り）", icon: "🗺️" },
+  { href: "/learn", label: "制度ガイド（給付金・控除）", icon: "📚" },
   { href: "/assets", label: "資産管理", icon: "💹" },
   { href: "/input", label: "入力ページ（定期支出の確定）", icon: "✏️" },
   { href: "/import", label: "CSV取込", icon: "📂" },
