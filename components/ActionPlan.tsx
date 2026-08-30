@@ -26,6 +26,10 @@ export function ActionPlanTab() {
         categoryTotals: d.categoryTotals ?? {},
         hasMortgage: !!d.hasMortgage,
         childCount: 0,
+        byScope: d.byScope ?? {
+          self: { savings: 0, investment: 0, categoryTotals: {} },
+          joint: { savings: 0, investment: 0, categoryTotals: {} },
+        },
       }))
       .finally(() => setLoading(false))
   }, [])
@@ -51,13 +55,20 @@ export function ActionPlanTab() {
           <span className="font-semibold text-blue-300">埋めるべき順番が決まっている</span>ので、
           上から順に進めるのが最短です。家計簿の実績から、いまどこまで進んでいるかを判定しました。
         </p>
+        <p className="text-[11px] text-blue-200/70 leading-relaxed mt-1.5">
+          iDeCoや生命保険は個人、貯蓄は共同…と管理が分かれていても大丈夫です。
+          判定は<span className="font-semibold">個人と共同を合算した世帯全体</span>で行い、
+          どちら側にあるかは各項目に内訳として表示します。
+        </p>
       </div>
 
       {/* 現状サマリー */}
       {ctx && (
         <div className="grid grid-cols-3 gap-2">
-          <Stat label="預貯金" value={ctx.hasAssetData ? fmtMan(ctx.savings) : "未登録"} />
-          <Stat label="投資資産" value={ctx.hasAssetData ? fmtMan(ctx.investment) : "未登録"} />
+          <Stat label="預貯金" value={ctx.hasAssetData ? fmtMan(ctx.savings) : "未登録"}
+            sub={scopeSub(ctx.byScope.self.savings, ctx.byScope.joint.savings)} />
+          <Stat label="投資資産" value={ctx.hasAssetData ? fmtMan(ctx.investment) : "未登録"}
+            sub={scopeSub(ctx.byScope.self.investment, ctx.byScope.joint.investment)} />
           <Stat label="月の生活費" value={ctx.monthlyExpense ? fmtMan(ctx.monthlyExpense) : "—"} />
         </div>
       )}
@@ -146,11 +157,20 @@ export function ActionPlanTab() {
   )
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+/** 個人・共同の両方に残高があるときだけ内訳を出す */
+function scopeSub(self: number, joint: number): string | undefined {
+  if (self > 0 && joint > 0) return `個人${fmtMan(self)}・共同${fmtMan(joint)}`
+  if (joint > 0) return "共同"
+  if (self > 0) return "個人"
+  return undefined
+}
+
+function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="bg-slate-900 rounded-xl border border-slate-800 p-3 text-center">
       <p className="text-[11px] text-slate-400 mb-0.5">{label}</p>
       <p className="text-sm font-bold text-slate-100">{value}</p>
+      {sub && <p className="text-[10px] text-slate-500 mt-0.5">{sub}</p>}
     </div>
   )
 }

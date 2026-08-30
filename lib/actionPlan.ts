@@ -24,6 +24,15 @@ export interface ActionContext {
   categoryTotals: Record<string, number>
   hasMortgage: boolean
   childCount: number
+  /**
+   * 個人／共同の内訳。
+   * iDeCoや生命保険は個人、貯蓄は共同…のように管理が分かれることが多いため、
+   * 判定は世帯合算で行いつつ、どちら側にあるかを示せるようにしておく。
+   */
+  byScope: {
+    self: { savings: number; investment: number; categoryTotals: Record<string, number> }
+    joint: { savings: number; investment: number; categoryTotals: Record<string, number> }
+  }
 }
 
 export type StepState = "done" | "doing" | "todo" | "unknown"
@@ -57,6 +66,18 @@ function sumBy(ctx: ActionContext, re: RegExp): number {
 
 const yen = (n: number) => `${Math.round(n / 10000).toLocaleString("ja-JP")}万円`
 
+/** 個人／共同の内訳を「（個人◯万・共同◯万）」の形にする。片側だけなら省略 */
+function scopeNote(ctx: ActionContext, re: RegExp): string {
+  const pick = (m: Record<string, number>) =>
+    Object.entries(m).filter(([k]) => re.test(k)).reduce((s, [, v]) => s + v, 0)
+  const self = pick(ctx.byScope.self.categoryTotals)
+  const joint = pick(ctx.byScope.joint.categoryTotals)
+  if (self > 0 && joint > 0) return `（個人${yen(self)}・共同${yen(joint)}）`
+  if (joint > 0) return "（共同）"
+  if (self > 0) return "（個人）"
+  return ""
+}
+
 export const ACTION_STEPS: ActionStep[] = [
   {
     id: "emergency-fund",
@@ -81,13 +102,18 @@ export const ACTION_STEPS: ActionStep[] = [
       }
       const need = ctx.monthlyExpense * 6
       const ratio = ctx.savings / need
+      const sv = ctx.byScope
+      const split =
+        sv.self.savings > 0 && sv.joint.savings > 0
+          ? `（個人${yen(sv.self.savings)}・共同${yen(sv.joint.savings)}）`
+          : ""
       if (ratio >= 1) {
-        return { state: "done", detail: `預貯金${yen(ctx.savings)} ≧ 目標${yen(need)}（${(ratio * 12).toFixed(0)}ヶ月分）` }
+        return { state: "done", detail: `預貯金${yen(ctx.savings)}${split} ≧ 目標${yen(need)}／${(ratio * 6).toFixed(0)}ヶ月分` }
       }
       if (ratio >= 0.3) {
-        return { state: "doing", detail: `預貯金${yen(ctx.savings)} / 目標${yen(need)}（${(ratio * 6).toFixed(1)}ヶ月分）` }
+        return { state: "doing", detail: `預貯金${yen(ctx.savings)}${split} / 目標${yen(need)}（${(ratio * 6).toFixed(1)}ヶ月分）` }
       }
-      return { state: "todo", detail: `預貯金${yen(ctx.savings)} / 目標${yen(need)}。まずここから` }
+      return { state: "todo", detail: `預貯金${yen(ctx.savings)}${split} / 目標${yen(need)}。まずここから` }
     },
   },
   {
@@ -145,15 +171,17 @@ export const ACTION_STEPS: ActionStep[] = [
       "貯蓄型保険は「保険」と「運用」が混ざっていて、どちらの効率も落ちる。" +
       "分けたほうが安く・自由になることが多い。ただし解約返戻金が元本割れする時期があるので、解約前に必ず確認する。",
     assess: ctx => {
-      const premium = sumBy(ctx, /保険/)
+      const re = /保険/
+      const premium = sumBy(ctx, re)
       if (premium <= 0) return { state: "unknown", detail: "保険料の支出が見当たりません" }
+      const note = scopeNote(ctx, re)
       const ratio = ctx.annualIncome ? (premium / ctx.annualIncome) * 100 : null
       if (ratio != null && ratio > 8) {
-        return { state: "todo", detail: `年間保険料${yen(premium)}（年収の${ratio.toFixed(1)}%）。見直しの余地が大きいです` }
+        return { state: "todo", detail: `年間保険料${yen(premium)}${note}／年収の${ratio.toFixed(1)}%。見直しの余地が大きいです` }
       }
       return {
         state: "doing",
-        detail: `年間保険料${yen(premium)}${ratio != null ? `（年収の${ratio.toFixed(1)}%）` : ""}`,
+        detail: `年間保険料${yen(premium)}${note}${ratio != null ? `／年収の${ratio.toFixed(1)}%` : ""}`,
       }
     },
   },
@@ -175,8 +203,9 @@ export const ACTION_STEPS: ActionStep[] = [
       "原則60歳まで引き出せない。教育費や住宅資金など途中で使う可能性があるお金は入れない。" +
       "生活防衛資金が貯まる前に始めると、資金繰りが苦しくなったときに逃げ場がなくなる。",
     assess: ctx => {
-      const ideco = sumBy(ctx, /iDeCo|イデコ|確定拠出/i)
-      if (ideco > 0) return { state: "done", detail: `年間${yen(ideco)}を拠出中` }
+      const re = /iDeCo|イデコ|確定拠出/i
+      const ideco = sumBy(ctx, re)
+      if (ideco > 0) return { state: "done", detail: `年間${yen(ideco)}を拠出中${scopeNote(ctx, re)}` }
       return { state: "todo", detail: "拠出が確認できません" }
     },
   },
@@ -198,8 +227,9 @@ export const ACTION_STEPS: ActionStep[] = [
       "生涯上限は1,800万円。急いで埋める必要はなく、生活を圧迫しない額で続けることのほうが大事。" +
       "教育費のピークと重なる時期は減額してよい。",
     assess: ctx => {
-      const nisa = sumBy(ctx, /NISA|ニーサ|つみたて|積立投資/i)
-      if (nisa > 0) return { state: "done", detail: `年間${yen(nisa)}を積立中` }
+      const re = /NISA|ニーサ|つみたて|積立投資/i
+      const nisa = sumBy(ctx, re)
+      if (nisa > 0) return { state: "done", detail: `年間${yen(nisa)}を積立中${scopeNote(ctx, re)}` }
       return { state: "todo", detail: "積立が確認できません" }
     },
   },
@@ -218,8 +248,9 @@ export const ACTION_STEPS: ActionStep[] = [
     caution:
       "医療費控除や住宅ローン控除を併用すると上限が下がる。上限ぎりぎりを狙わず、少し余裕を持たせる。",
     assess: ctx => {
-      const f = sumBy(ctx, /ふるさと|納税/)
-      if (f > 0) return { state: "done", detail: `年間${yen(f)}を寄付済み` }
+      const re = /ふるさと|納税/
+      const f = sumBy(ctx, re)
+      if (f > 0) return { state: "done", detail: `年間${yen(f)}を寄付済み${scopeNote(ctx, re)}` }
       return { state: "todo", detail: "今年の寄付が確認できません" }
     },
   },
