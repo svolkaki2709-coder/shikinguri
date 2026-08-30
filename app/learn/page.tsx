@@ -9,6 +9,7 @@ import {
   type Benefit, type HouseholdContext, type BenefitCategory, type RelevanceLevel,
 } from "@/lib/benefits"
 import { ActionPlanTab } from "@/components/ActionPlan"
+import { TaxSimulator } from "@/components/TaxSimulator"
 
 interface Member { id: number; name: string; birth_year: number; relation: string }
 interface Stream { kind: string; name: string; annual_amount: number }
@@ -24,7 +25,7 @@ export default function LearnPage() {
   const [loading, setLoading] = useState(true)
   const [openId, setOpenId] = useState<string | null>(null)
   const [catFilter, setCatFilter] = useState<BenefitCategory | "all">("all")
-  const [tab, setTab] = useState<"actions" | "browse">("actions")
+  const [tab, setTab] = useState<"actions" | "tax" | "browse">("actions")
 
   useEffect(() => {
     // 家族構成は世帯共通のものを使う。給与は個人の実績から取る。
@@ -91,7 +92,7 @@ export default function LearnPage() {
       <main className={isPC ? "max-w-4xl mx-auto px-6 py-4 space-y-4" : "max-w-md mx-auto px-4 py-2 space-y-3"}>
 
         <div className="flex rounded-xl bg-slate-800 p-1 gap-0.5">
-          {([["actions", "🎯 やること"], ["browse", "📚 制度を調べる"]] as const).map(([k, label]) => (
+          {([["actions", "🎯 やること"], ["tax", "💰 税金"], ["browse", "📚 調べる"]] as const).map(([k, label]) => (
             <button key={k} onClick={() => setTab(k)}
               className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${
                 tab === k ? "bg-slate-900 shadow-sm text-blue-400" : "text-slate-400"
@@ -102,6 +103,7 @@ export default function LearnPage() {
         </div>
 
         {tab === "actions" && <ActionPlanTab />}
+        {tab === "tax" && <TaxSimulator />}
 
         {tab === "browse" && (<>
         <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">
