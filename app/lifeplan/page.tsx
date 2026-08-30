@@ -6,6 +6,8 @@ import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
 import { useViewMode } from "@/components/ViewModeContext"
 import { LIFE_EVENT_TEMPLATES, STREAM_TEMPLATES } from "@/lib/lifeEventTemplates"
+import { toMan, fmtMan, manToYen, yenToManStr } from "@/lib/money"
+import { LifePlanTools, type ToolRow } from "@/components/LifePlanTools"
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer, ReferenceLine,
@@ -41,28 +43,7 @@ interface CashRow {
   balance: number
 }
 
-type Tab = "cashflow" | "events" | "streams" | "settings"
-
-// ─── ユーティリティ（この画面は万円単位で扱う） ──────────────────
-const MAN = 10000
-/** 円 → 万円（表示用に丸める） */
-function toMan(yen: number): number {
-  return Math.round(yen / MAN)
-}
-/** 円 → "1,234" 形式の万円文字列 */
-function fmtMan(yen: number): string {
-  return toMan(yen).toLocaleString("ja-JP")
-}
-/** 万円の入力文字列 → 円 */
-function manToYen(v: string): number {
-  const n = Number(String(v).replace(/,/g, ""))
-  return isNaN(n) ? 0 : Math.round(n * MAN)
-}
-/** 円 → 万円の入力文字列（小数はそのまま残す） */
-function yenToManStr(yen: number): string {
-  const v = yen / MAN
-  return Number.isInteger(v) ? String(v) : String(Math.round(v * 10) / 10)
-}
+type Tab = "cashflow" | "events" | "streams" | "tools" | "settings"
 
 const CATEGORY_COLORS: Record<string, string> = {
   教育: "bg-blue-500/15 text-blue-300",
@@ -112,6 +93,7 @@ function LifePlanContent() {
   const [members, setMembers] = useState<Member[]>([])
   const [streams, setStreams] = useState<Stream[]>([])
   const [events, setEvents] = useState<LifeEvent[]>([])
+  const [tools, setTools] = useState<ToolRow[]>([])
   const [hints, setHints] = useState<ActualHints | null>(null)
   const [msg, setMsg] = useState("")
 
@@ -145,6 +127,10 @@ function LifePlanContent() {
         amount: Number(e.amount),
         repeat_years: Number(e.repeat_years),
         member_id: e.member_id == null ? null : Number(e.member_id),
+      })))
+      setTools((d.tools ?? []).map((t: ToolRow) => ({
+        ...t,
+        member_id: t.member_id == null ? null : Number(t.member_id),
       })))
       setHints(d.actualHints ?? null)
     } finally {
@@ -305,6 +291,7 @@ function LifePlanContent() {
                 ["cashflow", "📊 キャッシュフロー"],
                 ["events", "🎯 ライフイベント"],
                 ["streams", "💰 収入・支出"],
+                ["tools", "🧮 ツール"],
                 ["settings", "⚙️ 前提条件"],
               ] as const).map(([k, label]) => (
                 <button key={k} onClick={() => setTab(k)}
@@ -332,6 +319,12 @@ function LifePlanContent() {
               <StreamsTab
                 streams={streams} settings={settings} scope={scope} hints={hints}
                 onChanged={load} flash={flash} focusAndSelect={focusAndSelect}
+              />
+            )}
+            {tab === "tools" && (
+              <LifePlanTools
+                settings={settings} members={members} streams={streams} events={events}
+                tools={tools} scope={scope} onChanged={load} flash={flash}
               />
             )}
             {tab === "settings" && (

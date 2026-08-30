@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   const isJoint = searchParams.get("card_type") !== "self"
   const owner = isJoint ? null : me.id
 
-  const [settingsRows, members, streams, events] = await Promise.all([
+  const [settingsRows, members, streams, events, tools] = await Promise.all([
     isJoint
       ? sql`SELECT * FROM life_settings WHERE owner_user_id IS NULL LIMIT 1`
       : sql`SELECT * FROM life_settings WHERE owner_user_id = ${me.id} LIMIT 1`,
@@ -28,6 +28,9 @@ export async function GET(req: NextRequest) {
     isJoint
       ? sql`SELECT * FROM life_events WHERE owner_user_id IS NULL ORDER BY year, id`
       : sql`SELECT * FROM life_events WHERE owner_user_id = ${me.id} ORDER BY year, id`,
+    isJoint
+      ? sql`SELECT * FROM life_tools WHERE owner_user_id IS NULL`
+      : sql`SELECT * FROM life_tools WHERE owner_user_id = ${me.id}`,
   ])
 
   // ── 実績からの初期値提案 ──────────────────────────────
@@ -71,6 +74,7 @@ export async function GET(req: NextRequest) {
     members,
     streams,
     events,
+    tools,
     actualHints: {
       annualExpense: Number(expenseRows[0]?.total ?? 0),
       annualIncome: Number(incomeRows[0]?.total ?? 0),
