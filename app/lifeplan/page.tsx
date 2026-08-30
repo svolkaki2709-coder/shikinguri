@@ -8,6 +8,7 @@ import { useViewMode } from "@/components/ViewModeContext"
 import { LIFE_EVENT_TEMPLATES, STREAM_TEMPLATES } from "@/lib/lifeEventTemplates"
 import { toMan, fmtMan, manToYen, yenToManStr } from "@/lib/money"
 import { LifePlanTools, type ToolRow, type PayslipHints } from "@/components/LifePlanTools"
+import { SaveButton } from "@/components/SaveButton"
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer, ReferenceLine,
@@ -218,12 +219,13 @@ function LifePlanContent() {
 
   // ─── 保存系 ──────────────────────────────────────────────────
   async function saveSettings(next: Settings) {
-    setSettings(next)
-    await fetch("/api/lifeplan", {
+    const res = await fetch("/api/lifeplan", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...next, card_type: scope }),
     })
+    if (!res.ok) throw new Error("保存に失敗しました")
+    setSettings(next)
   }
 
   async function initSettings() {
@@ -1259,7 +1261,6 @@ function SettingsTab({ settings, members, hints, scope, onSave, onChanged, flash
       initial_savings: manToYen(f.savingsMan),
       initial_investment: manToYen(f.investmentMan),
     })
-    flash("前提条件を保存しました")
   }
 
   async function addMember() {
@@ -1364,10 +1365,7 @@ function SettingsTab({ settings, members, hints, scope, onSave, onChanged, flash
             </button>
           )}
 
-          <button onClick={commit}
-            className="w-full bg-blue-600 text-white rounded-lg py-2.5 text-sm font-semibold hover:bg-blue-700 transition-colors">
-            前提条件を保存
-          </button>
+          <SaveButton onSave={commit} label="前提条件を保存" savedLabel="保存しました" />
         </div>
       </div>
 

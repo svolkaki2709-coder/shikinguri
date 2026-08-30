@@ -9,6 +9,7 @@ import {
   NISA_LIFETIME_LIMIT, NISA_ANNUAL_LIMIT, CAPITAL_GAINS_TAX,
 } from "@/lib/investCalc"
 import { fmtMan, manToYen, fmtYen } from "@/lib/money"
+import { SaveButton } from "@/components/SaveButton"
 
 const INPUT_CLS =
   "border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm bg-slate-900 text-slate-100 outline-none focus:ring-2 focus:ring-blue-500"
@@ -43,7 +44,6 @@ export function InvestSimulator({ members, nisaAnnual = 0, currentInvestment = 0
     usedLifetime: saved.usedLifetime ?? "0",
   })
   const [targetMan, setTargetMan] = useState(saved.targetMan ?? "3000")
-  const [busy, setBusy] = useState(false)
 
   const input = useMemo(() => ({
     currentAge: Number(f.currentAge) || 0,
@@ -86,14 +86,12 @@ export function InvestSimulator({ members, nisaAnnual = 0, currentInvestment = 0
   const overAnnualLimit = annualContribution > NISA_ANNUAL_LIMIT
 
   async function save() {
-    setBusy(true)
-    await fetch("/api/lifeplan/tools", {
+    const res = await fetch("/api/lifeplan/tools", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tool: "invest", member_id: null, params: { ...f, targetMan }, card_type: scope }),
     })
-    setBusy(false)
-    flash("積立プランを保存しました")
+    if (!res.ok) throw new Error("保存に失敗しました")
   }
 
   return (
@@ -294,10 +292,7 @@ export function InvestSimulator({ members, nisaAnnual = 0, currentInvestment = 0
         </p>
       </div>
 
-      <button onClick={save} disabled={busy}
-        className="w-full bg-blue-600 text-white rounded-lg py-2.5 text-sm font-semibold hover:bg-blue-700 disabled:opacity-40 transition-colors">
-        {busy ? "保存中..." : "この積立プランを保存する"}
-      </button>
+      <SaveButton onSave={save} label="この積立プランを保存する" />
 
       {/* 年次表 */}
       <details className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">

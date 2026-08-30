@@ -7,6 +7,7 @@ import {
   REMUNERATION_CAP, QUALIFYING_MONTHS, SPOUSE_BONUS_MONTHS, SPOUSE_BONUS_ANNUAL,
 } from "@/lib/fpCalc"
 import { InvestSimulator } from "@/components/InvestSimulator"
+import { SaveButton } from "@/components/SaveButton"
 
 const INPUT_CLS =
   "border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm bg-slate-900 text-slate-100 outline-none focus:ring-2 focus:ring-blue-500"
@@ -130,11 +131,12 @@ function Note({ children }: { children: React.ReactNode }) {
 
 /** 入力値の保存 */
 async function saveParams(tool: string, memberId: number | null, params: Record<string, string>, scope: string) {
-  await fetch("/api/lifeplan/tools", {
+  const res = await fetch("/api/lifeplan/tools", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ tool, member_id: memberId, params, card_type: scope }),
   })
+  if (!res.ok) throw new Error("保存に失敗しました")
 }
 
 /** 収支ストリームの登録 */
@@ -715,7 +717,6 @@ function InsuranceTool({ settings, members, streams, events, tools, scope, flash
 
   async function save() {
     await saveParams("insurance", null, f, scope)
-    flash("必要保障額の入力内容を保存しました")
   }
 
   return (
@@ -832,10 +833,7 @@ function InsuranceTool({ settings, members, streams, events, tools, scope, flash
         </p>
       </div>
 
-      <button onClick={save}
-        className="w-full bg-blue-600 text-white rounded-lg py-2.5 text-sm font-semibold hover:bg-blue-700 transition-colors">
-        入力内容を保存する
-      </button>
+      <SaveButton onSave={save} label="入力内容を保存する" />
 
       <p className="text-[10px] text-slate-500 leading-relaxed px-1">
         ※ 遺族年金は簡易計算です。中高齢寡婦加算、自営業の場合の扱い、
