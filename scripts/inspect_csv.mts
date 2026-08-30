@@ -26,14 +26,26 @@ for (const f of files) {
   console.log("headerless:", layout.headerless, "/ dataStartIdx:", layout.dataStartIdx)
   console.log("cols:", JSON.stringify(layout.cols))
 
-  let total = 0, n = 0, skipped = 0
+  // 取込ルート（app/api/import-csv）と同じ分類で数える
+  //   skipped … 日付があり他列に金額らしき数値もあるのに取り込めなかった＝要確認
+  //   ignored … 合計行・空行・金額0の行＝明細ではないので報告不要
+  let total = 0, n = 0, skipped = 0, ignored = 0
   for (const row of rows.slice(layout.dataStartIdx)) {
     const d = normalizeDate(row[layout.cols.dateIdx] ?? "")
-    if (!d) { skipped++; continue }
+    if (!d) { ignored++; continue }
     const v = layout.cols.withdrawIdx >= 0 ? parseAmountSigned(row[layout.cols.withdrawIdx] ?? "") : null
-    if (v == null || v === 0) { skipped++; continue }
+    if (v == null || v === 0) {
+      const hasMoneyElsewhere = row.some((c, i) => {
+        if (i === layout.cols.dateIdx || i === layout.cols.withdrawIdx || i === layout.cols.depositIdx) return false
+        const x = parseAmountSigned(c)
+        return x != null && Math.abs(x) >= 10
+      })
+      if (hasMoneyElsewhere) { skipped++; console.log(`  [要確認] ${d}  ${row.join(" | ")}`) }
+      else ignored++
+      continue
+    }
     console.log(`  ${d}  ${String(Math.abs(v)).padStart(9)}  ${(row[layout.cols.memoIdx] ?? "").trim()}`)
     total += Math.abs(v); n++
   }
-  console.log(`  → 取込 ${n}件 / 合計 ${total.toLocaleString()}円 / スキップ ${skipped}件\n`)
+  console.log(`  → 取込 ${n}件 / 合計 ${total.toLocaleString()}円 / 要確認 ${skipped}件 / 明細外 ${ignored}件\n`)
 }

@@ -163,13 +163,17 @@ export async function POST(req: NextRequest) {
     let expenseTotal = 0
     let incomeTotal = 0
     let transferCount = 0
+    // skipped: 日付はあるのに金額が読めず取り込めなかった行（＝ユーザーが確認すべき取りこぼし）
+    // ignoredRows: 合計行・空行など、そもそも明細ではない行（報告する意味がないので数だけ持つ）
     let skipped = 0
+    let ignoredRows = 0
     const balances: Array<{ date: string; balance: number }> = []
     let needsTransferCategory = false
 
     for (const row of dataRows) {
       const date = normalizeDate(row[cols.dateIdx] ?? "")
-      if (!date) { skipped++; continue }
+      // 日付が無い行は明細ではない（末尾の合計行・注記・空行）。取りこぼしではないので数えない
+      if (!date) { ignoredRows++; continue }
 
       const memo = (row[cols.memoIdx] ?? "").trim()
 
@@ -200,7 +204,20 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      if (withdraw == null && deposit == null) { skipped++; continue }
+      if (withdraw == null && deposit == null) {
+        // 金額が空・0の行（キャンセル行や注記行）は、取りこぼしではないので報告しない。
+        // ただし他の列に金額らしき数値が残っている場合は列の判定を誤っている可能性が
+        // 高いため、スキップとして表に出してユーザーが気づけるようにする。
+        // 支払回数（1・2・3…）を金額と誤認しないよう、10円未満は数値とみなさない。
+        const hasMoneyElsewhere = row.some((c, i) => {
+          if (i === cols.dateIdx || i === cols.withdrawIdx || i === cols.depositIdx) return false
+          const n = parseAmountSigned(c)
+          return n != null && Math.abs(n) >= 10
+        })
+        if (hasMoneyElsewhere) skipped++
+        else ignoredRows++
+        continue
+      }
 
       if (deposit != null) {
         await sql`
@@ -264,6 +281,7 @@ export async function POST(req: NextRequest) {
       incomeImported: incomeCount,
       transferCount,
       skipped,
+      ignoredRows,
       importedTotal: expenseTotal,
       incomeTotal,
       balanceCount: balances.length,
