@@ -314,26 +314,74 @@ export default function ImportPage() {
     </div>
   )
 
+  // 締め日をまたぐカード明細は「終了日の月＝その回の請求月」として扱うと分かりやすい
+  // 例: 2026-07-16〜2026-08-15 → 2026年8月分
+  function billingMonthLabel(endDate: string) {
+    const [y, m] = String(endDate).slice(0, 10).split("-")
+    return `${y}年${parseInt(m, 10)}月分`
+  }
+  function fmtDay(d: string) {
+    const [, m, day] = String(d).slice(0, 10).split("-")
+    return `${parseInt(m, 10)}/${parseInt(day, 10)}`
+  }
+
   // ─── インポート履歴（カード別グルーピング） ───────────────────
   const HistoryCard = groupedLogs.length > 0 && (
     <div className="space-y-3">
-      {groupedLogs.map(group => (
+      {groupedLogs.map(group => {
+        // 取込済みの請求月（終了日の年月）を集め、抜けている月を洗い出す
+        const months = Array.from(new Set(group.logs.map(l => String(l.end_date).slice(0, 7)))).sort()
+        const latest = months[months.length - 1]
+        const missing: string[] = []
+        if (months.length > 1) {
+          const [sy, sm] = months[0].split("-").map(Number)
+          const [ey, em] = latest.split("-").map(Number)
+          for (let d = new Date(sy, sm - 1, 1); d <= new Date(ey, em - 1, 1); d.setMonth(d.getMonth() + 1)) {
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+            if (!months.includes(key)) missing.push(key)
+          }
+        }
+        return (
         <div key={group.cardId} className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 overflow-hidden">
-          <div className="px-3 py-2 border-b flex items-center gap-2" style={{ backgroundColor: group.color + "14" }}>
+          <div className="px-3 py-2 border-b border-slate-800 flex items-center gap-2 flex-wrap" style={{ backgroundColor: group.color + "14" }}>
             <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: group.color }} />
             <h3 className="text-sm font-semibold text-slate-300">{group.cardName}</h3>
+            {latest && (
+              <span className="text-[11px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-300 font-medium">
+                {billingMonthLabel(latest + "-01")}まで取込済
+              </span>
+            )}
             <span className="text-xs text-slate-500 ml-auto">{group.logs.length}件</span>
           </div>
-          {group.logs.slice(0, 10).map(log => (
-            <div key={log.id} className="flex items-center px-3 py-2 border-b last:border-0 gap-2">
+          {missing.length > 0 && (
+            <div className="px-3 py-2 bg-amber-500/10 border-b border-amber-500/20">
+              <p className="text-[11px] text-amber-200/90">
+                ⚠️ 未取込の月があります：
+                <span className="font-semibold">
+                  {missing.map(m => billingMonthLabel(m + "-01")).join("・")}
+                </span>
+              </p>
+            </div>
+          )}
+          {group.logs.slice(0, 12).map(log => (
+            <div key={log.id} className="flex items-center px-3 py-2 border-b border-slate-800 last:border-0 gap-2">
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-slate-300">{log.start_date} ～ {log.end_date}</p>
-                <p className="text-xs text-slate-400 truncate">{log.file_name} · {log.row_count}件</p>
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <span className="text-sm font-bold text-slate-100">{billingMonthLabel(log.end_date)}</span>
+                  <span className="text-[11px] text-slate-500">
+                    {fmtDay(log.start_date)} 〜 {fmtDay(log.end_date)}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 truncate">
+                  {log.row_count}件
+                  {(log.income_count ?? 0) > 0 && ` / 入金${log.income_count}件`}
+                  {" · "}{log.file_name}
+                  {" · "}取込 {String(log.imported_at).slice(5, 10)}
+                </p>
               </div>
-              <span className="text-xs text-slate-500 shrink-0">{String(log.imported_at).slice(0, 10)}</span>
               <button
                 onClick={async () => {
-                  if (!confirm(`「${log.card_name}」${log.start_date}〜${log.end_date} のインポートを取り消しますか？\n（この期間のCSV取り込み分が全て削除されます）`)) return
+                  if (!confirm(`「${log.card_name}」${billingMonthLabel(log.end_date)}（${fmtDay(log.start_date)}〜${fmtDay(log.end_date)}・${log.row_count}件）のインポートを取り消しますか？\n（この期間のCSV取り込み分が全て削除されます）`)) return
                   const res = await fetch(`/api/import-csv?log_id=${log.id}`, { method: "DELETE" })
                   const d = await res.json()
                   if (d.success) {
@@ -350,7 +398,8 @@ export default function ImportPage() {
             </div>
           ))}
         </div>
-      ))}
+        )
+      })}
     </div>
   )
 

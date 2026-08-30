@@ -10,13 +10,17 @@ export async function GET(req: NextRequest) {
   const me = await requireUser()
   if (!me) return unauthorized()
 
+  // 日付はDATE型のまま返すとISO日時文字列になって読みにくいのでテキストで返す。
+  // 並びは取込日時ではなく対象期間の新しい順にして、どの月まで取り込めているかを追いやすくする。
   const logs = await sql`
-    SELECT id, card_id, card_name, kind, start_date, end_date, row_count, income_count, file_name,
-           imported_at AT TIME ZONE 'Asia/Tokyo' AS imported_at
+    SELECT id, card_id, card_name, kind,
+           start_date::text AS start_date, end_date::text AS end_date,
+           row_count, income_count, file_name,
+           to_char(imported_at AT TIME ZONE 'Asia/Tokyo', 'YYYY-MM-DD HH24:MI') AS imported_at
     FROM csv_import_logs
     WHERE (owner_user_id IS NULL OR owner_user_id = ${me.id})
-    ORDER BY imported_at DESC
-    LIMIT 50
+    ORDER BY end_date DESC, imported_at DESC
+    LIMIT 100
   `
   return NextResponse.json({ logs })
 }
