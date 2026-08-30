@@ -200,18 +200,149 @@ export function detectColumns(headers: string[]): ColumnMap {
   }
 }
 
-/** 明細のヘッダー行を探す（口座情報などのメタ行を読み飛ばす） */
-export function findHeaderRowIndex(rows: string[][]): number {
+/**
+ * 明細のヘッダー行を探す（口座情報などのメタ行を読み飛ばす）。
+ * 見つからなければ -1 を返す＝列名の行がまったく無いCSV。
+ *
+ * 日付として解釈できるセルを持つ行はヘッダー候補から外す。
+ * 摘要に「支払日」等が入った明細行を、誤ってヘッダーと判定しないため。
+ */
+export function findHeaderRowIndexOrNull(rows: string[][]): number {
   const amountKeys = [...WITHDRAW_KEYS, ...DEPOSIT_KEYS, "金額", "amount"]
+  const isDataRow = (r: string[]) => r.some(c => normalizeDate(c))
+
   for (let i = 0; i < Math.min(rows.length, 20); i++) {
+    if (isDataRow(rows[i])) continue
     const row = rows[i].map(norm)
     const hasDate = row.some(h => DATE_KEYS.some(k => h.includes(norm(k))))
     const hasAmount = row.some(h => amountKeys.some(k => h.includes(norm(k))))
     if (hasDate && hasAmount) return i
   }
   for (let i = 0; i < Math.min(rows.length, 20); i++) {
+    if (isDataRow(rows[i])) continue
     const row = rows[i].map(norm)
     if (row.some(h => DATE_KEYS.some(k => h.includes(norm(k))))) return i
   }
-  return 0
+  return -1
+}
+
+/** 従来互換：見つからない場合は0行目をヘッダーとみなす */
+export function findHeaderRowIndex(rows: string[][]): number {
+  const i = findHeaderRowIndexOrNull(rows)
+  return i < 0 ? 0 : i
+}
+
+/**
+ * ヘッダー行が無いCSVで、値そのものから列を推定する。
+ *
+ * 三井住友カード系（Amazonカード等）は
+ *   1行目: 氏名, カード番号, カード名
+ *   2行目〜: 利用日, 利用店名, 利用金額, 支払回数, 当月回数, 当月支払額
+ *   末尾: ,,,,,合計,
+ * のように列名の行がまったく無いため、列名からは判断できない。
+ *
+ * 金額列は「支払回数(1)」のような小さな数値と紛れやすいので、
+ * 末尾の合計行と一致する列を最優先で選ぶ。
+ */
+export function detectColumnsFromData(rows: string[][]): { cols: ColumnMap; dataStartIdx: number } {
+  const dataRowIdxs: number[] = []
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i].some(c => normalizeDate(c))) dataRowIdxs.push(i)
+  }
+  const dataRows = dataRowIdxs.map(i => rows[i])
+  const width = rows.reduce((m, r) => Math.max(m, r.length), 0)
+
+  // 日付列：最も多くの明細行で日付として解釈できる列
+  let dateIdx = 0
+  let bestDateHits = -1
+  for (let c = 0; c < width; c++) {
+    const hits = dataRows.filter(r => normalizeDate(r[c] ?? "")).length
+    if (hits > bestDateHits) { bestDateHits = hits; dateIdx = c }
+  }
+
+  // 各列を「数値として読めた数・文字として読めた数・合計値」で特徴づける
+  const stats: ({ numeric: number; text: number; sum: number } | null)[] = []
+  for (let c = 0; c < width; c++) {
+    if (c === dateIdx) { stats.push(null); continue }
+    let numeric = 0, text = 0, sum = 0
+    for (const r of dataRows) {
+      const raw = (r[c] ?? "").trim()
+      if (!raw) continue
+      const n = parseAmountSigned(raw)
+      if (n == null) text++
+      else { numeric++; sum += Math.abs(n) }
+    }
+    stats.push({ numeric, text, sum })
+  }
+
+  // 末尾の合計行（日付が無く、正の数値がひとつだけの行）を請求合計の候補にする
+  let billingTotal: number | null = null
+  if (dataRowIdxs.length > 0) {
+    const lastData = dataRowIdxs[dataRowIdxs.length - 1]
+    for (let i = lastData + 1; i < rows.length; i++) {
+      const nums = rows[i]
+        .map(c => parseAmountSigned(c))
+        .filter((n): n is number => n != null && n > 0)
+      if (nums.length === 1) { billingTotal = nums[0]; break }
+    }
+  }
+
+  // 摘要列：文字として読めたセルが最も多い列
+  let memoIdx = -1
+  let bestText = 0
+  for (let c = 0; c < width; c++) {
+    const s = stats[c]
+    if (s && s.text > bestText) { bestText = s.text; memoIdx = c }
+  }
+
+  // 金額列：合計行と一致する列を優先。無ければ合計値が最大の列。
+  // 候補が並んだときは右側を採る。カード明細は「利用金額 → 当月支払額」の順に
+  // 並ぶ慣習があり、請求額と一致するのは後者（分割・リボだと前者と食い違う）。
+  // ヘッダーありの経路でも WITHDRAW_KEYS が支払金額を利用金額より優先している。
+  let amountIdx = -1
+  if (billingTotal != null) {
+    for (let c = 0; c < width; c++) {
+      const s = stats[c]
+      if (s && s.numeric > 0 && Math.round(s.sum) === Math.round(billingTotal)) amountIdx = c
+    }
+  }
+  if (amountIdx < 0) {
+    let bestSum = 0
+    for (let c = 0; c < width; c++) {
+      const s = stats[c]
+      if (s && s.numeric > 0 && s.sum > 0 && s.sum >= bestSum) { bestSum = s.sum; amountIdx = c }
+    }
+  }
+
+  return {
+    dataStartIdx: dataRowIdxs.length > 0 ? dataRowIdxs[0] : 0,
+    cols: {
+      dateIdx,
+      withdrawIdx: amountIdx,
+      depositIdx: -1,
+      balanceIdx: -1,
+      memoIdx: memoIdx >= 0 ? memoIdx : 1,
+      directionIdx: -1,
+      singleAmountColumn: true,
+    },
+  }
+}
+
+export interface CsvLayout {
+  /** ヘッダー行のインデックス。ヘッダー行が無いCSVなら -1 */
+  headerRowIdx: number
+  /** 明細が始まる行のインデックス */
+  dataStartIdx: number
+  cols: ColumnMap
+  headerless: boolean
+}
+
+/** ヘッダーの有無を判定し、適した方法で列を推定する */
+export function detectLayout(rows: string[][]): CsvLayout {
+  const h = findHeaderRowIndexOrNull(rows)
+  if (h >= 0) {
+    return { headerRowIdx: h, dataStartIdx: h + 1, cols: detectColumns(rows[h]), headerless: false }
+  }
+  const { cols, dataStartIdx } = detectColumnsFromData(rows)
+  return { headerRowIdx: -1, dataStartIdx, cols, headerless: true }
 }

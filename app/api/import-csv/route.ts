@@ -3,7 +3,7 @@ import { sql } from "@/lib/db"
 import { requireUser, unauthorized, forbidden } from "@/lib/session"
 import {
   decodeCsvBuffer, parseCSV, normalizeDate,
-  parseAmountSigned, parseAmountAbs, detectColumns, findHeaderRowIndex, directionFromLabel,
+  parseAmountSigned, parseAmountAbs, detectLayout, directionFromLabel,
 } from "@/lib/csv"
 
 export async function GET(req: NextRequest) {
@@ -63,14 +63,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "データが空です" }, { status: 400 })
     }
 
-    const headerRowIdx = findHeaderRowIndex(rows)
-    const cols = detectColumns(rows[headerRowIdx])
-    const dataRows = rows.slice(headerRowIdx + 1)
+    // ヘッダー行が無いCSV（三井住友カード系など）にも対応する
+    const layout = detectLayout(rows)
+    const cols = layout.cols
+    const dataRows = rows.slice(layout.dataStartIdx)
 
     // メタ行から請求合計を探す（カード明細向け。「次回ご請求額,193183」形式）
     const billingKeys = ["請求額", "合計金額", "ご請求金額", "支払総額", "お支払い金額合計", "請求金額合計"]
     let csvBillingTotal: number | null = null
-    for (let i = 0; i < headerRowIdx; i++) {
+    for (let i = 0; i < layout.dataStartIdx; i++) {
       const label = (rows[i][0] ?? "").trim()
       if (billingKeys.some(k => label.includes(k))) {
         const val = parseAmountAbs(rows[i][1] ?? "")
