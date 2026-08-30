@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
   since.setMonth(since.getMonth() - 12)
   const sinceStr = since.toISOString().slice(0, 10)
 
-  const [expenseRows, incomeRows, assetRows] = await Promise.all([
+  const [expenseRows, incomeRows, assetRows, nisaRows] = await Promise.all([
     isJoint
       ? sql<{ total: string }>`
           SELECT COALESCE(SUM(t.amount), 0)::text AS total
@@ -67,6 +67,13 @@ export async function GET(req: NextRequest) {
     isJoint
       ? sql`SELECT savings_balance, investment_balance FROM assets WHERE owner_user_id IS NULL ORDER BY month DESC LIMIT 1`
       : sql`SELECT savings_balance, investment_balance FROM assets WHERE owner_user_id = ${me.id} ORDER BY month DESC LIMIT 1`,
+    // NISA・積立系カテゴリの直近1年の実績（積立シミュレーションの初期値に使う）
+    sql<{ total: string }>`
+      SELECT COALESCE(SUM(amount), 0)::text AS total FROM transactions
+      WHERE (owner_user_id IS NULL OR owner_user_id = ${me.id})
+        AND date >= ${sinceStr}
+        AND category ~* 'NISA|ニーサ|つみたて|積立投資'
+    `,
   ])
 
   // ── 給与明細から年金の計算材料を作る ──────────────────────
@@ -100,6 +107,7 @@ export async function GET(req: NextRequest) {
     events,
     tools,
     actualHints: {
+      nisaAnnual: Number(nisaRows[0]?.total ?? 0),
       annualExpense: Number(expenseRows[0]?.total ?? 0),
       annualIncome: Number(incomeRows[0]?.total ?? 0),
       savings: Number(assetRows[0]?.savings_balance ?? 0),

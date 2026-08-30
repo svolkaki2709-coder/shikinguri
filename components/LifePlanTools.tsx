@@ -6,6 +6,7 @@ import {
   calcMortgage, calcPension, calcInsuranceNeed, calcSurvivorPension, monthlyPayment,
   REMUNERATION_CAP, QUALIFYING_MONTHS, SPOUSE_BONUS_MONTHS, SPOUSE_BONUS_ANNUAL,
 } from "@/lib/fpCalc"
+import { InvestSimulator } from "@/components/InvestSimulator"
 
 const INPUT_CLS =
   "border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm bg-slate-900 text-slate-100 outline-none focus:ring-2 focus:ring-blue-500"
@@ -33,9 +34,13 @@ interface Props {
   onChanged: () => void
   flash: (s: string) => void
   payslipHints?: PayslipHints | null
+  /** 家計簿から拾ったNISA積立の年間実績（円） */
+  nisaAnnual?: number
+  /** 現在の投資資産残高（円） */
+  currentInvestment?: number
 }
 
-type ToolKey = "mortgage" | "pension" | "insurance"
+type ToolKey = "mortgage" | "pension" | "insurance" | "invest"
 
 export function LifePlanTools(props: Props) {
   const [active, setActive] = useState<ToolKey>("mortgage")
@@ -47,6 +52,7 @@ export function LifePlanTools(props: Props) {
           ["mortgage", "🏠 住宅ローン"],
           ["pension", "🏵️ 年金見込額"],
           ["insurance", "🛡️ 必要保障額"],
+          ["invest", "📈 積立"],
         ] as const).map(([k, label]) => (
           <button key={k} onClick={() => setActive(k)}
             className={`flex-1 whitespace-nowrap py-2 px-1 rounded-lg text-xs font-semibold transition-colors ${
@@ -60,6 +66,14 @@ export function LifePlanTools(props: Props) {
       {active === "mortgage" && <MortgageTool {...props} />}
       {active === "pension" && <PensionTool {...props} />}
       {active === "insurance" && <InsuranceTool {...props} />}
+      {active === "invest" && (
+        <InvestSimulator
+          members={props.members} nisaAnnual={props.nisaAnnual}
+          currentInvestment={props.currentInvestment ?? props.settings.initial_investment}
+          scope={props.scope} tools={props.tools}
+          onChanged={props.onChanged} flash={props.flash}
+        />
+      )}
     </div>
   )
 }

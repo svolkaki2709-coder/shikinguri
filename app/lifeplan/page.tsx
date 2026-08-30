@@ -31,7 +31,7 @@ interface LifeEvent {
   id: number; year: number; name: string; category: string; kind: "income" | "expense"
   amount: number; repeat_years: number; inflate: boolean; member_id: number | null; note: string
 }
-interface ActualHints { annualExpense: number; annualIncome: number; savings: number; investment: number }
+interface ActualHints { annualExpense: number; annualIncome: number; savings: number; investment: number; nisaAnnual?: number }
 
 interface CashRow {
   year: number
@@ -328,6 +328,8 @@ function LifePlanContent() {
                 settings={settings} members={members} streams={streams} events={events}
                 tools={tools} scope={scope} onChanged={load} flash={flash}
                 payslipHints={payslipHints}
+                nisaAnnual={hints?.nisaAnnual ?? 0}
+                currentInvestment={settings.initial_investment}
               />
             )}
             {tab === "settings" && (
