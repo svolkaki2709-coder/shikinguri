@@ -15,6 +15,7 @@ const sections: { title: string; items: { href: string; label: string; icon: str
       { href: "/assets", label: "資産管理", icon: "💹" },
       { href: "/lifeplan", label: "ライフプラン", icon: "🗺️" },
       { href: "/learn", label: "制度ガイド", icon: "📚" },
+      { href: "/todos", label: "やることリスト", icon: "✅" },
     ],
   },
   {
