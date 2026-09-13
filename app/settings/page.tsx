@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useEffect, useState } from "react"
+import { Fragment, Suspense, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
@@ -14,12 +14,22 @@ const ACCOUNT_KINDS: { key: string; label: string; icon: string }[] = [
   { key: "bank", label: "銀行", icon: "🏦" },
   { key: "cash", label: "現金・電子マネー", icon: "💵" },
 ]
-interface Recurring { id: number; day_of_month: number; card_id: number; card_name: string; card_type: string; color: string; category: string; amount: number; memo: string; entry_type: string }
+interface Recurring { id: number; day_of_month: number; card_id: number; card_name: string; card_type: string; color: string; category: string; amount: number; memo: string; entry_type: string; start_month: string | null; end_month: string | null }
 interface Category { name: string }
 interface BudgetRow { category: string; card_type: string; budget: number; is_monthly?: boolean; is_from_month?: boolean; record_month?: string | null }
 interface StoreRule { id: number; keyword: string; category: string }
 
-const GROUP_ORDER = ["収入", "支出", "振替", "投資", "貯蓄", "立替"]
+/** 定期項目の期間を「2026年4月〜2027年3月」のような形で表す */
+function periodLabel(r: { start_month: string | null; end_month: string | null }): string {
+  const f = (m: string) => `${m.slice(0, 4)}年${Number(m.slice(5, 7))}月`
+  if (!r.start_month && !r.end_month) return "毎月（終了なし）"
+  if (r.start_month && r.start_month === r.end_month) return `${f(r.start_month)}だけ`
+  if (r.start_month && r.end_month) return `${f(r.start_month)}〜${f(r.end_month)}`
+  if (r.start_month) return `${f(r.start_month)}〜`
+  return `〜${f(r.end_month!)}`
+}
+
+const GROUP_ORDER = ["収入", "支出", "振替", "投資", "貯蓄", "立替", "税金"]
 const GROUP_COLORS: Record<string, { bg: string; text: string; border: string; light: string }> = {
   収入: { bg: "bg-green-500", text: "text-green-300", border: "border-l-green-400", light: "bg-green-500/10" },
   支出: { bg: "bg-blue-500",  text: "text-blue-300",  border: "border-l-blue-400",  light: "bg-blue-500/10"  },
@@ -27,6 +37,21 @@ const GROUP_COLORS: Record<string, { bg: string; text: string; border: string; l
   投資: { bg: "bg-purple-500",text: "text-purple-300",border: "border-l-purple-400",light: "bg-purple-500/10"},
   貯蓄: { bg: "bg-teal-500",  text: "text-teal-300",  border: "border-l-teal-400",  light: "bg-teal-500/10"  },
   立替: { bg: "bg-orange-400",text: "text-orange-300",border: "border-l-orange-400",light: "bg-orange-500/10"},
+  税金: { bg: "bg-rose-500",  text: "text-rose-300",  border: "border-l-rose-400",  light: "bg-rose-500/10"  },
+}
+
+/**
+ * カテゴリ一覧の並び順。
+ * 登録したカテゴリが末尾に積まれていくと分類がばらけて探しづらいので、
+ * まずグループでまとめ、その中だけ手動の並び（sort_order）を使う。
+ * グループ未設定のものは最後に集める。
+ */
+function byGroupThenOrder<T extends { group_type: string | null; sort_order: number | null }>(rows: T[]): T[] {
+  const gi = (g: string | null) => {
+    const i = g ? GROUP_ORDER.indexOf(g) : -1
+    return i < 0 ? GROUP_ORDER.length : i
+  }
+  return [...rows].sort((a, b) => gi(a.group_type) - gi(b.group_type) || (a.sort_order ?? 9999) - (b.sort_order ?? 9999))
 }
 
 function toJPY(n: number) {
@@ -244,6 +269,14 @@ function SettingsContent() {
     }
   }
 
+  // 定期の期間。「毎月」= 期限なし、「期間」= 開始〜終了、「単発」= その月だけ
+  const [rPeriod, setRPeriod] = useState<"forever" | "range" | "once">("forever")
+  const [rStartMonth, setRStartMonth] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+  })
+  const [rEndMonth, setREndMonth] = useState("")
+
   async function handleAddRecurring() {
     if (!rCategory || !rAmount) return
     if (!rCardId) {
@@ -261,6 +294,8 @@ function SettingsContent() {
         amount: Number(rAmount.replace(/,/g, "")),
         memo: rMemo,
         entry_type: rEntryType,
+        start_month: rPeriod === "forever" ? null : rStartMonth,
+        end_month: rPeriod === "once" ? rStartMonth : rPeriod === "range" ? (rEndMonth || null) : null,
       }),
     })
     if (!res.ok) {
@@ -509,15 +544,27 @@ function SettingsContent() {
   async function handleReorder(fromIdx: number, toIdx: number) {
     if (fromIdx === toIdx) return
     // 表示中の種別の行を取得（現在の並び順で）
-    const visibleRows = categoryRows
-      .filter(r => catViewType === "joint" ? r.card_type === "joint" : r.card_type !== "joint")
-      .sort((a, b) => (a.sort_order ?? 9999) - (b.sort_order ?? 9999))
+    const visibleRows = byGroupThenOrder(
+      categoryRows.filter(r => catViewType === "joint" ? r.card_type === "joint" : r.card_type !== "joint")
+    )
     const other = categoryRows.filter(r => catViewType === "joint" ? r.card_type !== "joint" : r.card_type === "joint")
 
     // 並び替え
     const reordered = [...visibleRows]
     const [moved] = reordered.splice(fromIdx, 1)
     reordered.splice(toIdx, 0, moved)
+
+    // 別グループの並びに落としたときは、その位置のグループに変更する（見た目と実体を一致させる）
+    const neighbor = reordered[toIdx - 1] ?? reordered[toIdx + 1]
+    const newGroup = neighbor ? neighbor.group_type : moved.group_type
+    if (newGroup !== moved.group_type) {
+      reordered[toIdx] = { ...moved, group_type: newGroup }
+      await fetch("/api/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: moved.name, card_type: moved.card_type, group_type: newGroup }),
+      })
+    }
 
     // sort_orderを1から振り直し
     const updated = reordered.map((r, i) => ({ ...r, sort_order: i + 1 }))
@@ -687,6 +734,43 @@ function SettingsContent() {
                 </div>
               </div>
 
+              {/* 期間 */}
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block">いつからいつまで</label>
+                <div className="flex rounded-xl bg-slate-800 p-1 gap-1 mb-2">
+                  {([["forever", "ずっと毎月"], ["range", "期間を決める"], ["once", "この月だけ"]] as const).map(([k, label]) => (
+                    <button key={k} type="button" onClick={() => setRPeriod(k)}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                        rPeriod === k ? "bg-blue-600 text-white shadow-sm" : "text-slate-400"
+                      }`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {rPeriod !== "forever" && (
+                  <div className="flex items-center gap-2">
+                    <input type="month" value={rStartMonth} onChange={e => setRStartMonth(e.target.value)}
+                      className="flex-1 border rounded-lg px-2 py-2 text-sm bg-slate-900 text-slate-100" />
+                    {rPeriod === "range" && (
+                      <>
+                        <span className="text-slate-500 text-sm">〜</span>
+                        <input type="month" value={rEndMonth} onChange={e => setREndMonth(e.target.value)}
+                          className="flex-1 border rounded-lg px-2 py-2 text-sm bg-slate-900 text-slate-100" />
+                      </>
+                    )}
+                  </div>
+                )}
+                <p className="text-[11px] text-slate-500 mt-1">
+                  {rPeriod === "forever"
+                    ? "終わりを決めずに毎月発生します"
+                    : rPeriod === "once"
+                    ? "その月だけの予定として1回だけ発生します（車検・旅行など）"
+                    : rEndMonth
+                    ? "期間内の月だけ発生します。終了月を過ぎたら自動で出てこなくなります"
+                    : "終了月を空のままにすると、開始月以降ずっと続きます"}
+                </p>
+              </div>
+
               {/* メモ */}
               <div>
                 <label className="text-xs text-slate-400 mb-1 block">メモ（任意）</label>
@@ -703,13 +787,28 @@ function SettingsContent() {
 
             {/* 登録済み一覧 */}
             <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 overflow-hidden">
-              <div className="px-4 py-3 bg-slate-800 border-b">
+              <div className="px-4 py-3 bg-slate-800 border-b flex items-center justify-between gap-2">
                 <h2 className="text-sm font-semibold text-slate-300">登録済み定期</h2>
+                {/* 左のフォームと同じスコープだけを表示する（個人と共同が混ざると見分けづらい） */}
+                <div className="flex rounded-lg overflow-hidden border border-slate-700 text-[11px]">
+                  {([["self", "個人"], ["joint", "共同"]] as const).map(([k, label]) => (
+                    <button key={k} type="button" onClick={() => setRUsageType(k)}
+                      className={`px-2.5 py-1 transition-colors ${
+                        rUsageType === k
+                          ? k === "self" ? "bg-indigo-600 text-white" : "bg-amber-500 text-white"
+                          : "bg-slate-900 text-slate-400"
+                      }`}>
+                      {label}（{recurring.filter(r => (r.card_type === "joint" ? "joint" : "self") === k).length}）
+                    </button>
+                  ))}
+                </div>
               </div>
-              {recurring.length === 0 ? (
-                <p className="text-center text-xs text-slate-500 py-6">登録されていません</p>
+              {recurring.filter(r => (r.card_type === "joint" ? "joint" : "self") === rUsageType).length === 0 ? (
+                <p className="text-center text-xs text-slate-500 py-6">
+                  {rUsageType === "joint" ? "共同" : "個人"}の定期は登録されていません
+                </p>
               ) : (
-                recurring.map(r => {
+                recurring.filter(r => (r.card_type === "joint" ? "joint" : "self") === rUsageType).map(r => {
                   const isIncome = r.entry_type === "income"
                   const usageLabel = r.card_type === "joint" ? "共同" : "個人"
                   const usageColor = r.card_type === "joint" ? "#f59e0b" : "#6366f1"
@@ -751,6 +850,7 @@ function SettingsContent() {
                           {r.card_name && ` · ${r.card_name}`}
                           {r.memo && ` / ${r.memo}`}
                         </p>
+                        <p className="text-[11px] text-slate-500">{periodLabel(r)}</p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <span className="text-sm font-semibold text-slate-300">{toJPY(r.amount)}</span>
@@ -888,10 +988,10 @@ function SettingsContent() {
               <h2 className="text-xs font-semibold text-slate-300">カテゴリ一覧</h2>
               <div className="border rounded-lg overflow-hidden">
                 {(() => {
-                  // sort_order順で並べる（ドラッグ&ドロップで変更可能）
-                  const visibleRows = categoryRows
-                    .filter(r => catViewType === "joint" ? r.card_type === "joint" : r.card_type !== "joint")
-                    .sort((a, b) => (a.sort_order ?? 9999) - (b.sort_order ?? 9999))
+                  // グループごとにまとめ、その中は手動の並び順（ドラッグ&ドロップで変更可能）
+                  const visibleRows = byGroupThenOrder(
+                    categoryRows.filter(r => catViewType === "joint" ? r.card_type === "joint" : r.card_type !== "joint")
+                  )
                   if (visibleRows.length === 0) return <p className="text-xs text-slate-500 px-3 py-3">なし</p>
                   return (
                     <>
@@ -907,9 +1007,17 @@ function SettingsContent() {
                           const gc = r.group_type ? GROUP_COLORS[r.group_type] : null
                           const isDragging = dragIdx === idx
                           const isDragOver = dragOverIdx === idx && dragIdx !== idx
+                          // グループの切れ目に見出しを入れて、どこまでが同じ分類か分かるようにする
+                          const prevGroup = idx > 0 ? visibleRows[idx - 1].group_type : undefined
+                          const showHeader = idx === 0 || prevGroup !== r.group_type
                           return (
+                            <Fragment key={`${r.name}-${r.card_type}`}>
+                            {showHeader && (
+                              <div className={`px-2 py-1 text-[11px] font-semibold border-b border-slate-800 ${gc?.light ?? "bg-slate-800/60"} ${gc?.text ?? "text-slate-400"}`}>
+                                {r.group_type ?? "グループ未設定"}
+                              </div>
+                            )}
                             <div
-                              key={`${r.name}-${r.card_type}`}
                               draggable
                               onDragStart={() => setDragIdx(idx)}
                               onDragOver={e => { e.preventDefault(); setDragOverIdx(idx) }}
@@ -975,6 +1083,7 @@ function SettingsContent() {
                               <button onClick={() => handleDeleteCategory(r.name, r.card_type)}
                                 className="w-7 py-1 text-slate-600 hover:text-red-400 text-base leading-none border-l text-center">×</button>
                             </div>
+                            </Fragment>
                           )
                         })}
                       </div>

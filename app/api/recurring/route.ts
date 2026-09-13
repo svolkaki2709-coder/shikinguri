@@ -29,6 +29,8 @@ export async function GET(req: NextRequest) {
             ELSE FALSE
           END
         )
+        AND (r.start_month IS NULL OR r.start_month <= ${month})
+        AND (r.end_month IS NULL OR r.end_month >= ${month})
         AND NOT EXISTS (
           SELECT 1 FROM recurring_skips s WHERE s.recurring_id = r.id AND s.month = ${month}
         )
@@ -58,14 +60,32 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ recurring: rows })
   }
 
-  const rows = await sql`
-    SELECT r.*, c.name AS card_name, c.card_type, c.color
-    FROM recurring_expenses r
-    LEFT JOIN cards c ON r.card_id = c.id
-    WHERE r.active = TRUE
-      AND (r.owner_user_id IS NULL OR r.owner_user_id = ${me.id})
-    ORDER BY r.day_of_month, r.id
-  `
+  // card_type=self / joint を付けるとそのスコープだけを返す
+  const cardType = searchParams.get("card_type")
+  const rows = cardType === "self"
+    ? await sql`
+        SELECT r.*, c.name AS card_name, c.card_type, c.color
+        FROM recurring_expenses r
+        LEFT JOIN cards c ON r.card_id = c.id
+        WHERE r.active = TRUE AND r.owner_user_id = ${me.id}
+        ORDER BY r.day_of_month, r.id
+      `
+    : cardType === "joint"
+    ? await sql`
+        SELECT r.*, c.name AS card_name, c.card_type, c.color
+        FROM recurring_expenses r
+        LEFT JOIN cards c ON r.card_id = c.id
+        WHERE r.active = TRUE AND r.owner_user_id IS NULL
+        ORDER BY r.day_of_month, r.id
+      `
+    : await sql`
+        SELECT r.*, c.name AS card_name, c.card_type, c.color
+        FROM recurring_expenses r
+        LEFT JOIN cards c ON r.card_id = c.id
+        WHERE r.active = TRUE
+          AND (r.owner_user_id IS NULL OR r.owner_user_id = ${me.id})
+        ORDER BY r.day_of_month, r.id
+      `
   return NextResponse.json({ recurring: rows })
 }
 
@@ -73,7 +93,7 @@ export async function POST(req: NextRequest) {
   const me = await requireUser()
   if (!me) return unauthorized()
 
-  const { day_of_month, card_id, category, amount, memo, entry_type } = await req.json()
+  const { day_of_month, card_id, category, amount, memo, entry_type, start_month, end_month } = await req.json()
   if (!card_id || !category || !amount) {
     return NextResponse.json({ error: "card_id, category, amount は必須です" }, { status: 400 })
   }
@@ -85,11 +105,14 @@ export async function POST(req: NextRequest) {
   `
   if (!account) return forbidden()
 
+  const mm = (v: unknown) => (typeof v === "string" && /^\d{4}-\d{2}$/.test(v) ? v : null)
+
   const result = await sql`
     INSERT INTO recurring_expenses
-      (day_of_month, card_id, category, amount, memo, entry_type, owner_user_id)
+      (day_of_month, card_id, category, amount, memo, entry_type, start_month, end_month, owner_user_id)
     VALUES (${Number(day_of_month ?? 1)}, ${Number(card_id)}, ${category}, ${Number(amount)},
-            ${memo ?? ""}, ${entry_type ?? "expense"}, ${account.owner_user_id})
+            ${memo ?? ""}, ${entry_type ?? "expense"}, ${mm(start_month)}, ${mm(end_month)},
+            ${account.owner_user_id})
     RETURNING *
   `
   return NextResponse.json({ recurring: result[0] })
@@ -100,16 +123,31 @@ export async function PATCH(req: NextRequest) {
   const me = await requireUser()
   if (!me) return unauthorized()
 
-  const { id, day_of_month, category, amount, memo, active } = await req.json()
+  const { id, day_of_month, category, amount, memo, active, start_month, end_month } = await req.json()
   if (!id) return NextResponse.json({ error: "id は必須です" }, { status: 400 })
 
-  const updated = await sql`
+  const keepPeriod = start_month === undefined && end_month === undefined
+  const updated = keepPeriod
+    ? await sql`
+        UPDATE recurring_expenses SET
+          day_of_month = COALESCE(${day_of_month != null ? Number(day_of_month) : null}, day_of_month),
+          category     = COALESCE(${category ?? null}, category),
+          amount       = COALESCE(${amount != null ? Number(amount) : null}, amount),
+          memo         = COALESCE(${memo ?? null}, memo),
+          active       = COALESCE(${typeof active === "boolean" ? active : null}, active)
+        WHERE id = ${Number(id)} AND (owner_user_id IS NULL OR owner_user_id = ${me.id})
+        RETURNING *
+      `
+    : await sql`
     UPDATE recurring_expenses SET
       day_of_month = COALESCE(${day_of_month != null ? Number(day_of_month) : null}, day_of_month),
       category     = COALESCE(${category ?? null}, category),
       amount       = COALESCE(${amount != null ? Number(amount) : null}, amount),
       memo         = COALESCE(${memo ?? null}, memo),
-      active       = COALESCE(${typeof active === "boolean" ? active : null}, active)
+      active       = COALESCE(${typeof active === "boolean" ? active : null}, active),
+      -- 期間は「空文字なら制限なしに戻す」を表現したいので COALESCE ではなく明示的に分岐する
+      start_month  = ${start_month === undefined ? null : (start_month || null)},
+      end_month    = ${end_month === undefined ? null : (end_month || null)}
     WHERE id = ${Number(id)} AND (owner_user_id IS NULL OR owner_user_id = ${me.id})
     RETURNING *
   `
@@ -159,6 +197,9 @@ export async function PUT(req: NextRequest) {
   let count = 0
   let skipped = 0
   for (const r of recurring) {
+    // 期間外の月には作らない（終了した定期・まだ始まっていない予定）
+    if (r.start_month && month < r.start_month) { skipped++; continue }
+    if (r.end_month && month > r.end_month) { skipped++; continue }
     const day = String(r.day_of_month).padStart(2, "0")
     const date = `${month}-${day}`
     const entryType = r.entry_type ?? "expense"
