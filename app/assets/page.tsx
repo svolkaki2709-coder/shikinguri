@@ -4,9 +4,30 @@ import { useEffect, useState } from "react"
 import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
 import { useViewMode } from "@/components/ViewModeContext"
+import { toHalfWidth } from "@/lib/num"
 
 interface AssetRow { month: string; savings: number; investment: number; total: number }
 interface Goal { id: number; name: string; target_amount: number; deadline: string | null }
+
+/** "YYYY-MM" の1つ前の月 */
+function prevMonthOf(m: string) {
+  const [y, mo] = m.split("-").map(Number)
+  const d = new Date(y, mo - 2, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+}
+
+/** "YYYY-MM" の1つ後の月 */
+function nextMonthOf(m: string) {
+  const [y, mo] = m.split("-").map(Number)
+  const d = new Date(y, mo, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+}
+
+/** 2026-08 → 2026年8月末 */
+function monthEndLabel(m: string) {
+  if (!m) return ""
+  return `${m.slice(0, 4)}年${Number(m.slice(5, 7))}月末`
+}
 
 function toJPY(n: number) {
   return new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 }).format(n)
@@ -16,7 +37,10 @@ export default function AssetsPage() {
   const { mode } = useViewMode()
   const isPC = mode === "pc"
   const now = new Date()
-  const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+  const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+  // 月末（最終日）になるまでは、前の月の月末残高を入力する想定にしておく
+  const defaultMonth = now.getDate() >= lastDay ? thisMonth : prevMonthOf(thisMonth)
 
   const [assets, setAssets] = useState<AssetRow[]>([])
   const [goals, setGoals] = useState<Goal[]>([])
@@ -119,6 +143,22 @@ export default function AssetsPage() {
 
   const latest = assets[assets.length - 1]
 
+  // 記録を始めてから今（＝直近で終わった月末）までで、入力が抜けている月。
+  // 資産の推移は月次で連続していないと意味が読めないので、抜けを知らせる。
+  const missingMonths = (() => {
+    if (assets.length === 0) return []
+    const have = new Set(assets.map(a => a.month))
+    const out: string[] = []
+    let m = assets[0].month
+    while (m <= defaultMonth) {
+      if (!have.has(m)) out.push(m)
+      m = nextMonthOf(m)
+    }
+    return out
+  })()
+
+  const alreadyEntered = assets.some(a => a.month === defaultMonth)
+
   return (
     <div className={isPC ? "" : "pb-20"}>
       <PageHeader title="資産管理" />
@@ -135,7 +175,7 @@ export default function AssetsPage() {
             {/* 最新残高サマリー */}
             {latest && (
               <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3">
-                <p className="text-xs text-slate-300 mb-1">{latest.month} 時点の資産</p>
+                <p className="text-xs text-slate-300 mb-1">{monthEndLabel(latest.month)} 時点の資産</p>
                 <p className="text-3xl font-bold text-blue-400">{toJPY(latest.total)}</p>
                 <div className="mt-3 grid grid-cols-2 gap-3">
                   <div className="bg-green-500/10 rounded-xl p-3 text-center">
@@ -152,34 +192,81 @@ export default function AssetsPage() {
 
             {/* 月次資産入力 */}
             <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 space-y-3">
-              <h2 className="text-sm font-semibold text-slate-300">資産残高を更新</h2>
               <div>
-                <label className="text-xs text-slate-300 mb-1 block">月</label>
-                <div className="flex items-center gap-1 border rounded-lg px-2 py-1">
-                  <button onClick={() => setMonth(m => { const [y,mo] = m.split("-").map(Number); const d = new Date(y, mo-2, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` })}
-                    className="text-slate-400 hover:text-blue-400 px-1 font-bold text-base">‹</button>
-                  <input type="month" value={month} onChange={e => setMonth(e.target.value)}
-                    className="flex-1 text-center text-sm font-semibold text-slate-100 border-0 outline-none bg-transparent min-w-0" />
-                  <button onClick={() => setMonth(m => { const [y,mo] = m.split("-").map(Number); const d = new Date(y, mo, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` })}
-                    className="text-slate-400 hover:text-blue-400 px-1 font-bold text-base">›</button>
+                <h2 className="text-sm font-semibold text-slate-300">月末の残高を記録する</h2>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  月末時点の残高を毎月1回入れてください。同じ時点で揃えておくと、増減が正しく比べられます
+                </p>
+              </div>
+
+              {/* 今月分がまだなら、先に知らせる */}
+              {!alreadyEntered && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
+                  <p className="text-xs text-amber-300 font-semibold">
+                    {monthEndLabel(defaultMonth)}時点の残高がまだ入っていません
+                  </p>
+                  {month !== defaultMonth && (
+                    <button onClick={() => setMonth(defaultMonth)}
+                      className="text-[11px] text-amber-200 underline mt-1">
+                      {monthEndLabel(defaultMonth)}を入力する
+                    </button>
+                  )}
                 </div>
+              )}
+
+              {/* 抜けている月 */}
+              {missingMonths.length > 0 && (
+                <div className="bg-slate-800/60 border border-slate-700 rounded-lg px-3 py-2">
+                  <p className="text-[11px] text-slate-400 mb-1">入力が抜けている月</p>
+                  <div className="flex flex-wrap gap-1">
+                    {missingMonths.map(m => (
+                      <button key={m} onClick={() => setMonth(m)}
+                        className={`text-[11px] px-2 py-0.5 rounded border transition-colors ${
+                          month === m
+                            ? "bg-blue-600 text-white border-blue-500"
+                            : "border-slate-600 text-slate-300 hover:border-blue-500"
+                        }`}>
+                        {monthEndLabel(m)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="text-xs text-slate-300 mb-1 block">どの月末の残高か</label>
+                <div className="flex items-center gap-1 border rounded-lg px-2 py-1">
+                  <button onClick={() => setMonth(prevMonthOf(month))}
+                    className="text-slate-400 hover:text-blue-400 px-1 font-bold text-base">‹</button>
+                  <span className="flex-1 text-center text-sm font-semibold text-slate-100">
+                    {monthEndLabel(month)}
+                  </span>
+                  <button onClick={() => setMonth(nextMonthOf(month))}
+                    disabled={month >= defaultMonth}
+                    className="text-slate-400 hover:text-blue-400 px-1 font-bold text-base disabled:opacity-30">›</button>
+                </div>
+                {month > defaultMonth && (
+                  <p className="text-[11px] text-amber-400 mt-1">この月はまだ月末を迎えていません</p>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-xs text-slate-300 mb-1 block">貯金残高（円）</label>
-                  <input type="number" value={savings} onChange={e => setSavings(e.target.value)}
+                  <input type="text" inputMode="numeric" value={savings}
+                    onChange={e => setSavings(toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))}
                     placeholder="0" className="w-full border rounded-lg px-3 py-2 text-sm" />
                 </div>
                 <div>
                   <label className="text-xs text-slate-300 mb-1 block">投資残高（円）</label>
-                  <input type="number" value={investment} onChange={e => setInvestment(e.target.value)}
+                  <input type="text" inputMode="numeric" value={investment}
+                    onChange={e => setInvestment(toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))}
                     placeholder="0" className="w-full border rounded-lg px-3 py-2 text-sm" />
                 </div>
               </div>
               {saveMsg && <p className="text-xs text-green-400">✅ {saveMsg}</p>}
               <button onClick={handleSaveAssets} disabled={saving}
                 className="w-full bg-blue-600 text-white rounded-lg py-2.5 text-sm font-semibold disabled:opacity-50">
-                {saving ? "保存中..." : "保存する"}
+                {saving ? "保存中..." : `${monthEndLabel(month)}の残高を保存`}
               </button>
             </div>
 
