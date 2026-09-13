@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation"
 import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
 import { useViewMode } from "@/components/ViewModeContext"
-import { LIFE_EVENT_TEMPLATES, STREAM_TEMPLATES } from "@/lib/lifeEventTemplates"
+import { LIFE_EVENT_TEMPLATES, type LifeEventTemplate, STREAM_TEMPLATES } from "@/lib/lifeEventTemplates"
 import { toMan, fmtMan, manToYen, yenToManStr } from "@/lib/money"
 import { JointContribution } from "@/components/JointContribution"
 import { LifePlanTools, type ToolRow, type PayslipHints } from "@/components/LifePlanTools"
@@ -731,7 +731,7 @@ function TemplateModal({ members, settings, scope, onClose, onAdded }: {
   onClose: () => void; onAdded: () => void
 }) {
   const [group, setGroup] = useState(LIFE_EVENT_TEMPLATES[0].group)
-  const [picked, setPicked] = useState<{ name: string; amountMan: number; repeatYears: number; atAge: number | null; category: string; hint: string } | null>(null)
+  const [picked, setPicked] = useState<LifeEventTemplate | null>(null)
   const [memberId, setMemberId] = useState<number | null>(members[0]?.id ?? null)
   const [year, setYear] = useState(settings.start_year)
   const [amountMan, setAmountMan] = useState("")
@@ -762,10 +762,11 @@ function TemplateModal({ members, settings, scope, onClose, onAdded }: {
         year,
         name: picked.name,
         category: picked.category,
-        kind: "expense",
+        kind: picked.kind ?? "expense",
         amount: manToYen(amountMan),
         repeat_years: picked.repeatYears,
-        inflate: true,
+        // 収入イベント（贈与・退職金など）は名目額が決まっているので物価上昇を掛けない
+        inflate: (picked.kind ?? "expense") === "expense",
         member_id: picked.atAge != null ? memberId : null,
       }),
     })

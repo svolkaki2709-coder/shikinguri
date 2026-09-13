@@ -24,6 +24,8 @@ export interface LifeEventTemplate {
   atAge: number | null
   /** 補足説明。UIでそのまま表示して判断材料にする */
   hint: string
+  /** 収入イベント（まとまった入金）なら "income"。省略時は支出 */
+  kind?: "income" | "expense"
 }
 
 export interface TemplateGroup {
@@ -91,6 +93,32 @@ export const LIFE_EVENT_TEMPLATES: TemplateGroup[] = [
       { name: "出産費用", category: "出産", amountMan: 50, repeatYears: 1, atAge: null, hint: "出産育児一時金50万円でおおむね相殺される" },
       { name: "海外旅行", category: "旅行", amountMan: 50, repeatYears: 1, atAge: null, hint: "" },
       { name: "引越し", category: "その他", amountMan: 30, repeatYears: 1, atAge: null, hint: "敷金・礼金・家具家電を含む" },
+    ],
+  },
+  {
+    group: "まとまった収入",
+    icon: "🎁",
+    description:
+      "親からの援助や退職金など、一度きりの大きな入金です。金額と時期が読めるものだけを入れてください。" +
+      "贈与は年110万円（暦年課税の基礎控除）までなら贈与税がかかりません。まとまった額を受け取る場合は、" +
+      "非課税の特例が使えるかを先に確認すると手取りが変わります。",
+    items: [
+      { kind: "income", name: "親からの援助（住宅資金）", category: "住宅", amountMan: 500, repeatYears: 1, atAge: null,
+        hint: "住宅取得等資金の贈与は、省エネ住宅1,000万円・それ以外500万円まで非課税（要件あり・期限つき）。住宅の購入年に合わせて登録します" },
+      { kind: "income", name: "親からの援助（結婚・出産）", category: "結婚", amountMan: 100, repeatYears: 1, atAge: null,
+        hint: "結婚・子育て資金の一括贈与の特例もあるが、通常は年110万円の基礎控除内で受け取るほうが手続きが簡単" },
+      { kind: "income", name: "生前贈与（毎年）", category: "その他", amountMan: 110, repeatYears: 10, atAge: null,
+        hint: "年110万円までは贈与税がかからない。続ける年数を繰り返し年数に入れる。相続財産を減らす効果もある" },
+      { kind: "income", name: "退職金", category: "その他", amountMan: 1000, repeatYears: 1, atAge: 60,
+        hint: "退職所得控除があるため税負担は軽い。勤続20年までは年40万円、21年目以降は年70万円が控除される" },
+      { kind: "income", name: "保険の満期金・解約返戻金", category: "その他", amountMan: 200, repeatYears: 1, atAge: null,
+        hint: "満期金は一時所得。（受取額 − 払込総額 − 50万円）÷2 が課税対象になる" },
+      { kind: "income", name: "相続", category: "その他", amountMan: 0, repeatYears: 1, atAge: null,
+        hint: "基礎控除は3,000万円＋600万円×法定相続人。金額も時期も読めないので、資金計画には入れずに別枠で考えるのが安全です" },
+      { kind: "income", name: "祝い金・ご祝儀", category: "結婚", amountMan: 200, repeatYears: 1, atAge: null,
+        hint: "結婚式を挙げる場合、費用と同じ年に登録すると自己負担額が見えます" },
+      { kind: "income", name: "臨時収入（賞与・副業など）", category: "その他", amountMan: 50, repeatYears: 1, atAge: null,
+        hint: "毎年続くものは「収入・支出」タブに年額で入れるほうが正確です" },
     ],
   },
   {
