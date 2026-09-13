@@ -15,40 +15,46 @@ export async function GET(req: NextRequest) {
   const rows = ownerFilter === undefined
     ? (q
         ? await sql`
-            SELECT id, keyword, category FROM store_category_rules
-            WHERE (owner_user_id IS NULL OR owner_user_id = ${me.id})
-              AND (keyword ILIKE ${"%" + q + "%"} OR category ILIKE ${"%" + q + "%"})
-            ORDER BY keyword LIMIT 100
+            SELECT r.id, r.keyword, r.category, r.card_id, c.name AS card_name
+            FROM store_category_rules r LEFT JOIN cards c ON c.id = r.card_id
+            WHERE (r.owner_user_id IS NULL OR r.owner_user_id = ${me.id})
+              AND (r.keyword ILIKE ${"%" + q + "%"} OR r.category ILIKE ${"%" + q + "%"})
+            ORDER BY r.keyword, r.card_id NULLS FIRST LIMIT 100
           `
         : await sql`
-            SELECT id, keyword, category FROM store_category_rules
-            WHERE (owner_user_id IS NULL OR owner_user_id = ${me.id})
-            ORDER BY keyword LIMIT 300
+            SELECT r.id, r.keyword, r.category, r.card_id, c.name AS card_name
+            FROM store_category_rules r LEFT JOIN cards c ON c.id = r.card_id
+            WHERE (r.owner_user_id IS NULL OR r.owner_user_id = ${me.id})
+            ORDER BY r.keyword, r.card_id NULLS FIRST LIMIT 300
           `)
     : ownerFilter === null
     ? (q
         ? await sql`
-            SELECT id, keyword, category FROM store_category_rules
-            WHERE owner_user_id IS NULL
-              AND (keyword ILIKE ${"%" + q + "%"} OR category ILIKE ${"%" + q + "%"})
-            ORDER BY keyword LIMIT 100
+            SELECT r.id, r.keyword, r.category, r.card_id, c.name AS card_name
+            FROM store_category_rules r LEFT JOIN cards c ON c.id = r.card_id
+            WHERE r.owner_user_id IS NULL
+              AND (r.keyword ILIKE ${"%" + q + "%"} OR r.category ILIKE ${"%" + q + "%"})
+            ORDER BY r.keyword, r.card_id NULLS FIRST LIMIT 100
           `
         : await sql`
-            SELECT id, keyword, category FROM store_category_rules
-            WHERE owner_user_id IS NULL
-            ORDER BY keyword LIMIT 300
+            SELECT r.id, r.keyword, r.category, r.card_id, c.name AS card_name
+            FROM store_category_rules r LEFT JOIN cards c ON c.id = r.card_id
+            WHERE r.owner_user_id IS NULL
+            ORDER BY r.keyword LIMIT 300
           `)
     : (q
         ? await sql`
-            SELECT id, keyword, category FROM store_category_rules
-            WHERE owner_user_id = ${ownerFilter}
-              AND (keyword ILIKE ${"%" + q + "%"} OR category ILIKE ${"%" + q + "%"})
-            ORDER BY keyword LIMIT 100
+            SELECT r.id, r.keyword, r.category, r.card_id, c.name AS card_name
+            FROM store_category_rules r LEFT JOIN cards c ON c.id = r.card_id
+            WHERE r.owner_user_id = ${ownerFilter}
+              AND (r.keyword ILIKE ${"%" + q + "%"} OR r.category ILIKE ${"%" + q + "%"})
+            ORDER BY r.keyword, r.card_id NULLS FIRST LIMIT 100
           `
         : await sql`
-            SELECT id, keyword, category FROM store_category_rules
-            WHERE owner_user_id = ${ownerFilter}
-            ORDER BY keyword LIMIT 300
+            SELECT r.id, r.keyword, r.category, r.card_id, c.name AS card_name
+            FROM store_category_rules r LEFT JOIN cards c ON c.id = r.card_id
+            WHERE r.owner_user_id = ${ownerFilter}
+            ORDER BY r.keyword, r.card_id NULLS FIRST LIMIT 300
           `)
 
   return NextResponse.json({ rules: rows })
@@ -60,9 +66,25 @@ export async function GET(req: NextRequest) {
  * （キーワードがメモを含む）も見ていたため、短いメモが無関係な
  * ルールで巻き込まれていた。
  */
-async function applyRuleToExisting(keyword: string, category: string, owner: number | null) {
+async function applyRuleToExisting(
+  keyword: string, category: string, owner: number | null, cardId: number | null
+) {
   const k = keyword.trim()
   if (!k) return
+
+  // 口座を指定したルールは、その口座の明細だけを書き換える
+  if (cardId) {
+    await sql`
+      UPDATE transactions
+      SET category = ${category}
+      WHERE category = '未分類'
+        AND card_id = ${cardId}
+        AND memo IS NOT NULL AND memo <> ''
+        AND POSITION(${k} IN memo) > 0
+        AND COALESCE(owner_user_id, 0) = COALESCE(${owner}, 0)
+    `
+    return
+  }
   // ルールと同じスコープの明細だけを書き換える。
   // 個人ルールが共同明細（相手にも見えるデータ）を勝手に振り分けないようにする。
   await sql`
@@ -79,26 +101,33 @@ export async function POST(req: NextRequest) {
   const me = await requireUser()
   if (!me) return unauthorized()
 
-  const { keyword, category, card_type } = await req.json()
+  const { keyword, category, card_type, card_id } = await req.json()
   if (!keyword || !category) {
     return NextResponse.json({ error: "keyword と category は必須です" }, { status: 400 })
   }
   const k = String(keyword).trim()
   const owner = card_type === "joint" ? null : me.id
+  // card_id を付けるとその口座専用のルール。付けなければ全口座に効く共通ルール。
+  const cardId = card_id ? Number(card_id) : null
 
+  // 「同じキーワード × 同じ口座」だけを同一ルールとみなす（口座違いは別レコードとして持つ）
   const existing = owner === null
-    ? await sql<{ id: number }>`SELECT id FROM store_category_rules WHERE keyword = ${k} AND owner_user_id IS NULL LIMIT 1`
-    : await sql<{ id: number }>`SELECT id FROM store_category_rules WHERE keyword = ${k} AND owner_user_id = ${owner} LIMIT 1`
+    ? (cardId
+        ? await sql<{ id: number }>`SELECT id FROM store_category_rules WHERE keyword = ${k} AND owner_user_id IS NULL AND card_id = ${cardId} LIMIT 1`
+        : await sql<{ id: number }>`SELECT id FROM store_category_rules WHERE keyword = ${k} AND owner_user_id IS NULL AND card_id IS NULL LIMIT 1`)
+    : (cardId
+        ? await sql<{ id: number }>`SELECT id FROM store_category_rules WHERE keyword = ${k} AND owner_user_id = ${owner} AND card_id = ${cardId} LIMIT 1`
+        : await sql<{ id: number }>`SELECT id FROM store_category_rules WHERE keyword = ${k} AND owner_user_id = ${owner} AND card_id IS NULL LIMIT 1`)
 
   if (existing.length > 0) {
     await sql`UPDATE store_category_rules SET category = ${category} WHERE id = ${existing[0].id}`
   } else {
     await sql`
-      INSERT INTO store_category_rules (keyword, category, owner_user_id)
-      VALUES (${k}, ${category}, ${owner})
+      INSERT INTO store_category_rules (keyword, category, owner_user_id, card_id)
+      VALUES (${k}, ${category}, ${owner}, ${cardId})
     `
   }
-  await applyRuleToExisting(k, category, owner)
+  await applyRuleToExisting(k, category, owner, cardId)
   return NextResponse.json({ success: true })
 }
 
@@ -106,18 +135,29 @@ export async function PATCH(req: NextRequest) {
   const me = await requireUser()
   if (!me) return unauthorized()
 
-  const { id, keyword, category } = await req.json()
+  const { id, keyword, category, card_id } = await req.json()
   if (!id || !keyword || !category) {
     return NextResponse.json({ error: "id, keyword, category は必須です" }, { status: 400 })
   }
 
-  const updated = await sql<{ id: number; owner_user_id: number | null }>`
-    UPDATE store_category_rules SET keyword = ${String(keyword).trim()}, category = ${category}
-    WHERE id = ${Number(id)} AND (owner_user_id IS NULL OR owner_user_id = ${me.id})
-    RETURNING id, owner_user_id
-  `
+  // card_id を送らなかったときは今の割り当てを維持する
+  const keepCard = card_id === undefined
+  const newCardId = card_id ? Number(card_id) : null
+  const updated = keepCard
+    ? await sql<{ id: number; owner_user_id: number | null; card_id: number | null }>`
+        UPDATE store_category_rules
+        SET keyword = ${String(keyword).trim()}, category = ${category}
+        WHERE id = ${Number(id)} AND (owner_user_id IS NULL OR owner_user_id = ${me.id})
+        RETURNING id, owner_user_id, card_id
+      `
+    : await sql<{ id: number; owner_user_id: number | null; card_id: number | null }>`
+        UPDATE store_category_rules
+        SET keyword = ${String(keyword).trim()}, category = ${category}, card_id = ${newCardId}
+        WHERE id = ${Number(id)} AND (owner_user_id IS NULL OR owner_user_id = ${me.id})
+        RETURNING id, owner_user_id, card_id
+      `
   if (updated.length === 0) return forbidden()
-  await applyRuleToExisting(String(keyword), category, updated[0].owner_user_id)
+  await applyRuleToExisting(String(keyword), category, updated[0].owner_user_id, updated[0].card_id)
   return NextResponse.json({ success: true })
 }
 

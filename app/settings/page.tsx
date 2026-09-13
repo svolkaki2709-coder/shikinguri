@@ -18,7 +18,7 @@ const ACCOUNT_KINDS: { key: string; label: string; icon: string }[] = [
 interface Recurring { id: number; day_of_month: number; card_id: number; card_name: string; card_type: string; color: string; category: string; amount: number; memo: string; entry_type: string; start_month: string | null; end_month: string | null }
 interface Category { name: string }
 interface BudgetRow { category: string; card_type: string; budget: number; is_monthly?: boolean; is_from_month?: boolean; record_month?: string | null }
-interface StoreRule { id: number; keyword: string; category: string }
+interface StoreRule { id: number; keyword: string; category: string; card_id: number | null; card_name: string | null }
 
 /** 定期項目の期間を「2026年4月〜2027年3月」のような形で表す */
 function periodLabel(r: { start_month: string | null; end_month: string | null }): string {
@@ -158,6 +158,8 @@ function SettingsContent() {
   const [ruleSearch, setRuleSearch] = useState("")
   const [newRuleKeyword, setNewRuleKeyword] = useState("")
   const [newRuleCategory, setNewRuleCategory] = useState("")
+  // 空文字＝すべての口座に効く共通ルール。口座を選ぶとその口座専用になる
+  const [newRuleCardId, setNewRuleCardId] = useState<string>("")
   const [ruleSaving, setRuleSaving] = useState(false)
   const [editingRule, setEditingRule] = useState<StoreRule | null>(null)
   const [uncategorizedMemos, setUncategorizedMemos] = useState<{ memo: string; count: number; card_type: string }[]>([])
@@ -589,15 +591,16 @@ function SettingsContent() {
     setRuleSaving(true)
     if (editingRule) {
       // 既存ルールの card_type は変えない（登録時のスコープのまま更新）
-      await fetch("/api/store-rules", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: editingRule.id, keyword: newRuleKeyword, category: newRuleCategory }) })
+      await fetch("/api/store-rules", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: editingRule.id, keyword: newRuleKeyword, category: newRuleCategory, card_id: newRuleCardId ? Number(newRuleCardId) : null }) })
       setEditingRule(null)
     } else {
       // card_type を送らないと常に「個人」スコープでルールが作られ、共同カードの
       // 明細には遡って反映されない（スコープ不一致でバックフィルが0件になる）不具合があった
-      await fetch("/api/store-rules", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ keyword: newRuleKeyword, category: newRuleCategory, card_type: catViewType }) })
+      await fetch("/api/store-rules", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ keyword: newRuleKeyword, category: newRuleCategory, card_type: catViewType, card_id: newRuleCardId ? Number(newRuleCardId) : null }) })
     }
     setNewRuleKeyword("")
     setNewRuleCategory("")
+    setNewRuleCardId("")
     setRuleSaving(false)
     fetchStoreRules(ruleSearch)
     // 未分類リストを再取得（適用済みのものが消える）
@@ -1163,9 +1166,26 @@ function SettingsContent() {
                       .map(r => <option key={r.name} value={r.name}>{r.name}</option>)}
                   </select>
                 </div>
+                <div>
+                  <select
+                    value={newRuleCardId}
+                    onChange={e => setNewRuleCardId(e.target.value)}
+                    title="同じ店名でもカードによって分けたいときに指定します"
+                    className="w-full border rounded px-2 py-1.5 text-xs text-slate-100 bg-slate-900"
+                  >
+                    <option value="">すべての口座に適用（共通ルール）</option>
+                    {cards.filter(c => c.card_type === catViewType).map(c => (
+                      <option key={c.id} value={c.id}>{c.name} のときだけ</option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    口座を指定すると、同じキーワードでもその口座だけ別のカテゴリにできます。
+                    共通ルールと両方ある場合は、口座を指定したほうが優先されます
+                  </p>
+                </div>
                 <div className="flex gap-2">
                   {editingRule && (
-                    <button onClick={() => { setEditingRule(null); setNewRuleKeyword(""); setNewRuleCategory("") }}
+                    <button onClick={() => { setEditingRule(null); setNewRuleKeyword(""); setNewRuleCategory(""); setNewRuleCardId("") }}
                       className="flex-1 border border-slate-700 text-slate-400 rounded py-1.5 text-xs">
                       キャンセル
                     </button>
@@ -1192,11 +1212,16 @@ function SettingsContent() {
                 ) : (
                   storeRules.map(r => (
                     <div key={r.id} className="flex items-center gap-2 px-2 py-1.5 border-b last:border-0 hover:bg-slate-800">
-                      <span className="flex-1 text-xs text-slate-100 truncate">{r.keyword}</span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-xs text-slate-100 truncate">{r.keyword}</span>
+                        {r.card_name && (
+                          <span className="block text-[10px] text-amber-400 truncate">{r.card_name} のときだけ</span>
+                        )}
+                      </span>
                       <span className="text-xs text-slate-500">→</span>
                       <span className="text-xs font-medium text-blue-400 w-20 truncate text-right">{r.category}</span>
                       <button
-                        onClick={() => { setEditingRule(r); setNewRuleKeyword(r.keyword); setNewRuleCategory(r.category) }}
+                        onClick={() => { setEditingRule(r); setNewRuleKeyword(r.keyword); setNewRuleCategory(r.category); setNewRuleCardId(r.card_id ? String(r.card_id) : "") }}
                         className="text-xs text-slate-500 hover:text-blue-400 px-1">
                         編集
                       </button>

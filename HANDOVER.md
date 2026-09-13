@@ -188,6 +188,7 @@ id, keyword, category, owner_user_id, created_at
 CSVインポート時、メモに`keyword`を含む明細に`category`を自動設定する。
 新規作成時に`card_type`を送らないと`owner_user_id`が本人固定になり、共同明細への遡及適用が0件になる不具合があった（修正済み・`app/settings/page.tsx`の`handleSaveRule`で`card_type: catViewType`を明示送信）。
 `/api/store-rules`のGETは`card_type`クエリでスコープを厳密に絞れる（省略時は個人+共同の合算、互換用）。
+- `card_id`: 指定するとその口座専用ルール。NULLは全口座共通。取込時は口座専用を優先
 
 ### `payslip_details`（給与明細）
 ```

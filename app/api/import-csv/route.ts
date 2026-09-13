@@ -130,12 +130,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 自動振り分けルール（自分に見えるもののみ）
-    const storeRules = (await sql<{ keyword: string; category: string }>`
-      SELECT keyword, category FROM store_category_rules
+    // 自動振り分けルール（自分に見えるもののみ）。
+    // この口座専用のルールと、口座を限定しない共通ルールの両方を読み、
+    // 同じキーワードが両方にある場合は口座専用を優先する。
+    const storeRules = (await sql<{ keyword: string; category: string; card_id: number | null }>`
+      SELECT keyword, category, card_id FROM store_category_rules
       WHERE (owner_user_id IS NULL OR owner_user_id = ${me.id})
-      ORDER BY LENGTH(keyword) DESC
-    `).map(r => ({ keyword: r.keyword, category: r.category }))
+        AND (card_id IS NULL OR card_id = ${Number(cardId)})
+      ORDER BY (card_id IS NULL), LENGTH(keyword) DESC
+    `).map(r => ({ keyword: r.keyword, category: r.category, cardId: r.card_id }))
 
     // 振替判定に使う他口座の名前
     const otherAccounts = (await sql<{ name: string; institution: string | null }>`
