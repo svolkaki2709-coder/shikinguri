@@ -1,24 +1,18 @@
 "use client"
 
-import { useEffect, useState, useMemo, useCallback, Suspense } from "react"
+import { useEffect, useState, useMemo, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
 import { useViewMode } from "@/components/ViewModeContext"
+import { AmountInput } from "@/components/AmountInput"
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer, ReferenceLine,
 } from "recharts"
 
 // ─── ユーティリティ ───────────────────────────────────────────────
-function fmtInput(v: string): string {
-  const raw = v.replace(/,/g, "")
-  if (raw === "") return ""
-  if (!/^\d+$/.test(raw)) return v
-  return Number(raw).toLocaleString()
-}
-
 function toJPY(n: number) {
   return new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 }).format(n)
 }
@@ -392,10 +386,6 @@ function BudgetContent() {
   const [editingBudget, setEditingBudget] = useState<{
     category: string; cardType: string; value: string; periodType: "monthly" | "this_month"
   } | null>(null)
-  // autoFocusのフォーカスイベントに依存せず、マウント直後に確実に全選択する
-  const focusAndSelect = useCallback((el: HTMLInputElement | null) => {
-    if (el) { el.focus(); el.select() }
-  }, [])
 
   async function handleBudgetSave(
     category: string, cardType: string, value: string,
@@ -643,17 +633,11 @@ function BudgetContent() {
                           className={`px-1.5 py-0.5 transition-colors border-l border-slate-800 ${editingBudget.periodType === "this_month" ? "bg-purple-500 text-white" : "bg-slate-900 text-slate-400"}`}
                         >今月</button>
                       </div>
-                      <input
-                        type="text"
-                        ref={focusAndSelect}
+                      <AmountInput
                         value={editingBudget.value}
-                        onChange={e => setEditingBudget({ ...editingBudget, value: fmtInput(e.target.value) })}
-                        onFocus={e => e.currentTarget.select()}
-                        onBlur={() => handleBudgetSave(b.category, b.cardType, editingBudget.value, editingBudget.periodType)}
-                        onKeyDown={e => {
-                          if (e.key === "Enter") { e.currentTarget.blur() }
-                          if (e.key === "Escape") setEditingBudget(null)
-                        }}
+                        onChange={v => setEditingBudget({ ...editingBudget, value: v })}
+                        onCommit={() => handleBudgetSave(b.category, b.cardType, editingBudget.value, editingBudget.periodType)}
+                        onCancel={() => setEditingBudget(null)}
                         className="w-20 text-right text-xs text-slate-100 border border-blue-400 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-blue-400 bg-slate-900"
                       />
                     </div>
@@ -1137,17 +1121,11 @@ function BudgetContent() {
                                                 </button>
                                               ))}
                                             </div>
-                                            <input
-                                              type="text"
-                                              ref={focusAndSelect}
+                                            <AmountInput
                                               value={editingMonthBudget.value}
-                                              onChange={e => setEditingMonthBudget({ ...editingMonthBudget, value: fmtInput(e.target.value) })}
-                                              onFocus={e => e.currentTarget.select()}
-                                              onBlur={() => handleMonthBudgetSave(row.name, row.cardType, m, editingMonthBudget.value, editingMonthBudget.mode)}
-                                              onKeyDown={e => {
-                                                if (e.key === "Enter") { e.currentTarget.blur() }
-                                                if (e.key === "Escape") setEditingMonthBudget(null)
-                                              }}
+                                              onChange={v => setEditingMonthBudget({ ...editingMonthBudget, value: v })}
+                                              onCommit={() => handleMonthBudgetSave(row.name, row.cardType, m, editingMonthBudget.value, editingMonthBudget.mode)}
+                                              onCancel={() => setEditingMonthBudget(null)}
                                               className="w-16 text-right border border-blue-400 rounded px-1 py-0 outline-none bg-slate-900 text-slate-100 text-xs"
                                             />
                                           </div>
@@ -1199,17 +1177,11 @@ function BudgetContent() {
                                                   ))}
                                                 </span>
                                               </span>
-                                              <input
-                                                type="text"
-                                                ref={focusAndSelect}
+                                              <AmountInput
                                                 value={editingMonthBudget.value}
-                                                onChange={e => setEditingMonthBudget({ ...editingMonthBudget, value: fmtInput(e.target.value) })}
-                                                onFocus={e => e.currentTarget.select()}
-                                                onBlur={() => handleMonthBudgetSave(row.name, row.cardType, m, editingMonthBudget.value, editingMonthBudget.mode)}
-                                                onKeyDown={e => {
-                                                  if (e.key === "Enter") { e.currentTarget.blur() }
-                                                  if (e.key === "Escape") setEditingMonthBudget(null)
-                                                }}
+                                                onChange={v => setEditingMonthBudget({ ...editingMonthBudget, value: v })}
+                                                onCommit={() => handleMonthBudgetSave(row.name, row.cardType, m, editingMonthBudget.value, editingMonthBudget.mode)}
+                                                onCancel={() => setEditingMonthBudget(null)}
                                                 className="w-16 text-right border border-blue-400 rounded px-1 py-0 outline-none bg-slate-900 text-slate-100"
                                               />
                                             </span>
