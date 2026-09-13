@@ -33,7 +33,7 @@ interface LifeEvent {
   id: number; year: number; name: string; category: string; kind: "income" | "expense"
   amount: number; repeat_years: number; inflate: boolean; member_id: number | null; note: string
 }
-interface ActualHints { annualExpense: number; annualIncome: number; savings: number; investment: number; nisaAnnual?: number; assetMonth?: string | null }
+interface ActualHints { annualExpense: number; annualIncome: number; savings: number; investment: number; nisaAnnual?: number; assetMonth?: string | null; budgetExpenseAnnual?: number; budgetIncomeAnnual?: number }
 
 interface CashRow {
   year: number
@@ -1053,6 +1053,39 @@ function StreamsTab({ streams, settings, scope, hints, onChanged, flash, focusAn
           収入が減る時期・支出が終わる時期が自動でキャッシュフローに反映されます。
         </p>
       </div>
+
+      {/* 予算からの取り込み。実績が無い・ぶれる場合はこちらのほうが計画に近い */}
+      {hints && ((hints.budgetExpenseAnnual ?? 0) > 0 || (hints.budgetIncomeAnnual ?? 0) > 0) && (
+        <div className="bg-slate-900 rounded-xl border border-blue-500/30 p-3">
+          <p className="text-xs font-semibold text-blue-300 mb-2">
+            {scope === "joint" ? "共同" : "個人"}の予算（毎月の予算 × 12ヶ月）
+          </p>
+          <div className="flex gap-2">
+            {(hints.budgetIncomeAnnual ?? 0) > 0 && (
+              <button
+                onClick={() => setEditing({ kind: "income", name: "収入（予算ベース）", annual_amount: hints.budgetIncomeAnnual, growth_rate: 1.5 })}
+                className="flex-1 bg-green-500/10 border border-green-500/30 rounded-lg p-2.5 text-left hover:bg-green-500/20 transition-colors">
+                <p className="text-[11px] text-green-300/70">収入</p>
+                <p className="text-sm font-bold text-green-300">{fmtMan(hints.budgetIncomeAnnual ?? 0)}万円</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">タップして登録</p>
+              </button>
+            )}
+            {(hints.budgetExpenseAnnual ?? 0) > 0 && (
+              <button
+                onClick={() => setEditing({ kind: "expense", name: "基本生活費（予算ベース）", annual_amount: hints.budgetExpenseAnnual, growth_rate: null })}
+                className="flex-1 bg-red-500/10 border border-red-500/30 rounded-lg p-2.5 text-left hover:bg-red-500/20 transition-colors">
+                <p className="text-[11px] text-red-300/70">支出</p>
+                <p className="text-sm font-bold text-red-300">{fmtMan(hints.budgetExpenseAnnual ?? 0)}万円</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">タップして登録</p>
+              </button>
+            )}
+          </div>
+          <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
+            予実管理で立てた毎月の予算をそのまま年額にしたものです。登録後は金額を自由に変えられますし、
+            住居費や車の維持費など、予算に入れていない項目は別の行として足せます
+          </p>
+        </div>
+      )}
 
       {hints && (hints.annualExpense > 0 || hints.annualIncome > 0) && (
         <div className="bg-slate-900 rounded-xl border border-slate-800 p-3">
