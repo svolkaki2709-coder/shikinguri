@@ -7,6 +7,7 @@ import { BottomNav } from "@/components/BottomNav"
 import { useViewMode } from "@/components/ViewModeContext"
 import { MembersPanel } from "@/components/MembersPanel"
 import { toHalfWidth } from "@/lib/num"
+import { MonthSelect } from "@/components/MonthSelect"
 
 interface Card { id: number; name: string; card_type: string; color: string; has_csv: boolean; kind?: string; institution?: string | null }
 
@@ -802,14 +803,12 @@ function SettingsContent() {
                   ))}
                 </div>
                 {rPeriod !== "forever" && (
-                  <div className="flex items-center gap-2">
-                    <input type="month" value={rStartMonth} onChange={e => setRStartMonth(e.target.value)}
-                      className="flex-1 border rounded-lg px-2 py-2 text-sm bg-slate-900 text-slate-100" />
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <MonthSelect value={rStartMonth} onChange={setRStartMonth} />
                     {rPeriod === "range" && (
                       <>
                         <span className="text-slate-500 text-sm">〜</span>
-                        <input type="month" value={rEndMonth} onChange={e => setREndMonth(e.target.value)}
-                          className="flex-1 border rounded-lg px-2 py-2 text-sm bg-slate-900 text-slate-100" />
+                        <MonthSelect value={rEndMonth} onChange={setREndMonth} placeholder="未定" />
                       </>
                     )}
                   </div>
@@ -917,16 +916,14 @@ function SettingsContent() {
                             ))}
                           </div>
                           {editRec.period !== "forever" && (
-                            <div className="flex items-center gap-2">
-                              <input type="month" value={editRec.start_month}
-                                onChange={e => setEditRec({ ...editRec, start_month: e.target.value })}
-                                className={inputCls} />
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <MonthSelect value={editRec.start_month}
+                                onChange={v => setEditRec({ ...editRec, start_month: v })} />
                               {editRec.period === "range" && (
                                 <>
                                   <span className="text-slate-500 text-xs">〜</span>
-                                  <input type="month" value={editRec.end_month}
-                                    onChange={e => setEditRec({ ...editRec, end_month: e.target.value })}
-                                    className={inputCls} />
+                                  <MonthSelect value={editRec.end_month}
+                                    onChange={v => setEditRec({ ...editRec, end_month: v })} placeholder="未定" />
                                 </>
                               )}
                             </div>
