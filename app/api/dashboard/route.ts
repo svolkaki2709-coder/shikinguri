@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     // 個人/共同トグルに連動させる（カテゴリ別内訳が両方を合算していた不具合）
     const viewJoint = searchParams.get("view_type") === "joint"
 
-    const [monthly, cardSummary, categoryBreakdown, incomeTotal, latestAssets, budgetVsActual] =
+    const [monthly, cardSummary, categoryBreakdown, incomeTotal, deductions, latestAssets, budgetVsActual] =
       await Promise.all([
         // 過去12ヶ月の月次合計（個人/共同別）
         sql`
@@ -69,6 +69,15 @@ export async function GET(req: NextRequest) {
             AND card_type = 'self' AND amount > 0
             AND owner_user_id = ${me.id}
         `,
+        // 当月の天引き（給与源泉税など、incomes のマイナス行）。手取りの算出に使う
+        sql`
+          SELECT
+            COALESCE(SUM(CASE WHEN owner_user_id = ${me.id} THEN -amount ELSE 0 END), 0) AS self_total,
+            COALESCE(SUM(CASE WHEN owner_user_id IS NULL THEN -amount ELSE 0 END), 0) AS joint_total
+          FROM incomes
+          WHERE TO_CHAR(date, 'YYYY-MM') = ${month} AND amount < 0
+            AND (owner_user_id IS NULL OR owner_user_id = ${me.id})
+        `,
         sql`SELECT * FROM assets WHERE owner_user_id = ${me.id} ORDER BY month DESC LIMIT 1`,
         // 予算 vs 実績（当月）
         // 実績側はカテゴリ名だけでなくスコープも一致させる。
@@ -114,6 +123,8 @@ export async function GET(req: NextRequest) {
         amount: Number(r.amount),
       })),
       incomeTotal: Number(incomeTotal[0]?.total ?? 0),
+      deductionTotal: Number(deductions[0]?.self_total ?? 0),
+      jointDeductionTotal: Number(deductions[0]?.joint_total ?? 0),
       latestAssets: latestAssets[0] ?? null,
       budgetVsActual: budgetVsActual.map((r) => ({
         category: r.category,

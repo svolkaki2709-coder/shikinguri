@@ -71,6 +71,9 @@ export default function DashboardPage() {
   const [monthly, setMonthly] = useState<MonthlyRow[]>([])
   const [incomeTotal, setIncomeTotal] = useState(0)
   const [jointIncomeTotal, setJointIncomeTotal] = useState(0)
+  // 給与から天引きされた分（源泉税・社会保険料）。手取りの表示に使う
+  const [deductionTotal, setDeductionTotal] = useState(0)
+  const [jointDeductionTotal, setJointDeductionTotal] = useState(0)
   const [assets, setAssets] = useState<AssetRow[]>([])
   const [budgetRows, setBudgetRows] = useState<BudgetRow[]>([])
   const [recentTx, setRecentTx] = useState<TxRow[]>([])
@@ -100,6 +103,8 @@ export default function DashboardPage() {
         setCategoryBreakdown(d.categoryBreakdown ?? [])
         setMonthly(d.monthly ?? [])
         setIncomeTotal(d.incomeTotal ?? 0)
+        setDeductionTotal(d.deductionTotal ?? 0)
+        setJointDeductionTotal(d.jointDeductionTotal ?? 0)
         setBudgetRows(budgetData.budgets ?? [])
         // 履歴は個人/共同を問わず取得しているため、表示中のタブに絞ってから件数を切る
         setRecentTx(
@@ -149,6 +154,10 @@ export default function DashboardPage() {
   const viewColor = viewType === "self" ? "#6366f1" : "#f59e0b"
   const viewBarKey = viewType === "self" ? "selfTotal" : "jointTotal"
   const viewIncome = viewType === "self" ? incomeTotal : jointIncomeTotal
+  const viewDeduction = viewType === "self" ? deductionTotal : jointDeductionTotal
+  // 手取り＝額面 − 天引き。収支はこの手取りベースで見ないと、実際より多く残っているように見える
+  const viewNetIncome = viewIncome - viewDeduction
+  const viewBalance = viewNetIncome - viewTotal
 
   // ─── 予算サマリー（表示中の個人/共同） ───────────────────────
   const viewBudgetRows = budgetRows.filter(b => b.cardType === viewType && budgetEffSign(b) === -1)
@@ -291,20 +300,28 @@ export default function DashboardPage() {
 
       <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3">
         <p className="text-xs text-slate-400 mb-2">{month} — {viewType === "self" ? "個人" : "共同"}</p>
-        <div className="grid grid-cols-3 gap-2 text-center">
+        <div className={`grid ${viewDeduction > 0 ? "grid-cols-4" : "grid-cols-3"} gap-2 text-center`}>
           <div>
             <p className="text-xs text-slate-400">{viewType === "self" ? "収入" : "入金"}</p>
             <p className="text-sm font-bold text-green-400">{toJPY(viewIncome)}</p>
           </div>
+          {viewDeduction > 0 && (
+            <div>
+              <p className="text-xs text-slate-400">手取り</p>
+              <p className="text-sm font-bold text-green-300">{toJPY(viewNetIncome)}</p>
+              <p className="text-[10px] text-slate-500">税・社保 −{toJPY(viewDeduction)}</p>
+            </div>
+          )}
           <div>
             <p className="text-xs text-slate-400">支出</p>
             <p className="text-sm font-bold text-red-400">{toJPY(viewTotal)}</p>
           </div>
           <div>
             <p className="text-xs text-slate-400">収支</p>
-            <p className={`text-sm font-bold ${viewIncome - viewTotal >= 0 ? "text-blue-400" : "text-red-400"}`}>
-              {viewIncome - viewTotal >= 0 ? "+" : ""}{toJPY(viewIncome - viewTotal)}
+            <p className={`text-sm font-bold ${viewBalance >= 0 ? "text-blue-400" : "text-red-400"}`}>
+              {viewBalance >= 0 ? "+" : ""}{toJPY(viewBalance)}
             </p>
+            {viewDeduction > 0 && <p className="text-[10px] text-slate-500">手取り基準</p>}
           </div>
         </div>
       </div>
