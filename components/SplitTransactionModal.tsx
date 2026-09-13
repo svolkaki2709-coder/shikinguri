@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { toHalfWidth } from "@/lib/num"
 
 export interface SplitTarget {
   id: number
@@ -116,7 +117,7 @@ export function SplitTransactionModal({
                 <input type="text" inputMode="numeric" placeholder="0"
                   value={p.amount ? Number(p.amount.replace(/,/g, "")).toLocaleString("ja-JP") : ""}
                   onChange={e => {
-                    const raw = e.target.value.replace(/,/g, "")
+                    const raw = toHalfWidth(e.target.value).replace(/,/g, "")
                     if (raw === "" || /^\d+$/.test(raw)) update(i, { amount: raw })
                   }}
                   className="w-full border border-slate-700 rounded-lg pl-6 pr-2 py-2 text-sm text-right text-slate-100 bg-slate-900 outline-none focus:ring-2 focus:ring-blue-500" />

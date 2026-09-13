@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from "react"
+import { toHalfWidth } from "@/lib/num"
 
 // 保存成功時に全画面へ通知するイベント名（ダッシュボード等が再取得に使う）
 export const DATA_CHANGED_EVENT = "kakeibo:data-changed"
@@ -187,7 +188,7 @@ function QuickInputModal({ tab, setTab, onClose }: {
       <input
         type="text" inputMode="numeric" placeholder="0" autoComplete="off"
         value={value ? Number(value).toLocaleString("ja-JP") : ""}
-        onChange={e => { const raw = e.target.value.replace(/,/g, ""); if (raw === "" || /^\d+$/.test(raw)) onChange(raw) }}
+        onChange={e => { const raw = toHalfWidth(e.target.value).replace(/,/g, ""); if (raw === "" || /^\d+$/.test(raw)) onChange(raw) }}
         className={`w-full border border-slate-700 rounded-xl pl-8 pr-3 py-3 text-lg font-semibold text-slate-100 focus:outline-none focus:ring-2 ${ring}`}
       />
     </div>

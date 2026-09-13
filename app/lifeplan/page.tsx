@@ -493,7 +493,7 @@ function CashFlowTab({ rows, chartData, shortfall, trough, members, settings, is
           <table className="w-full text-xs whitespace-nowrap">
             <thead>
               <tr className="text-slate-400 border-b border-slate-800">
-                <th className="text-left px-3 py-2 font-medium sticky left-0 bg-slate-900">年</th>
+                <th className="text-left px-3 py-2 font-medium sticky left-0 z-10 bg-slate-900">年</th>
                 {members.map(m => (
                   <th key={m.id} className="text-right px-2 py-2 font-medium">{m.name}</th>
                 ))}
@@ -510,7 +510,7 @@ function CashFlowTab({ rows, chartData, shortfall, trough, members, settings, is
                   className={`border-b border-slate-800 last:border-0 ${
                     r.balance < 0 ? "bg-red-500/10" : r.events.length > 0 ? "bg-slate-800/40" : ""
                   }`}>
-                  <td className={`px-3 py-1.5 font-medium sticky left-0 ${
+                  <td className={`px-3 py-1.5 font-medium sticky left-0 z-10 ${
                     r.balance < 0 ? "bg-[#2a1416]" : r.events.length > 0 ? "bg-[#141c2b]" : "bg-slate-900"
                   } text-slate-300`}>{r.year}</td>
                   {r.ages.map(a => (

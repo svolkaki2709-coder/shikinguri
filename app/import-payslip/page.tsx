@@ -4,6 +4,8 @@ import { useRef, useState, useMemo, useEffect, useCallback } from "react"
 import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
 import { useViewMode } from "@/components/ViewModeContext"
+import { AmountInput } from "@/components/AmountInput"
+import { toHalfWidth } from "@/lib/num"
 
 interface ParsedPayslip {
   paymentMonth: string | null
@@ -336,12 +338,11 @@ export default function ImportPayslipPage() {
         {isEditing ? (
           <div className="flex items-center gap-1">
             <span className="text-xs text-slate-500">¥</span>
-            <input
-              type="text" inputMode="numeric" autoFocus
+            <AmountInput
               value={editingValue}
-              onChange={e => { const r = e.target.value.replace(/,/g, ""); if (r === "" || /^\d+$/.test(r)) setEditingValue(r) }}
-              onBlur={commitEdit}
-              onKeyDown={e => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditingKey(null) }}
+              onChange={v => setEditingValue(v.replace(/,/g, ""))}
+              onCommit={commitEdit}
+              onCancel={() => setEditingKey(null)}
               className="w-28 border-b border-blue-400 text-right text-xs font-medium outline-none bg-transparent py-0.5 text-slate-100"
             />
           </div>
@@ -443,7 +444,7 @@ export default function ImportPayslipPage() {
                         type="text" inputMode="numeric" placeholder="0"
                         value={adj.amount}
                         onChange={e => {
-                          const v = e.target.value
+                          const v = toHalfWidth(e.target.value)
                           if (v === "" || /^\d*$/.test(v.replace(/,/g, ""))) updateAdj(setIncomeAdj, adj.id, "amount", v)
                         }}
                         className={`w-28 border rounded-lg pl-5 pr-2 py-1 text-right text-xs font-medium outline-none focus:ring-1 focus:ring-blue-400 text-slate-100 ${
@@ -508,7 +509,7 @@ export default function ImportPayslipPage() {
                           type="text" inputMode="numeric" placeholder="0"
                           value={adj.amount}
                           onChange={e => {
-                            const v = e.target.value
+                            const v = toHalfWidth(e.target.value)
                             if (v === "" || v === "-" || /^-?\d*$/.test(v.replace(/,/g, ""))) updateAdj(setDeductionAdj, adj.id, "amount", v)
                           }}
                           className={`w-28 border rounded-lg pl-5 pr-2 py-1 text-right text-xs font-medium outline-none focus:ring-1 focus:ring-blue-400 text-slate-100 ${
@@ -684,17 +685,11 @@ export default function ImportPayslipPage() {
                             {isEditingAmt ? (
                               <div className="flex items-center gap-1 shrink-0">
                                 <span className="text-xs text-slate-500">¥</span>
-                                <input
-                                  autoFocus
-                                  type="text" inputMode="numeric"
+                                <AmountInput
                                   value={editingRecord.value}
-                                  onChange={e => {
-                                    const v = e.target.value.replace(/,/g, "")
-                                    if (v === "" || v === "-" || /^-?\d*$/.test(v))
-                                      setEditingRecord(r => r ? { ...r, value: v } : r)
-                                  }}
-                                  onBlur={commitRecordEdit}
-                                  onKeyDown={e => { if (e.key === "Enter") commitRecordEdit(); if (e.key === "Escape") setEditingRecord(null) }}
+                                  onChange={v => setEditingRecord(r => r ? { ...r, value: v.replace(/,/g, "") } : r)}
+                                  onCommit={commitRecordEdit}
+                                  onCancel={() => setEditingRecord(null)}
                                   className="w-24 border-b border-blue-400 text-right text-xs font-medium outline-none bg-transparent py-0.5 text-slate-100"
                                 />
                               </div>

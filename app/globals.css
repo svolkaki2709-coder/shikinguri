@@ -35,3 +35,26 @@ body {
 .pc-layout .pb-20 {
   padding-bottom: 0;
 }
+
+/* 入力欄の既定の配色。
+   個別のクラスで bg / text を付け忘れると、ブラウザ既定の白背景に
+   薄い文字が乗って読めなくなる事故が起きていたため、土台をここで決める。
+   @layer base に入れているので、Tailwind のユーティリティ指定が常に優先される。 */
+@layer base {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    background-color: #0f172a;
+    color: #f1f5f9;
+    border-color: #334155;
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: #64748b;
+  }
+  input:disabled,
+  select:disabled,
+  textarea:disabled {
+    color: #94a3b8;
+  }
+}

@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
 import { useViewMode } from "@/components/ViewModeContext"
 import { SplitTransactionModal, type SplitTarget } from "@/components/SplitTransactionModal"
+import { toHalfWidth } from "@/lib/num"
 
 interface Card { id: number; name: string; card_type: string; color: string }
 interface Transaction {
@@ -560,7 +561,7 @@ function HistoryContent() {
                 <input
                   type="text" inputMode="numeric" value={editForm.amount}
                   onChange={e => {
-                    const raw = e.target.value.replace(/,/g, "")
+                    const raw = toHalfWidth(e.target.value).replace(/,/g, "")
                     if (raw === "" || /^\d+$/.test(raw)) {
                       setEditForm(f => ({ ...f, amount: raw === "" ? "" : Number(raw).toLocaleString("ja-JP") }))
                     }

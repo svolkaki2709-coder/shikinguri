@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
+import { toHalfWidth } from "@/lib/num"
 import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
 import { useViewMode } from "@/components/ViewModeContext"
@@ -977,7 +978,7 @@ function BudgetContent() {
               <div className="overflow-auto rounded-xl shadow-sm border border-slate-800 bg-slate-900" style={{ maxHeight: "calc(100vh - 170px)" }}>
                 <table className="text-xs border-collapse w-full" style={{ minWidth: `${140 + months.length * 90 + 100 + 110}px` }}>
                   <thead>
-                    <tr className="bg-slate-800 text-white sticky top-0 z-10">
+                    <tr className="bg-slate-800 text-white sticky top-0 z-20">
                       <th className="text-left px-3 py-2 font-semibold sticky left-0 bg-slate-800 z-30 min-w-[140px]">
                         カテゴリ
                         <span className="block text-[10px] font-normal text-blue-300 mt-0.5">
@@ -1402,7 +1403,7 @@ function BudgetContent() {
                                     className="border border-slate-700 rounded px-2 py-1 text-xs text-slate-100 bg-slate-900 flex-1" />
                                   <input type="text" inputMode="numeric" value={editingRow.amount}
                                     onFocus={e => e.currentTarget.select()}
-                                    onChange={e => { const v = e.target.value.replace(/,/g, ""); if (v === "" || /^-?\d+$/.test(v)) setEditingRow({ ...editingRow, amount: v }) }}
+                                    onChange={e => { const v = toHalfWidth(e.target.value).replace(/,/g, ""); if (v === "" || /^-?\d+$/.test(v)) setEditingRow({ ...editingRow, amount: v }) }}
                                     className="border border-slate-700 rounded px-2 py-1 text-xs text-slate-100 bg-slate-900 w-24 text-right" />
                                 </div>
                                 <div className="flex gap-1.5 justify-end">

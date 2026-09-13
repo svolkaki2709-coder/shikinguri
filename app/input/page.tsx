@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react"
 import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
 import { useViewMode } from "@/components/ViewModeContext"
+import { toHalfWidth } from "@/lib/num"
 
 interface Card { id: number; name: string; card_type: string; color: string; has_csv: boolean }
 interface CategoryRow { name: string; card_type: string; group_type?: string | null; sign?: string | null }
@@ -321,7 +322,7 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
                           type="text" inputMode="numeric"
                           value={pendingAmountFor(r).toLocaleString("ja-JP")}
                           onChange={e => {
-                            const raw = e.target.value.replace(/,/g, "")
+                            const raw = toHalfWidth(e.target.value).replace(/,/g, "")
                             if (raw === "" || /^\d+$/.test(raw)) {
                               setPendingAmountOverrides(prev => ({ ...prev, [r.id]: raw }))
                             }
@@ -425,7 +426,7 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">¥</span>
                   <input type="text" inputMode="numeric"
                     value={amount ? Number(amount.replace(/,/g, "")).toLocaleString("ja-JP") : ""}
-                    onChange={e => { const raw = e.target.value.replace(/,/g, ""); if (raw === "" || /^\d+$/.test(raw)) setAmount(raw) }}
+                    onChange={e => { const raw = toHalfWidth(e.target.value).replace(/,/g, ""); if (raw === "" || /^\d+$/.test(raw)) setAmount(raw) }}
                     placeholder="0"
                     className="w-full border border-slate-700 rounded-lg pl-7 pr-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required />
@@ -490,7 +491,7 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
                           type="text" inputMode="numeric"
                           value={pendingAmountFor(r).toLocaleString("ja-JP")}
                           onChange={e => {
-                            const raw = e.target.value.replace(/,/g, "")
+                            const raw = toHalfWidth(e.target.value).replace(/,/g, "")
                             if (raw === "" || /^\d+$/.test(raw)) {
                               setPendingAmountOverrides(prev => ({ ...prev, [r.id]: raw }))
                             }
@@ -568,7 +569,7 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">¥</span>
                   <input type="text" inputMode="numeric"
                     value={incomeAmount ? Number(incomeAmount.replace(/,/g, "")).toLocaleString("ja-JP") : ""}
-                    onChange={e => { const raw = e.target.value.replace(/,/g, ""); if (raw === "" || /^\d+$/.test(raw)) setIncomeAmount(raw) }}
+                    onChange={e => { const raw = toHalfWidth(e.target.value).replace(/,/g, ""); if (raw === "" || /^\d+$/.test(raw)) setIncomeAmount(raw) }}
                     placeholder="0"
                     className="w-full border border-slate-700 rounded-lg pl-7 pr-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-green-500" />
                 </div>
