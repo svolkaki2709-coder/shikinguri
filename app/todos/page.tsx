@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
 import { useViewMode } from "@/components/ViewModeContext"
 import { SaveButton } from "@/components/SaveButton"
-import { TODO_TEMPLATES, offsetToDate, type TodoTemplate } from "@/lib/todoTemplates"
+import { TODO_TEMPLATES, offsetToDate, itemsFor, type TodoTemplate } from "@/lib/todoTemplates"
 
 interface Todo {
   id: number
@@ -25,9 +25,11 @@ const CATEGORY_STYLE: Record<string, string> = {
   保険: "bg-purple-500/15 text-purple-300 border-purple-500/30",
   生活: "bg-cyan-500/15 text-cyan-300 border-cyan-500/30",
   "2人で決める": "bg-pink-500/15 text-pink-300 border-pink-500/30",
+  税金: "bg-rose-500/15 text-rose-300 border-rose-500/30",
   その他: "bg-slate-700/50 text-slate-300 border-slate-600",
 }
-const CATEGORIES = ["役所", "勤務先", "金融機関", "保険", "生活", "2人で決める", "その他"]
+/** 既定のカテゴリ。ここに無いものを自由に入力してもよく、入力すると次から候補に出る */
+const BASE_CATEGORIES = ["役所", "勤務先", "金融機関", "保険", "税金", "生活", "2人で決める", "その他"]
 
 function todayStr() {
   const d = new Date()
@@ -83,6 +85,12 @@ export default function TodosPage() {
       setLoading(false)
     }
   }
+
+  const categoryOptions = useMemo(() => {
+    const set = new Set<string>(BASE_CATEGORIES)
+    todos.forEach(t => { if (t.category) set.add(t.category) })
+    return Array.from(set)
+  }, [todos])
 
   const assigneeOptions = useMemo(() => {
     const set = new Set<string>(["2人で"])
@@ -144,9 +152,10 @@ export default function TodosPage() {
   const groups = useMemo(() => {
     if (groupBy === "category") {
       const byCat = new Map<string, Todo[]>()
-      CATEGORIES.forEach(c => byCat.set(c, []))
+      categoryOptions.forEach(c => byCat.set(c, []))
       visible.forEach(t => {
-        const k = byCat.has(t.category) ? t.category : "その他"
+        const k = t.category || "その他"
+        if (!byCat.has(k)) byCat.set(k, [])
         byCat.get(k)!.push(t)
       })
       return Array.from(byCat.entries())
@@ -169,7 +178,7 @@ export default function TodosPage() {
       else buckets[3].list.push(t)
     })
     return buckets.filter(b => b.list.length > 0)
-  }, [visible, groupBy])
+  }, [visible, groupBy, categoryOptions])
 
   return (
     <div className="min-h-screen bg-slate-950 pb-20">
@@ -221,7 +230,7 @@ export default function TodosPage() {
           ＋ テンプレートから取り込む（入籍・引っ越し・出産）
         </button>
 
-        <NewTodoForm scope={scope} assignees={assigneeOptions} onAdded={load} />
+        <NewTodoForm scope={scope} assignees={assigneeOptions} categories={categoryOptions} onAdded={load} />
 
         {/* 表示切替 */}
         <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -278,6 +287,7 @@ export default function TodosPage() {
                       key={t.id}
                       todo={t}
                       assignees={assigneeOptions}
+                      categories={categoryOptions}
                       onCancel={() => setEditingId(null)}
                       onSave={saveEdit}
                       onDelete={() => remove(t.id)}
@@ -369,9 +379,10 @@ function TodoRow({ todo, onToggle, onEdit }: { todo: Todo; onToggle: () => void;
   )
 }
 
-function EditRow({ todo, assignees, onCancel, onSave, onDelete }: {
+function EditRow({ todo, assignees, categories, onCancel, onSave, onDelete }: {
   todo: Todo
   assignees: string[]
+  categories: string[]
   onCancel: () => void
   onSave: (t: Todo) => Promise<void>
   onDelete: () => void
@@ -383,9 +394,16 @@ function EditRow({ todo, assignees, onCancel, onSave, onDelete }: {
     <div className="bg-slate-900 border border-blue-500/40 rounded-xl p-3 space-y-2">
       <input className={input} value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} />
       <div className="grid grid-cols-2 gap-2">
-        <select className={input} value={draft.category} onChange={e => setDraft({ ...draft, category: e.target.value })}>
-          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
+        <input
+          className={input}
+          list="todo-categories"
+          placeholder="カテゴリ"
+          value={draft.category}
+          onChange={e => setDraft({ ...draft, category: e.target.value })}
+        />
+        <datalist id="todo-categories">
+          {categories.map(c => <option key={c} value={c} />)}
+        </datalist>
         <input
           className={input}
           list="todo-assignees"
@@ -422,9 +440,10 @@ function EditRow({ todo, assignees, onCancel, onSave, onDelete }: {
   )
 }
 
-function NewTodoForm({ scope, assignees, onAdded }: {
+function NewTodoForm({ scope, assignees, categories, onAdded }: {
   scope: string
   assignees: string[]
+  categories: string[]
   onAdded: () => Promise<void>
 }) {
   const [open, setOpen] = useState(false)
@@ -462,9 +481,16 @@ function NewTodoForm({ scope, assignees, onAdded }: {
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-2">
       <input className={input} placeholder="やること（例：銀行口座の名義変更）" value={title} onChange={e => setTitle(e.target.value)} />
       <div className="grid grid-cols-2 gap-2">
-        <select className={input} value={category} onChange={e => setCategory(e.target.value)}>
-          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
+        <input
+          className={input}
+          list="todo-categories-new"
+          placeholder="カテゴリ（自由に作れます）"
+          value={category}
+          onChange={e => setCategory(e.target.value)}
+        />
+        <datalist id="todo-categories-new">
+          {categories.map(c => <option key={c} value={c} />)}
+        </datalist>
         <input className={input} list="todo-assignees-new" placeholder="担当" value={assignee} onChange={e => setAssignee(e.target.value)} />
         <datalist id="todo-assignees-new">
           {assignees.map(a => <option key={a} value={a} />)}
@@ -482,6 +508,11 @@ function NewTodoForm({ scope, assignees, onAdded }: {
   )
 }
 
+/** テンプレートごとの、最初からオンにしておく状況チェック */
+function defaultConds(t: TodoTemplate) {
+  return new Set(t.conditions.filter(c => c.defaultOn).map(c => c.key))
+}
+
 function TemplateModal({ scope, assignees, onClose, onDone }: {
   scope: string
   assignees: string[]
@@ -491,19 +522,24 @@ function TemplateModal({ scope, assignees, onClose, onDone }: {
   const [tpl, setTpl] = useState<TodoTemplate>(TODO_TEMPLATES[0])
   const [baseDate, setBaseDate] = useState(todayStr())
   const [assignee, setAssignee] = useState("2人で")
-  const [checked, setChecked] = useState<Set<string>>(
-    new Set(TODO_TEMPLATES[0].items.filter(i => !i.optional).map(i => i.key))
-  )
+  // 状況チェック。ここを切り替えると、対象になる項目が自動で入れ替わる
+  const [conds, setConds] = useState<Set<string>>(defaultConds(TODO_TEMPLATES[0]))
+  // ユーザーが個別に外した項目。状況チェックを変えても、その意思は残す
+  const [excluded, setExcluded] = useState<Set<string>>(new Set())
   const [result, setResult] = useState("")
+
+  const applicable = itemsFor(tpl, conds)
+  const selected = applicable.filter(i => !excluded.has(i.key))
 
   function switchTpl(t: TodoTemplate) {
     setTpl(t)
-    setChecked(new Set(t.items.filter(i => !i.optional).map(i => i.key)))
+    setConds(defaultConds(t))
+    setExcluded(new Set())
     setResult("")
   }
 
   async function importItems() {
-    const items = tpl.items.filter(i => checked.has(i.key))
+    const items = selected
     if (items.length === 0) throw new Error("取り込む項目を選んでください")
     const res = await fetch("/api/todos", {
       method: "POST",
@@ -557,6 +593,36 @@ function TemplateModal({ scope, assignees, onClose, onDone }: {
 
         <p className="text-xs text-slate-400 leading-relaxed bg-slate-800/50 rounded-lg p-2.5">{tpl.description}</p>
 
+        <div>
+          <p className="text-xs font-semibold text-slate-300 mb-1.5">当てはまるものにチェック</p>
+          <div className="flex flex-wrap gap-1.5">
+            {tpl.conditions.map(c => {
+              const on = conds.has(c.key)
+              return (
+                <button
+                  key={c.key}
+                  title={c.hint}
+                  onClick={() => setConds(prev => {
+                    const next = new Set(prev)
+                    if (next.has(c.key)) next.delete(c.key); else next.add(c.key)
+                    return next
+                  })}
+                  className={`text-xs px-2.5 py-1.5 rounded-full border transition-colors ${
+                    on
+                      ? "bg-blue-500/15 border-blue-500/50 text-blue-300"
+                      : "bg-slate-900 border-slate-700 text-slate-500"
+                  }`}
+                >
+                  {on ? "✓ " : ""}{c.label}
+                </button>
+              )
+            })}
+          </div>
+          <p className="text-[10px] text-slate-500 mt-1.5">
+            チェックを外した状況の手続き（例：車を持っていないなら車関係）はリストに出ません
+          </p>
+        </div>
+
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label className="text-xs text-slate-400 block mb-1">{tpl.baseLabel}</label>
@@ -572,16 +638,18 @@ function TemplateModal({ scope, assignees, onClose, onDone }: {
         </div>
 
         <div className="flex items-center justify-between text-xs">
-          <span className="text-slate-400">{checked.size} / {tpl.items.length} 件を選択中</span>
+          <span className="text-slate-400">
+            {selected.length} / {applicable.length} 件を選択中（全{tpl.items.length}件中、状況に該当するもの）
+          </span>
           <div className="flex gap-3">
-            <button onClick={() => setChecked(new Set(tpl.items.map(i => i.key)))} className="text-blue-400">すべて選択</button>
-            <button onClick={() => setChecked(new Set())} className="text-slate-500">すべて解除</button>
+            <button onClick={() => setExcluded(new Set())} className="text-blue-400">すべて選択</button>
+            <button onClick={() => setExcluded(new Set(applicable.map(i => i.key)))} className="text-slate-500">すべて解除</button>
           </div>
         </div>
 
         <div className="space-y-1.5">
-          {tpl.items.map(i => {
-            const on = checked.has(i.key)
+          {applicable.map(i => {
+            const on = !excluded.has(i.key)
             return (
               <label
                 key={i.key}
@@ -592,7 +660,7 @@ function TemplateModal({ scope, assignees, onClose, onDone }: {
                 <input
                   type="checkbox"
                   checked={on}
-                  onChange={() => setChecked(prev => {
+                  onChange={() => setExcluded(prev => {
                     const next = new Set(prev)
                     if (next.has(i.key)) next.delete(i.key); else next.add(i.key)
                     return next
@@ -604,7 +672,11 @@ function TemplateModal({ scope, assignees, onClose, onDone }: {
                   <div className="flex flex-wrap items-center gap-1.5 my-1">
                     <CategoryChip name={i.category} />
                     <span className="text-[10px] text-slate-500">期限目安：{offsetToDate(baseDate, i.dueOffsetDays)}</span>
-                    {i.optional && <span className="text-[10px] text-slate-500">該当者のみ</span>}
+                    {(i.requires ?? []).length > 0 && (
+                      <span className="text-[10px] text-slate-500">
+                        {i.requires!.map(k => tpl.conditions.find(c => c.key === k)?.label ?? k).join("・")}のため
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-slate-400 leading-relaxed">{i.detail}</p>
                 </div>
@@ -615,7 +687,7 @@ function TemplateModal({ scope, assignees, onClose, onDone }: {
 
         {result && <p className="text-sm text-green-400 text-center">{result}</p>}
 
-        <SaveButton label={`${checked.size}件を取り込む`} savedLabel="取り込みました" onSave={importItems} />
+        <SaveButton label={`${selected.length}件を取り込む`} savedLabel="取り込みました" onSave={importItems} />
         <p className="text-[10px] text-slate-500 text-center">
           同じ項目を二重に取り込むことはありません。取り込んだあとは1件ずつ期限・担当を変えられます
         </p>
