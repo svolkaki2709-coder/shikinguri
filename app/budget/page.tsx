@@ -266,10 +266,21 @@ function BudgetContent() {
   }, [year])
 
   // ─── 月次: グループ集計 ────────────────────────────────────────
+  // 予算も実績も無いカテゴリは、その月には関係が無いので既定では隠す。
+  // 新しく予算を入れたいときのために、トグルで出せるようにしてある。
+  const [showEmptyRows, setShowEmptyRows] = useState(false)
+
   const filteredBudgets = useMemo(() =>
     budgets
       .filter(b => b.cardType === cardTypeFilter)
+      .filter(b => showEmptyRows || b.budget !== 0 || b.actual !== 0)
       .sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999)),
+    [budgets, cardTypeFilter, showEmptyRows]
+  )
+
+  // 隠している件数（トグルの横に出す）
+  const hiddenRowCount = useMemo(
+    () => budgets.filter(b => b.cardType === cardTypeFilter && b.budget === 0 && b.actual === 0).length,
     [budgets, cardTypeFilter]
   )
 
@@ -765,6 +776,18 @@ function BudgetContent() {
                   </p>
                 </div>
               </div>
+            )}
+
+            {/* 予算も実績も無い行の表示切替 */}
+            {hiddenRowCount > 0 && (
+              <button
+                onClick={() => setShowEmptyRows(v => !v)}
+                className="w-full text-[11px] text-slate-500 hover:text-slate-300 py-1"
+              >
+                {showEmptyRows
+                  ? "今月動きのないカテゴリを隠す"
+                  : `今月動きのないカテゴリを表示（${hiddenRowCount}件）`}
+              </button>
             )}
 
             {/* 個人/共同トグル */}
