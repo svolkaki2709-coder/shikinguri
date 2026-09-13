@@ -67,3 +67,23 @@ export async function PUT(req: NextRequest) {
   }
   return NextResponse.json({ success: true })
 }
+
+/** 月末残高の記録を削除する（入力ミスの取り消し用） */
+export async function DELETE(req: NextRequest) {
+  const me = await requireUser()
+  if (!me) return unauthorized()
+
+  const { searchParams } = new URL(req.url)
+  const month = searchParams.get("month")
+  if (!month) return NextResponse.json({ error: "month は必須です" }, { status: 400 })
+
+  const isJoint = searchParams.get("card_type") === "joint"
+  const deleted = isJoint
+    ? await sql`DELETE FROM assets WHERE month = ${month} AND owner_user_id IS NULL RETURNING id`
+    : await sql`DELETE FROM assets WHERE month = ${month} AND owner_user_id = ${me.id} RETURNING id`
+
+  if (deleted.length === 0) {
+    return NextResponse.json({ error: "対象の記録が見つかりません" }, { status: 404 })
+  }
+  return NextResponse.json({ success: true })
+}

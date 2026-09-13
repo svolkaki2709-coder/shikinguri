@@ -119,6 +119,14 @@ export default function AssetsPage() {
     }
   }
 
+  async function handleDeleteAsset(m: string) {
+    if (!confirm(`${monthEndLabel(m)}時点の記録を削除しますか？`)) return
+    const res = await fetch(`/api/assets?month=${m}&card_type=${scope}`, { method: "DELETE" })
+    if (!res.ok) { alert("削除に失敗しました"); return }
+    setSaveMsg(`${monthEndLabel(m)}の記録を削除しました`)
+    fetchData()
+  }
+
   async function handleAddGoal() {
     if (!goalName || !goalAmount) return
     setAddingGoal(true)
@@ -351,7 +359,7 @@ export default function AssetsPage() {
                 </div>
                 {[...assets].reverse().map(a => (
                   <div key={a.month} className="flex items-center px-4 py-2 border-b last:border-0 text-sm">
-                    <span className="text-slate-400 w-20 shrink-0">{a.month}</span>
+                    <span className="text-slate-400 w-24 shrink-0">{monthEndLabel(a.month)}</span>
                     <div className="flex-1 space-y-0.5">
                       <div className="flex justify-between">
                         <span className="text-slate-400 text-xs">貯金</span>
@@ -363,6 +371,12 @@ export default function AssetsPage() {
                       </div>
                     </div>
                     <span className="font-semibold text-blue-400 ml-3">{toJPY(a.total)}</span>
+                    <button onClick={() => setMonth(a.month)}
+                      title="この月を編集する"
+                      className="text-[11px] text-slate-500 hover:text-blue-400 ml-2">編集</button>
+                    <button onClick={() => handleDeleteAsset(a.month)}
+                      title="この月の記録を削除する"
+                      className="text-slate-600 hover:text-red-400 text-lg leading-none ml-1 w-5">×</button>
                   </div>
                 ))}
               </div>
