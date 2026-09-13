@@ -280,6 +280,14 @@ function SettingsContent() {
   })
   const [rEndMonth, setREndMonth] = useState("")
 
+  // 個人⇔共同や支出⇔入金を切り替えたとき、選択中のカテゴリがその側に無ければ先頭に戻す。
+  // 残したままだと、別スコープのカテゴリ名で登録されてしまう。
+  useEffect(() => {
+    if (rEntryType === "income") return
+    const opts = recurringCategoryOptions(rUsageType, false)
+    if (opts.length > 0 && !opts.includes(rCategory)) setRCategory(opts[0])
+  }, [rUsageType, rEntryType, categoryRows])
+
   async function handleAddRecurring() {
     if (!rCategory || !rAmount) return
     if (!rCardId) {
@@ -759,7 +767,7 @@ function SettingsContent() {
                 ) : (
                   <select value={rCategory} onChange={e => setRCategory(e.target.value)}
                     className="w-full border rounded-lg px-3 py-2 text-sm bg-slate-900 text-slate-100">
-                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                    {recurringCategoryOptions(rUsageType, false).map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 )}
               </div>
