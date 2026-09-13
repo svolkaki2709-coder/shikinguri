@@ -1264,8 +1264,8 @@ function BudgetContent() {
                     })}
                   </tbody>
                   <tfoot>
-                    <tr className="border-t-2 border-slate-600 bg-gray-900 text-white sticky bottom-0">
-                      <td className="sticky left-0 z-10 bg-gray-900 px-3 py-2 font-bold text-sm">余剰</td>
+                    <tr className="border-t-2 border-slate-600 bg-gray-900 text-white sticky bottom-0 z-20">
+                      <td className="sticky left-0 z-30 bg-gray-900 px-3 py-2 font-bold text-sm">余剰</td>
                       {months.map(m => {
                         const { budget: sb, actual: sa } = surplusData.byMonth[m] ?? { budget: 0, actual: 0 }
                         return (
