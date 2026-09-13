@@ -92,6 +92,14 @@ export default function TodosPage() {
     return Array.from(set)
   }, [todos])
 
+  // どのテンプレートから何件入っているか（取り込みの取り消しに使う）
+  const importedTemplates = useMemo(() => {
+    return TODO_TEMPLATES.map(t => ({
+      tpl: t,
+      count: todos.filter(x => x.template_key?.startsWith(`${t.id}.`)).length,
+    })).filter(x => x.count > 0)
+  }, [todos])
+
   const assigneeOptions = useMemo(() => {
     const set = new Set<string>(["2人で"])
     members.forEach(m => set.add(m))
@@ -122,6 +130,23 @@ export default function TodosPage() {
   async function remove(id: number) {
     if (!confirm("この項目を削除しますか？")) return
     await fetch(`/api/todos?id=${id}`, { method: "DELETE" })
+    await load()
+  }
+
+  async function undoTemplate(tplId: string, name: string, count: number) {
+    if (!confirm(`「${name}」から取り込んだ${count}件をすべて削除します。よろしいですか？
+（完了済みのチェックも一緒に消えます）`)) return
+    await fetch(`/api/todos?template=${tplId}&card_type=${scope}`, { method: "DELETE" })
+    await load()
+  }
+
+  async function bulkAssignee(from: string, to: string) {
+    const res = await fetch("/api/todos", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bulk: "assignee", from, to, card_type: scope }),
+    })
+    if (!res.ok) throw new Error("変更に失敗しました")
     await load()
   }
 
@@ -229,6 +254,16 @@ export default function TodosPage() {
         >
           ＋ テンプレートから取り込む（入籍・引っ越し・出産）
         </button>
+
+        {importedTemplates.length > 0 && (
+          <ManagePanel
+            imported={importedTemplates}
+            assignees={assigneeOptions}
+            counts={todos.filter(t => !t.done)}
+            onUndo={undoTemplate}
+            onBulkAssignee={bulkAssignee}
+          />
+        )}
 
         <NewTodoForm scope={scope} assignees={assigneeOptions} categories={categoryOptions} onAdded={load} />
 
@@ -511,6 +546,91 @@ function NewTodoForm({ scope, assignees, categories, onAdded }: {
 /** テンプレートごとの、最初からオンにしておく状況チェック */
 function defaultConds(t: TodoTemplate) {
   return new Set(t.conditions.filter(c => c.defaultOn).map(c => c.key))
+}
+
+/**
+ * 取り込んだあとのやり直し。
+ * テンプレートは一度に数十件入るので、間違えたときに1件ずつ消させない。
+ */
+function ManagePanel({ imported, assignees, counts, onUndo, onBulkAssignee }: {
+  imported: { tpl: TodoTemplate; count: number }[]
+  assignees: string[]
+  counts: Todo[]
+  onUndo: (tplId: string, name: string, count: number) => Promise<void>
+  onBulkAssignee: (from: string, to: string) => Promise<void>
+}) {
+  const [open, setOpen] = useState(false)
+  const [from, setFrom] = useState(assignees[0] ?? "2人で")
+  const [to, setTo] = useState("")
+  const input = "w-full bg-slate-900 text-slate-100 border border-slate-700 rounded-lg px-2 py-2 text-sm"
+  const fromCount = counts.filter(t => t.assignee === from).length
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="w-full text-xs text-slate-500 hover:text-slate-300 py-1"
+      >
+        取り込みのやり直し・担当の一括変更
+      </button>
+    )
+  }
+
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-slate-200">取り込みのやり直し</h3>
+        <button onClick={() => setOpen(false)} className="text-slate-500 text-lg leading-none">×</button>
+      </div>
+
+      <div>
+        <p className="text-xs text-slate-400 mb-1.5">担当をまとめて変える（未完了のみ）</p>
+        <div className="flex items-center gap-2">
+          <select className={input} value={from} onChange={e => setFrom(e.target.value)}>
+            {assignees.map(a => <option key={a} value={a}>{a}（{counts.filter(t => t.assignee === a).length}）</option>)}
+          </select>
+          <span className="text-slate-500 text-sm">→</span>
+          <input className={input} list="bulk-assignees" placeholder="変更後の担当" value={to} onChange={e => setTo(e.target.value)} />
+          <datalist id="bulk-assignees">
+            {assignees.map(a => <option key={a} value={a} />)}
+          </datalist>
+        </div>
+        <div className="mt-2">
+          <SaveButton
+            label={`${fromCount}件の担当を変更する`}
+            savedLabel="変更しました"
+            onSave={async () => {
+              if (!to.trim()) throw new Error("変更後の担当を入れてください")
+              await onBulkAssignee(from, to.trim())
+            }}
+          />
+        </div>
+        <p className="text-[10px] text-slate-500 mt-1">
+          全部まとめて変えたあと、片方が担当する項目だけ個別に直すのが早いです
+        </p>
+      </div>
+
+      <div className="pt-2 border-t border-slate-800">
+        <p className="text-xs text-slate-400 mb-1.5">取り込みを取り消す（そのテンプレート由来の項目を全削除）</p>
+        <div className="space-y-1.5">
+          {imported.map(({ tpl, count }) => (
+            <div key={tpl.id} className="flex items-center justify-between gap-2">
+              <span className="text-sm text-slate-300">{tpl.name}（{count}件）</span>
+              <button
+                onClick={() => onUndo(tpl.id, tpl.name, count)}
+                className="text-xs text-red-400 border border-red-900 rounded-lg px-2.5 py-1.5 hover:bg-red-500/10 transition-colors shrink-0"
+              >
+                取り消す
+              </button>
+            </div>
+          ))}
+        </div>
+        <p className="text-[10px] text-slate-500 mt-1.5">
+          取り消したあとは、状況チェックと担当を選び直して取り込み直せます
+        </p>
+      </div>
+    </div>
+  )
 }
 
 function TemplateModal({ scope, assignees, onClose, onDone }: {

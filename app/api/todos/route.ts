@@ -79,6 +79,20 @@ export async function PATCH(req: NextRequest) {
   if (!me) return unauthorized()
 
   const b = await req.json()
+
+  // 取り込んだあとに「担当を分けたい」ケース。1件ずつ直すのは現実的でないので一括で付け替える
+  if (b.bulk === "assignee") {
+    const isJoint = b.card_type !== "self"
+    const from = String(b.from ?? "")
+    const to = String(b.to ?? "")
+    const updated = isJoint
+      ? await sql`UPDATE todos SET assignee = ${to}
+                  WHERE owner_user_id IS NULL AND assignee = ${from} AND done = FALSE RETURNING id`
+      : await sql`UPDATE todos SET assignee = ${to}
+                  WHERE owner_user_id = ${me.id} AND assignee = ${from} AND done = FALSE RETURNING id`
+    return NextResponse.json({ success: true, count: updated.length })
+  }
+
   if (!b.id) return NextResponse.json({ error: "id は必須です" }, { status: 400 })
 
   // 完了チェックだけを切り替えるケースが多いので、done だけの更新を分けている
@@ -115,6 +129,17 @@ export async function DELETE(req: NextRequest) {
 
   const { searchParams } = new URL(req.url)
   const id = searchParams.get("id")
+
+  // 取り込みの取り消し。そのテンプレート由来の項目（template_key が "marriage." で始まるもの）をまとめて消す
+  const template = searchParams.get("template")
+  if (template) {
+    const isJoint = searchParams.get("card_type") !== "self"
+    const prefix = `${template}.%`
+    const deleted = isJoint
+      ? await sql`DELETE FROM todos WHERE owner_user_id IS NULL AND template_key LIKE ${prefix} RETURNING id`
+      : await sql`DELETE FROM todos WHERE owner_user_id = ${me.id} AND template_key LIKE ${prefix} RETURNING id`
+    return NextResponse.json({ success: true, count: deleted.length })
+  }
 
   // 「完了したものをまとめて消す」用
   if (searchParams.get("done") === "1") {
