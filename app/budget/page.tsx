@@ -300,9 +300,10 @@ function BudgetContent() {
   const jointBudget = jointRows.filter(isPureExpense).reduce((s, r) => s + r.budget, 0)
   const incomeTotal = selfRows.filter(r => r.groupType === "収入").reduce((s, r) => s + r.actual, 0)
   const jointIncomeTotal = jointRows.filter(r => r.groupType === "収入").reduce((s, r) => s + r.actual, 0)
-  // 予実差: 支出予算に対して実績がどれだけ余ったか（プラス=予算内、マイナス=超過）
-  const selfVariance = selfBudget - selfActual
-  const jointVariance = jointBudget - jointActual
+  // 予実差 = 実績 − 予算。プラス＝予算オーバー（赤）、マイナス＝予算内。
+  // 「使いすぎがプラスで出る」ほうが直感に合うので、この向きで統一している。
+  const selfVariance = selfActual - selfBudget
+  const jointVariance = jointActual - jointBudget
 
   // ─── 年次: フィルタ・グループ集計 ─────────────────────────────
   const yearFiltered = useMemo(() =>
@@ -709,10 +710,13 @@ function BudgetContent() {
                   <p className="text-[11px] text-slate-400 mb-1">予算</p>
                   <p className="text-sm font-bold text-slate-300">{toJPY(selfBudget)}</p>
                 </div>
-                <div className={`rounded-xl shadow-sm p-3 text-center ${selfVariance >= 0 ? "bg-blue-500/10" : "bg-red-500/10"}`}>
+                <div className={`rounded-xl shadow-sm p-3 text-center ${selfVariance > 0 ? "bg-red-500/10" : "bg-blue-500/10"}`}>
                   <p className="text-[11px] text-slate-400 mb-1">予実差</p>
-                  <p className={`text-sm font-bold ${selfVariance >= 0 ? "text-blue-400" : "text-red-400"}`}>
-                    {selfVariance >= 0 ? "+" : ""}{toJPY(selfVariance)}
+                  <p className={`text-sm font-bold ${selfVariance > 0 ? "text-red-400" : "text-blue-400"}`}>
+                    {selfVariance > 0 ? "+" : ""}{toJPY(selfVariance)}
+                  </p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    {selfVariance > 0 ? "予算オーバー" : selfVariance === 0 ? "予算ちょうど" : "予算内"}
                   </p>
                 </div>
               </div>
@@ -732,10 +736,13 @@ function BudgetContent() {
                   <p className="text-[11px] text-slate-400 mb-1">予算</p>
                   <p className="text-sm font-bold text-slate-300">{toJPY(jointBudget)}</p>
                 </div>
-                <div className={`rounded-xl shadow-sm p-3 text-center ${jointVariance >= 0 ? "bg-amber-500/10" : "bg-red-500/10"}`}>
+                <div className={`rounded-xl shadow-sm p-3 text-center ${jointVariance > 0 ? "bg-red-500/10" : "bg-amber-500/10"}`}>
                   <p className="text-[11px] text-slate-400 mb-1">予実差</p>
-                  <p className={`text-sm font-bold ${jointVariance >= 0 ? "text-amber-400" : "text-red-400"}`}>
-                    {jointVariance >= 0 ? "+" : ""}{toJPY(jointVariance)}
+                  <p className={`text-sm font-bold ${jointVariance > 0 ? "text-red-400" : "text-amber-400"}`}>
+                    {jointVariance > 0 ? "+" : ""}{toJPY(jointVariance)}
+                  </p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    {jointVariance > 0 ? "予算オーバー" : jointVariance === 0 ? "予算ちょうど" : "予算内"}
                   </p>
                 </div>
               </div>
