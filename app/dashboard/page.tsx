@@ -160,7 +160,12 @@ export default function DashboardPage() {
   const viewBalance = viewNetIncome - viewTotal
 
   // ─── 予算サマリー（表示中の個人/共同） ───────────────────────
-  const viewBudgetRows = budgetRows.filter(b => b.cardType === viewType && budgetEffSign(b) === -1)
+  // 「支出」グループだけを見る。給与源泉税は手取りになる前に引かれていて
+  // 自分の意思で減らせるものではないし、投資・貯蓄は使ったお金ではないので、
+  // 予算の達成度としては混ぜない（予実ページの上部サマリーと同じ基準）。
+  const viewBudgetRows = budgetRows.filter(
+    b => b.cardType === viewType && budgetEffSign(b) === -1 && (b.groupType ?? "支出") === "支出"
+  )
   const budgetTotal = viewBudgetRows.reduce((s, b) => s + b.budget, 0)
   const budgetActual = viewBudgetRows.reduce((s, b) => s + b.actual, 0)
   const budgetRemaining = budgetTotal - budgetActual
@@ -213,6 +218,9 @@ export default function DashboardPage() {
         <p className="mt-1.5 text-[11px] text-slate-400">
           実績 {toJPY(budgetActual)} / 予算 {toJPY(budgetTotal)}
           <span className="ml-1">（{Math.round(budgetUsagePct)}%）</span>
+        </p>
+        <p className="text-[10px] text-slate-500 mt-0.5">
+          生活費（支出グループ）のみ。税・社会保険や投資・貯蓄は含みません
         </p>
 
         {/* 予算を超えたカテゴリ */}
