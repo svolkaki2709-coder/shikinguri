@@ -320,7 +320,25 @@ function SettingsContent() {
   }
 
   const [editingRecurringId, setEditingRecurringId] = useState<number | null>(null)
-  const [editRecurringCategory, setEditRecurringCategory] = useState("")
+  // 登録後に金額・日・カテゴリ・メモ・期間をまとめて直せるようにする
+  const [editRec, setEditRec] = useState<{
+    category: string; amount: string; day_of_month: string; memo: string
+    period: "forever" | "range" | "once"; start_month: string; end_month: string
+  } | null>(null)
+
+  function startEditRecurring(r: Recurring) {
+    setEditingRecurringId(r.id)
+    setEditRec({
+      category: r.category,
+      amount: String(r.amount),
+      day_of_month: String(r.day_of_month),
+      memo: r.memo ?? "",
+      period: !r.start_month && !r.end_month ? "forever"
+        : r.start_month && r.start_month === r.end_month ? "once" : "range",
+      start_month: r.start_month ?? "",
+      end_month: r.end_month ?? "",
+    })
+  }
 
   function recurringCategoryOptions(cardType: string, isIncome: boolean) {
     return categoryRows
@@ -332,15 +350,39 @@ function SettingsContent() {
       .map(c => c.name)
   }
 
-  async function handleSaveRecurringCategory(id: number) {
-    if (!editRecurringCategory) return
-    await fetch("/api/recurring", {
+  async function handleSaveRecurring(id: number) {
+    if (!editRec) return
+    const amount = Number(toHalfWidth(editRec.amount).replace(/,/g, ""))
+    if (!editRec.category || isNaN(amount) || amount === 0) {
+      alert("カテゴリと金額を確認してください")
+      return
+    }
+    const start = editRec.period === "forever" ? null : (editRec.start_month || null)
+    const end = editRec.period === "once" ? start
+      : editRec.period === "range" ? (editRec.end_month || null) : null
+    if (start && end && end < start) {
+      alert("終了月が開始月より前になっています")
+      return
+    }
+
+    const res = await fetch("/api/recurring", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, category: editRecurringCategory }),
+      body: JSON.stringify({
+        id,
+        category: editRec.category,
+        amount,
+        day_of_month: Number(editRec.day_of_month),
+        memo: editRec.memo,
+        start_month: start,
+        end_month: end,
+      }),
     })
-    setRecurring(prev => prev.map(r => r.id === id ? { ...r, category: editRecurringCategory } : r))
+    if (!res.ok) { alert("保存に失敗しました"); return }
+    const d = await fetch("/api/recurring").then(r => r.json())
+    setRecurring(d.recurring ?? [])
     setEditingRecurringId(null)
+    setEditRec(null)
   }
 
   async function handleSaveBudget() {
@@ -816,7 +858,83 @@ function SettingsContent() {
                   const isIncome = r.entry_type === "income"
                   const usageLabel = r.card_type === "joint" ? "共同" : "個人"
                   const usageColor = r.card_type === "joint" ? "#f59e0b" : "#6366f1"
-                  const isEditingCat = editingRecurringId === r.id
+                  const isEditing = editingRecurringId === r.id && editRec !== null
+                  if (isEditing && editRec) {
+                    const inputCls = "w-full border border-slate-700 rounded px-2 py-1.5 text-xs bg-slate-900 text-slate-100"
+                    const thisMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
+                    return (
+                      <div key={r.id} className="px-4 py-3 border-b last:border-0 bg-blue-500/5 space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[10px] text-slate-500 block mb-0.5">カテゴリ</label>
+                            <select value={editRec.category} onChange={e => setEditRec({ ...editRec, category: e.target.value })}
+                              className={inputCls}>
+                              {recurringCategoryOptions(r.card_type, isIncome).map(c => <option key={c} value={c}>{c}</option>)}
+                              {!recurringCategoryOptions(r.card_type, isIncome).includes(editRec.category) && (
+                                <option value={editRec.category}>{editRec.category}</option>
+                              )}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-slate-500 block mb-0.5">金額（円）</label>
+                            <input type="text" inputMode="numeric" value={editRec.amount}
+                              onChange={e => setEditRec({ ...editRec, amount: toHalfWidth(e.target.value).replace(/[^0-9-]/g, "") })}
+                              className={`${inputCls} text-right`} />
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-slate-500 block mb-0.5">引き落とし日</label>
+                            <select value={editRec.day_of_month} onChange={e => setEditRec({ ...editRec, day_of_month: e.target.value })}
+                              className={inputCls}>
+                              {Array.from({ length: 28 }, (_, i) => i + 1).map(d => <option key={d} value={d}>{d}日</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-slate-500 block mb-0.5">メモ</label>
+                            <input type="text" value={editRec.memo}
+                              onChange={e => setEditRec({ ...editRec, memo: e.target.value })}
+                              className={inputCls} />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-slate-500 block mb-0.5">いつからいつまで</label>
+                          <div className="flex rounded-lg bg-slate-800 p-1 gap-1 mb-1.5">
+                            {([["forever", "ずっと毎月"], ["range", "期間を決める"], ["once", "この月だけ"]] as const).map(([k, label]) => (
+                              <button key={k} type="button"
+                                onClick={() => setEditRec({ ...editRec, period: k, start_month: editRec.start_month || thisMonth })}
+                                className={`flex-1 py-1 rounded text-[11px] font-semibold transition-colors ${
+                                  editRec.period === k ? "bg-blue-600 text-white" : "text-slate-400"
+                                }`}>
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                          {editRec.period !== "forever" && (
+                            <div className="flex items-center gap-2">
+                              <input type="month" value={editRec.start_month}
+                                onChange={e => setEditRec({ ...editRec, start_month: e.target.value })}
+                                className={inputCls} />
+                              {editRec.period === "range" && (
+                                <>
+                                  <span className="text-slate-500 text-xs">〜</span>
+                                  <input type="month" value={editRec.end_month}
+                                    onChange={e => setEditRec({ ...editRec, end_month: e.target.value })}
+                                    className={inputCls} />
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex gap-2 pt-1">
+                          <button onClick={() => handleSaveRecurring(r.id)}
+                            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded py-1.5 text-xs font-semibold">保存</button>
+                          <button onClick={() => { setEditingRecurringId(null); setEditRec(null) }}
+                            className="px-3 border border-slate-700 text-slate-400 rounded py-1.5 text-xs">キャンセル</button>
+                          <button onClick={() => handleDeleteRecurring(r.id)}
+                            className="px-3 border border-red-900 text-red-400 rounded py-1.5 text-xs">削除</button>
+                        </div>
+                      </div>
+                    )
+                  }
                   return (
                     <div key={r.id} className="flex items-center px-4 py-2.5 border-b last:border-0">
                       <div className="flex-1 min-w-0">
@@ -828,26 +946,12 @@ function SettingsContent() {
                             style={{ backgroundColor: usageColor }}>
                             {usageLabel}
                           </span>
-                          {isEditingCat ? (
-                            <div className="flex items-center gap-1">
-                              <select value={editRecurringCategory} onChange={e => setEditRecurringCategory(e.target.value)}
-                                className="text-xs border border-slate-700 rounded px-1.5 py-0.5 bg-slate-900 text-slate-100 outline-none focus:ring-1 focus:ring-blue-400">
-                                {recurringCategoryOptions(r.card_type, isIncome).map(c => <option key={c} value={c}>{c}</option>)}
-                                {!recurringCategoryOptions(r.card_type, isIncome).includes(r.category) && <option value={r.category}>{r.category}</option>}
-                              </select>
-                              <button onClick={() => handleSaveRecurringCategory(r.id)}
-                                className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-0.5 rounded font-semibold">保存</button>
-                              <button onClick={() => setEditingRecurringId(null)}
-                                className="text-xs text-slate-500 hover:text-slate-300 px-1">キャンセル</button>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => { setEditingRecurringId(r.id); setEditRecurringCategory(r.category) }}
-                              className="text-sm font-medium text-slate-100 hover:text-blue-400 hover:underline"
-                              title="クリックしてカテゴリを変更">
-                              {r.category}
-                            </button>
-                          )}
+                          <button
+                            onClick={() => startEditRecurring(r)}
+                            className="text-sm font-medium text-slate-100 hover:text-blue-400 hover:underline"
+                            title="クリックして内容を変更">
+                            {r.category}
+                          </button>
                         </div>
                         <p className="text-xs text-slate-400">
                           {r.day_of_month}日
@@ -858,6 +962,8 @@ function SettingsContent() {
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <span className="text-sm font-semibold text-slate-300">{toJPY(r.amount)}</span>
+                        <button onClick={() => startEditRecurring(r)}
+                          className="text-[11px] text-slate-500 hover:text-blue-400 border border-slate-700 rounded px-2 py-1">編集</button>
                         <button onClick={() => handleDeleteRecurring(r.id)}
                           className="text-slate-600 hover:text-red-400 text-xl leading-none w-6">×</button>
                       </div>
