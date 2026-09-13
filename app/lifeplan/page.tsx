@@ -7,6 +7,7 @@ import { BottomNav } from "@/components/BottomNav"
 import { useViewMode } from "@/components/ViewModeContext"
 import { LIFE_EVENT_TEMPLATES, STREAM_TEMPLATES } from "@/lib/lifeEventTemplates"
 import { toMan, fmtMan, manToYen, yenToManStr } from "@/lib/money"
+import { JointContribution } from "@/components/JointContribution"
 import { LifePlanTools, type ToolRow, type PayslipHints } from "@/components/LifePlanTools"
 import { SaveButton } from "@/components/SaveButton"
 import {
@@ -44,7 +45,7 @@ interface CashRow {
   balance: number
 }
 
-type Tab = "cashflow" | "events" | "streams" | "tools" | "settings"
+type Tab = "cashflow" | "events" | "streams" | "share" | "tools" | "settings"
 
 const CATEGORY_COLORS: Record<string, string> = {
   教育: "bg-blue-500/15 text-blue-300",
@@ -295,6 +296,7 @@ function LifePlanContent() {
                 ["cashflow", "📊 キャッシュフロー"],
                 ["events", "🎯 ライフイベント"],
                 ["streams", "💰 収入・支出"],
+                ["share", "🤝 2人の分担"],
                 ["tools", "🧮 ツール"],
                 ["settings", "⚙️ 前提条件"],
               ] as const).map(([k, label]) => (
@@ -323,6 +325,16 @@ function LifePlanContent() {
               <StreamsTab
                 streams={streams} settings={settings} scope={scope} hints={hints}
                 onChanged={load} flash={flash} focusAndSelect={focusAndSelect}
+              />
+            )}
+            {tab === "share" && (
+              <JointContribution
+                members={members}
+                events={events}
+                hints={hints}
+                scope={scope}
+                saved={(tools.find(t => t.tool === "contribution")?.params ?? null) as never}
+                onSaved={load}
               />
             )}
             {tab === "tools" && (
