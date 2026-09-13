@@ -24,7 +24,9 @@ interface ImportLog {
 export default function ImportPage() {
   const { mode } = useViewMode()
   const isPC = mode === "pc"
-  const [cards, setCards] = useState<Card[]>([])
+  // 口座は個人・共同が混ざるので、どちらを扱っているかを明示して切り替える
+  const [scope, setScope] = useState<"self" | "joint">("self")
+  const [allCards, setAllCards] = useState<Card[]>([])
   const [cardId, setCardId] = useState<number | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
@@ -42,12 +44,26 @@ export default function ImportPage() {
 
   useEffect(() => {
     fetch("/api/cards").then(r => r.json()).then(d => {
-      const c = (d.cards ?? []).filter((card: Card) => card.has_csv)
-      setCards(c)
-      if (c.length > 0) setCardId(c[0].id)
+      const c: Card[] = (d.cards ?? []).filter((card: Card) => card.has_csv)
+      setAllCards(c)
+      // 最初は口座がある側を開く（個人に1つも無ければ共同から）
+      const first = c.some(x => x.card_type === "self") ? "self" : "joint"
+      setScope(first)
+      setCardId(c.find(x => x.card_type === first)?.id ?? null)
     })
     fetchLogs()
   }, [])
+
+  const cards = useMemo(
+    () => allCards.filter(c => (c.card_type === "joint" ? "joint" : "self") === scope),
+    [allCards, scope]
+  )
+
+  // スコープを切り替えたら、その側の先頭の口座を選び直す
+  useEffect(() => {
+    if (cards.length === 0) { setCardId(null); return }
+    if (!cards.some(c => c.id === cardId)) setCardId(cards[0].id)
+  }, [cards, cardId])
 
   async function fetchLogs() {
     const d = await fetch("/api/import-csv").then(r => r.json())
@@ -114,16 +130,40 @@ export default function ImportPage() {
         byId.delete(c.id)
       }
     }
+    // 表示中のスコープに無い口座の履歴は出さない。
+    // ただし削除済みの口座（cards に存在しない）は、どこにも出ないと確認できなくなるので残す。
+    const known = new Set(allCards.map(c => c.id))
     for (const [cid, cardLogs] of byId) {
-      groups.push({ cardId: cid, cardName: cardLogs[0].card_name, color: "#9ca3af", logs: cardLogs })
+      if (known.has(cid)) continue
+      groups.push({ cardId: cid, cardName: `${cardLogs[0].card_name}（削除済み）`, color: "#9ca3af", logs: cardLogs })
     }
     return groups
-  }, [logs, cards])
+  }, [logs, cards, allCards])
 
   const selectedIsBank = cards.find(c => c.id === cardId)?.kind === "bank"
 
+  const scopeCount = (s: "self" | "joint") => allCards.filter(c => (c.card_type === "joint" ? "joint" : "self") === s).length
+
   const FormCard = (
     <div className="space-y-3">
+      {/* 個人／共同の切替 */}
+      <div className="flex gap-2">
+        {([["self", "🙋 個人"], ["joint", "👫 共同"]] as const).map(([s, label]) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => setScope(s)}
+            className={`flex-1 rounded-xl py-2 text-sm font-semibold transition-colors ${
+              scope === s
+                ? "bg-blue-600 text-white"
+                : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-200"
+            }`}
+          >
+            {label}
+            <span className="ml-1.5 text-xs opacity-70">{scopeCount(s)}</span>
+          </button>
+        ))}
+      </div>
       {/* 説明 */}
       <div className="bg-blue-500/10 rounded-xl p-3 text-sm text-blue-300 space-y-1">
         {selectedIsBank ? (
@@ -167,8 +207,8 @@ export default function ImportPage() {
               ))}
               {cards.length === 0 && (
                 <p className="text-xs text-amber-400 bg-amber-500/10 rounded-lg px-3 py-2">
-                  CSV取込に対応した口座がありません。設定 → カテゴリ → 口座・支払方法 で
-                  対象の口座の「CSV」ボタンをONにしてください。
+                  {scope === "self" ? "個人" : "共同"}側に、CSV取込に対応した口座がありません。
+                  設定 → カテゴリ → 口座・支払方法 で対象の口座の「CSV」ボタンをONにしてください。
                 </p>
               )}
             </div>
