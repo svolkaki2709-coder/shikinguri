@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useCallback, useRef, useState } from "react"
 
 /**
  * 金額のインライン編集用の入力欄。
@@ -26,15 +26,24 @@ export function AmountInput({ value, onChange, onCommit, onCancel, className = "
   const fresh = useRef(true)
   const [, force] = useState(0)
 
+  // ref に無名関数を渡すと再レンダリングのたびに呼ばれてしまい、
+  // 1文字打つたびに全選択が走って前の文字が消える（半角で1桁しか入らない）。
+  // 最初に付いたときだけフォーカスするよう、関数を固定して1回に限定する。
+  const focused = useRef(false)
+  const attach = useCallback((el: HTMLInputElement | null) => {
+    if (!el || focused.current) return
+    focused.current = true
+    el.focus()
+    el.select()
+  }, [])
+
   return (
     <input
       type="text"
       inputMode="numeric"
       autoComplete="off"
       value={value}
-      ref={el => {
-        if (el) { el.focus(); el.select() }
-      }}
+      ref={attach}
       onChange={e => onChange(fmtAmount(e.target.value))}
       onKeyDown={e => {
         if (e.key === "Enter") { e.currentTarget.blur(); return }
@@ -68,10 +77,17 @@ export function AmountInput({ value, onChange, onCommit, onCancel, className = "
   )
 }
 
-/** 入力中の見た目を3桁区切りに整える（数字以外はそのまま返す） */
+/**
+ * 入力中の見た目を3桁区切りに整える。
+ * 全角で打たれた数字（１２３・，）は半角に直してから扱う。
+ * 日本語入力のまま金額を打つことは普通にあるので、ここで吸収しないと保存時に NaN になる。
+ */
 export function fmtAmount(v: string): string {
-  const raw = v.replace(/,/g, "")
+  const half = v
+    .replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+    .replace(/[，、]/g, ",")
+  const raw = half.replace(/,/g, "")
   if (raw === "") return ""
-  if (!/^\d+$/.test(raw)) return v
+  if (!/^\d+$/.test(raw)) return half
   return Number(raw).toLocaleString()
 }
