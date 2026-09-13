@@ -987,7 +987,7 @@ function BudgetContent() {
                 <table className="text-xs border-collapse w-full" style={{ minWidth: `${140 + months.length * 90 + 100 + 110}px` }}>
                   <thead>
                     <tr className="bg-slate-800 text-white sticky top-0 z-10">
-                      <th className="text-left px-3 py-2 font-semibold sticky left-0 bg-slate-800 z-20 min-w-[140px]">
+                      <th className="text-left px-3 py-2 font-semibold sticky left-0 bg-slate-800 z-30 min-w-[140px]">
                         カテゴリ
                         <span className="block text-[10px] font-normal text-blue-300 mt-0.5">
                           表示: {viewMode === "budget" ? "予算" : viewMode === "actual" ? "実績" : viewMode === "diff" ? "差額" : "予算/実績"}
@@ -1030,7 +1030,7 @@ function BudgetContent() {
                         <>
                           {/* グループヘッダー行 */}
                           <tr key={`grp-${group}`} className={`border-b ${gc?.header ?? "bg-slate-700 text-white"}`}>
-                            <td className={`sticky left-0 px-3 py-1 font-bold text-xs ${gc?.header ?? "bg-slate-700 text-white"}`}>
+                            <td className={`sticky left-0 z-10 px-3 py-1 font-bold text-xs ${gc?.header ?? "bg-slate-700 text-white"}`}>
                               {group}
                             </td>
                             {months.map(m => {
@@ -1111,7 +1111,7 @@ function BudgetContent() {
                             return (
                               <tr key={`${row.name}-${row.cardType}`}
                                 className={`border-b border-slate-800 hover:bg-yellow-500/10 transition-colors ${gc?.row ?? "bg-slate-900"}`}>
-                                <td className={`sticky left-0 px-3 py-1.5 ${gc?.row ?? "bg-slate-900"} border-r border-slate-800`}>
+                                <td className={`sticky left-0 z-10 px-3 py-1.5 bg-slate-900 border-r border-slate-800 ${gc?.border ?? ""} border-l-4`}>
                                   <span className={`font-medium ${gc?.text ?? "text-slate-300"}`}>{row.name}</span>
                                 </td>
                                 {months.map(m => {
@@ -1285,7 +1285,7 @@ function BudgetContent() {
                   </tbody>
                   <tfoot>
                     <tr className="border-t-2 border-slate-600 bg-gray-900 text-white sticky bottom-0">
-                      <td className="sticky left-0 bg-gray-900 px-3 py-2 font-bold text-sm">余剰</td>
+                      <td className="sticky left-0 z-10 bg-gray-900 px-3 py-2 font-bold text-sm">余剰</td>
                       {months.map(m => {
                         const { budget: sb, actual: sa } = surplusData.byMonth[m] ?? { budget: 0, actual: 0 }
                         return (
