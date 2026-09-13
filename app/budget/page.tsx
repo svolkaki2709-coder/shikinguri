@@ -301,6 +301,12 @@ function BudgetContent() {
   const jointBudget = jointRows.filter(isPureExpense).reduce((s, r) => s + r.budget, 0)
   const incomeTotal = selfRows.filter(r => r.groupType === "収入").reduce((s, r) => s + r.actual, 0)
   const jointIncomeTotal = jointRows.filter(r => r.groupType === "収入").reduce((s, r) => s + r.actual, 0)
+  // 手取り = 収入 − 税金グループ（給与源泉税など、給与から天引きされるもの）。
+  // 税金グループの actual は符号を正に揃えて入ってくるのでそのまま引く。
+  const selfTaxTotal = selfRows.filter(r => r.groupType === "税金").reduce((s, r) => s + r.actual, 0)
+  const jointTaxTotal = jointRows.filter(r => r.groupType === "税金").reduce((s, r) => s + r.actual, 0)
+  const selfNetIncome = incomeTotal - selfTaxTotal
+  const jointNetIncome = jointIncomeTotal - jointTaxTotal
   // 予実差 = 実績 − 予算。プラス＝予算オーバー（赤）、マイナス＝予算内。
   // 「使いすぎがプラスで出る」ほうが直感に合うので、この向きで統一している。
   const selfVariance = selfActual - selfBudget
@@ -700,6 +706,12 @@ function BudgetContent() {
                 <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 text-center">
                   <p className="text-[11px] text-slate-400 mb-1">収入</p>
                   <p className="text-sm font-bold text-green-400">{toJPY(incomeTotal)}</p>
+                  {selfTaxTotal > 0 && (
+                    <>
+                      <p className="text-[11px] text-slate-300 mt-1">手取り {toJPY(selfNetIncome)}</p>
+                      <p className="text-[10px] text-slate-500">税・社会保険 −{toJPY(selfTaxTotal)}</p>
+                    </>
+                  )}
                 </div>
                 <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 text-center">
                   <p className="text-[11px] text-slate-400 mb-1">支出</p>
@@ -726,6 +738,12 @@ function BudgetContent() {
                 <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 text-center">
                   <p className="text-[11px] text-slate-400 mb-1">入金</p>
                   <p className="text-sm font-bold text-green-400">{toJPY(jointIncomeTotal)}</p>
+                  {jointTaxTotal > 0 && (
+                    <>
+                      <p className="text-[11px] text-slate-300 mt-1">手取り {toJPY(jointNetIncome)}</p>
+                      <p className="text-[10px] text-slate-500">税・社会保険 −{toJPY(jointTaxTotal)}</p>
+                    </>
+                  )}
                 </div>
                 <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 text-center">
                   <p className="text-[11px] text-slate-400 mb-1">支出</p>
