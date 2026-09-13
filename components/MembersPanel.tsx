@@ -23,6 +23,8 @@ export function MembersPanel({ isPC }: { isPC: boolean }) {
   const [name, setName] = useState("")
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null)
+  // 編集中のメンバー（表示名・メールアドレスの変更）
+  const [editing, setEditing] = useState<{ id: number; name: string; email: string } | null>(null)
 
   async function load() {
     setLoading(true)
@@ -93,6 +95,36 @@ export function MembersPanel({ isPC }: { isPC: boolean }) {
       body: JSON.stringify({ id: m.id, is_active: next }),
     })
     if (!res.ok) { const d = await res.json(); alert(d.error ?? "変更に失敗しました"); return }
+    load()
+  }
+
+  async function handleSaveMember() {
+    if (!editing) return
+    const before = members.find(m => m.id === editing.id)
+    const addrChanged = before && before.email.toLowerCase() !== editing.email.trim().toLowerCase()
+    if (addrChanged && !confirm(
+      `ログイン用のアドレスを
+${before!.email}
+→ ${editing.email.trim()}
+に変更します。
+
+` +
+      `・変更後は新しいアドレスのGoogleアカウントでしかログインできません
+` +
+      `・記録済みのデータはそのまま引き継がれます
+
+よろしいですか？`
+    )) return
+
+    const res = await fetch("/api/members", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: editing.id, display_name: editing.name, email: editing.email }),
+    })
+    const d = await res.json()
+    if (!res.ok) { setMsg({ type: "err", text: d.error ?? "変更に失敗しました" }); return }
+    setMsg({ type: "ok", text: `${d.member.display_name || d.member.email} の情報を更新しました` })
+    setEditing(null)
     load()
   }
 
@@ -194,9 +226,45 @@ export function MembersPanel({ isPC }: { isPC: boolean }) {
                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 font-semibold">停止中</span>
                 )}
               </div>
-              <p className="text-[11px] text-slate-500 truncate">{m.email}</p>
+              {editing?.id === m.id ? (
+                <div className="space-y-1.5 mt-1.5">
+                  <input
+                    value={editing.name}
+                    onChange={e => setEditing({ ...editing, name: e.target.value })}
+                    placeholder="表示名"
+                    className="w-full bg-slate-900 text-slate-100 border border-slate-700 rounded-lg px-2 py-1.5 text-sm"
+                  />
+                  <input
+                    value={editing.email}
+                    onChange={e => setEditing({ ...editing, email: e.target.value })}
+                    placeholder="ログイン用のGoogleアカウント"
+                    inputMode="email"
+                    className="w-full bg-slate-900 text-slate-100 border border-slate-700 rounded-lg px-2 py-1.5 text-sm"
+                  />
+                  <div className="flex gap-1.5">
+                    <button onClick={handleSaveMember}
+                      className="flex-1 bg-blue-600 text-white rounded-lg py-1.5 text-xs font-semibold hover:bg-blue-700 transition-colors">
+                      保存
+                    </button>
+                    <button onClick={() => setEditing(null)}
+                      className="px-3 rounded-lg border border-slate-700 text-xs text-slate-400">
+                      取消
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-[11px] text-slate-500 truncate">{m.email}</p>
+              )}
             </div>
-            {isOwner && m.role !== "owner" && (
+            {editing?.id !== m.id && (isOwner || m.id === meId) && (
+              <button
+                onClick={() => setEditing({ id: m.id, name: m.display_name ?? "", email: m.email })}
+                className="text-[11px] px-2 py-1 rounded border border-slate-700 text-slate-400 hover:text-slate-100 hover:border-slate-600 transition-colors shrink-0"
+              >
+                変更
+              </button>
+            )}
+            {isOwner && m.role !== "owner" && editing?.id !== m.id && (
               <div className="flex items-center gap-1.5 shrink-0">
                 <button onClick={() => handleToggleActive(m)}
                   className="text-[11px] px-2 py-1 rounded border border-slate-700 text-slate-400 hover:text-slate-100 hover:border-slate-600 transition-colors">

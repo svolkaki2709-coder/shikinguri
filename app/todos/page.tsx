@@ -69,11 +69,18 @@ export default function TodosPage() {
 
   useEffect(() => { load() }, [scope])
   useEffect(() => {
-    // 担当者の候補はライフプランの家族構成から拾う（アプリ上で人を増やせば選択肢も増える）
-    fetch("/api/lifeplan?card_type=joint")
-      .then(r => r.json())
-      .then(d => setMembers((d.members ?? []).map((m: { name: string }) => m.name)))
-      .catch(() => {})
+    // 担当者の候補は、世帯メンバー（設定で招待した相手）とライフプランの家族構成の両方から拾う。
+    // 招待した相手が候補に出ないと、担当を分けられない。
+    Promise.all([
+      fetch("/api/members").then(r => r.json()).catch(() => ({})),
+      fetch("/api/lifeplan?card_type=joint").then(r => r.json()).catch(() => ({})),
+    ]).then(([mem, life]) => {
+      const names = [
+        ...(mem.members ?? []).map((u: { display_name: string | null; email: string }) => u.display_name || u.email),
+        ...(life.members ?? []).map((m: { name: string }) => m.name),
+      ].filter(Boolean)
+      setMembers(Array.from(new Set<string>(names)))
+    })
   }, [])
 
   async function load() {

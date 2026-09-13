@@ -69,12 +69,12 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ member: created, seed })
 }
 
-// 有効／停止の切り替え、表示名の変更
+// 有効／停止の切り替え、表示名・メールアドレスの変更
 export async function PATCH(req: NextRequest) {
   const me = await requireUser()
   if (!me) return unauthorized()
 
-  const { id, is_active, display_name } = await req.json()
+  const { id, is_active, display_name, email } = await req.json()
   if (!id) return NextResponse.json({ error: "id は必須です" }, { status: 400 })
 
   const targetId = Number(id)
@@ -89,10 +89,28 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "世帯の管理者は停止できません" }, { status: 400 })
   }
 
+  // メールアドレスはログインの識別子そのもの。変更すると旧アドレスではログインできなくなるので、
+  // 形式と重複を確認してから差し替える（変更できるのは owner か本人）。
+  let addr: string | null = null
+  if (typeof email === "string" && email.trim()) {
+    if (targetId !== me.id && !(await isOwner(me.id))) return forbidden()
+    addr = email.trim().toLowerCase()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr)) {
+      return NextResponse.json({ error: "メールアドレスの形式が正しくありません" }, { status: 400 })
+    }
+    const dup = await sql<{ id: number }>`
+      SELECT id FROM users WHERE lower(email) = ${addr} AND id <> ${targetId} LIMIT 1
+    `
+    if (dup.length > 0) {
+      return NextResponse.json({ error: "このアドレスは他のメンバーが使っています" }, { status: 400 })
+    }
+  }
+
   const [updated] = await sql<MemberRow>`
     UPDATE users SET
       is_active    = COALESCE(${changingActive ? is_active : null}, is_active),
-      display_name = COALESCE(${display_name?.trim() || null}, display_name)
+      display_name = COALESCE(${display_name?.trim() || null}, display_name),
+      email        = COALESCE(${addr}, email)
     WHERE id = ${targetId}
     RETURNING id, email, display_name, role, is_active, created_at::text
   `
