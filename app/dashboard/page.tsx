@@ -74,6 +74,8 @@ export default function DashboardPage() {
   // 給与から天引きされた分（源泉税・社会保険料）。手取りの表示に使う
   const [deductionTotal, setDeductionTotal] = useState(0)
   const [jointDeductionTotal, setJointDeductionTotal] = useState(0)
+  // 当月の支出をグループ別に分けたもの（生活費／投資・貯蓄／立替）
+  const [groupTotals, setGroupTotals] = useState<{ groupType: string; self: number; joint: number }[]>([])
   const [assets, setAssets] = useState<AssetRow[]>([])
   const [budgetRows, setBudgetRows] = useState<BudgetRow[]>([])
   const [recentTx, setRecentTx] = useState<TxRow[]>([])
@@ -105,6 +107,7 @@ export default function DashboardPage() {
         setIncomeTotal(d.incomeTotal ?? 0)
         setDeductionTotal(d.deductionTotal ?? 0)
         setJointDeductionTotal(d.jointDeductionTotal ?? 0)
+        setGroupTotals(d.groupTotals ?? [])
         setBudgetRows(budgetData.budgets ?? [])
         // 履歴は個人/共同を問わず取得しているため、表示中のタブに絞ってから件数を切る
         setRecentTx(
@@ -158,6 +161,14 @@ export default function DashboardPage() {
   // 手取り＝額面 − 天引き。収支はこの手取りベースで見ないと、実際より多く残っているように見える
   const viewNetIncome = viewIncome - viewDeduction
   const viewBalance = viewNetIncome - viewTotal
+
+  // 支出の内訳。上の「予算差引」は生活費だけを見ているので、
+  // 差がどこから来ているのかをここで示す。
+  const groupAmount = (g: string) =>
+    groupTotals.filter(r => r.groupType === g).reduce((s, r) => s + (viewType === "self" ? r.self : r.joint), 0)
+  const livingTotal = groupAmount("支出")
+  const investSaveTotal = groupAmount("投資") + groupAmount("貯蓄")
+  const advanceTotal = groupAmount("立替")
 
   // ─── 予算サマリー（表示中の個人/共同） ───────────────────────
   // 「支出」グループだけを見る。給与源泉税は手取りになる前に引かれていて
@@ -323,6 +334,13 @@ export default function DashboardPage() {
           <div>
             <p className="text-xs text-slate-400">支出</p>
             <p className="text-sm font-bold text-red-400">{toJPY(viewTotal)}</p>
+            {(investSaveTotal > 0 || advanceTotal > 0) && (
+              <p className="text-[10px] text-slate-500 leading-tight">
+                生活費 {toJPY(livingTotal)}
+                {investSaveTotal > 0 && <><br />投資・貯蓄 {toJPY(investSaveTotal)}</>}
+                {advanceTotal > 0 && <><br />立替 {toJPY(advanceTotal)}</>}
+              </p>
+            )}
           </div>
           <div>
             <p className="text-xs text-slate-400">収支</p>

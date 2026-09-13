@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     // 個人/共同トグルに連動させる（カテゴリ別内訳が両方を合算していた不具合）
     const viewJoint = searchParams.get("view_type") === "joint"
 
-    const [monthly, cardSummary, categoryBreakdown, incomeTotal, deductions, latestAssets, budgetVsActual] =
+    const [monthly, cardSummary, categoryBreakdown, incomeTotal, deductions, groupTotals, latestAssets, budgetVsActual] =
       await Promise.all([
         // 過去12ヶ月の月次合計（個人/共同別）
         sql`
@@ -78,6 +78,21 @@ export async function GET(req: NextRequest) {
           WHERE TO_CHAR(date, 'YYYY-MM') = ${month} AND amount < 0
             AND (owner_user_id IS NULL OR owner_user_id = ${me.id})
         `,
+        // 当月の支出をグループ別に分ける。
+        // 「支出」以外（投資・貯蓄・立替）も口座からは出ていくが、使い切ったお金ではないので
+        // 予算の達成度とは分けて見せる必要がある。
+        sql`
+          SELECT
+            COALESCE(c.group_type, '支出') AS group_type,
+            COALESCE(SUM(CASE WHEN t.owner_user_id = ${me.id} THEN t.amount ELSE 0 END), 0) AS self_total,
+            COALESCE(SUM(CASE WHEN t.owner_user_id IS NULL THEN t.amount ELSE 0 END), 0) AS joint_total
+          FROM transactions t
+          LEFT JOIN categories c
+            ON c.name = t.category AND COALESCE(c.owner_user_id, 0) = COALESCE(t.owner_user_id, 0)
+          WHERE TO_CHAR(t.date, 'YYYY-MM') = ${month}
+            AND (t.owner_user_id IS NULL OR t.owner_user_id = ${me.id})
+          GROUP BY COALESCE(c.group_type, '支出')
+        `,
         sql`SELECT * FROM assets WHERE owner_user_id = ${me.id} ORDER BY month DESC LIMIT 1`,
         // 予算 vs 実績（当月）
         // 実績側はカテゴリ名だけでなくスコープも一致させる。
@@ -124,6 +139,11 @@ export async function GET(req: NextRequest) {
       })),
       incomeTotal: Number(incomeTotal[0]?.total ?? 0),
       deductionTotal: Number(deductions[0]?.self_total ?? 0),
+      groupTotals: groupTotals.map(r => ({
+        groupType: r.group_type as string,
+        self: Number(r.self_total),
+        joint: Number(r.joint_total),
+      })),
       jointDeductionTotal: Number(deductions[0]?.joint_total ?? 0),
       latestAssets: latestAssets[0] ?? null,
       budgetVsActual: budgetVsActual.map((r) => ({
