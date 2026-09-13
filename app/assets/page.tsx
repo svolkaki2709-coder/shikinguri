@@ -61,17 +61,20 @@ export default function AssetsPage() {
   const [addingGoal, setAddingGoal] = useState(false)
 
   const [loadError, setLoadError] = useState("")
+  // 資産は個人と共同で別系列。どちらを記録しているかを画面で分かるようにする
+  const [scope, setScope] = useState<"self" | "joint">("self")
 
   useEffect(() => {
     fetchData()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope])
 
   async function fetchData() {
     setLoading(true)
     setLoadError("")
     try {
       const [assetData, goalData] = await Promise.all([
-        fetch("/api/assets").then(r => r.json()),
+        fetch(`/api/assets?card_type=${scope}`).then(r => r.json()),
         fetch("/api/goals").then(r => r.json()),
       ])
       setAssets(assetData.assets ?? [])
@@ -101,6 +104,7 @@ export default function AssetsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           month,
+          card_type: scope,
           // 未入力欄は null で送り、サーバー側で既存値を維持させる
           savings_balance: savings === "" ? null : Number(savings),
           investment_balance: investment === "" ? null : Number(investment),
@@ -172,6 +176,19 @@ export default function AssetsPage() {
 
         {!loading && (
           <>
+            <div className="flex gap-2">
+              {([["self", "🙋 個人"], ["joint", "👫 共同"]] as const).map(([k, label]) => (
+                <button key={k} onClick={() => setScope(k)}
+                  className={`flex-1 rounded-xl py-2 text-sm font-semibold transition-colors ${
+                    scope === k ? "bg-blue-600 text-white" : "bg-slate-900 text-slate-400 border border-slate-800"
+                  }`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-slate-500 -mt-1">
+              ここで記録した残高が、ライフプランの「現在の資産」としてそのまま使われます
+            </p>
             {/* 最新残高サマリー */}
             {latest && (
               <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3">

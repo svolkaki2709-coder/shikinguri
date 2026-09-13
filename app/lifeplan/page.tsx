@@ -33,7 +33,7 @@ interface LifeEvent {
   id: number; year: number; name: string; category: string; kind: "income" | "expense"
   amount: number; repeat_years: number; inflate: boolean; member_id: number | null; note: string
 }
-interface ActualHints { annualExpense: number; annualIncome: number; savings: number; investment: number; nisaAnnual?: number }
+interface ActualHints { annualExpense: number; annualIncome: number; savings: number; investment: number; nisaAnnual?: number; assetMonth?: string | null }
 
 interface CashRow {
   year: number
@@ -154,11 +154,21 @@ function LifePlanContent() {
   //   年間収支 = 収入合計 − 支出合計
   //   資産残高 = 前年残高 ×(1+運用利回り) + 年間収支
   // 金額は「現在の物価での金額」で登録し、経過年数ぶんの上昇率を掛けて将来価値に直す。
+  // 開始残高は「資産管理」で記録した最新の月末残高を使う。
+  // 前提条件の手入力は、まだ資産を1度も記録していないときの代わり。
+  const recordedAssets = (hints?.savings ?? 0) + (hints?.investment ?? 0)
+  const startAssets = recordedAssets > 0
+    ? recordedAssets
+    : (settings ? settings.initial_savings + settings.initial_investment : 0)
+  const assetSource = recordedAssets > 0
+    ? (hints?.assetMonth ? `${hints.assetMonth.slice(0, 4)}年${Number(hints.assetMonth.slice(5, 7))}月末の記録` : "資産管理の記録")
+    : "前提条件の手入力"
+
   const cashFlow = useMemo<CashRow[]>(() => {
     if (!settings) return []
     const infl = settings.inflation_rate / 100
     const ret = settings.return_rate / 100
-    let balance = settings.initial_savings + settings.initial_investment
+    let balance = startAssets
     const rows: CashRow[] = []
 
     for (let i = 0; i < settings.years; i++) {
@@ -199,7 +209,7 @@ function LifePlanContent() {
       })
     }
     return rows
-  }, [settings, streams, events, members])
+  }, [settings, streams, events, members, startAssets])
 
   // 資金ショート（残高がマイナスになる最初の年）と、期間中の最低残高
   const shortfall = useMemo(() => cashFlow.find(r => r.balance < 0) ?? null, [cashFlow])
@@ -313,6 +323,7 @@ function LifePlanContent() {
               <CashFlowTab
                 rows={cashFlow} chartData={chartData} shortfall={shortfall} trough={trough}
                 members={members} settings={settings} isPC={isPC}
+                startAssets={startAssets} assetSource={assetSource}
               />
             )}
             {tab === "events" && (
@@ -415,7 +426,7 @@ function OnboardingCard({ hints, onStart, scope }: {
 // ═══════════════════════════════════════════════════════════════
 // キャッシュフロー表
 // ═══════════════════════════════════════════════════════════════
-function CashFlowTab({ rows, chartData, shortfall, trough, members, settings, isPC }: {
+function CashFlowTab({ rows, chartData, shortfall, trough, members, settings, isPC, startAssets, assetSource }: {
   rows: CashRow[]
   chartData: { year: string; 収入: number; 支出: number; 資産残高: number }[]
   shortfall: CashRow | null
@@ -423,6 +434,8 @@ function CashFlowTab({ rows, chartData, shortfall, trough, members, settings, is
   members: Member[]
   settings: Settings
   isPC: boolean
+  startAssets: number
+  assetSource: string
 }) {
   if (rows.length === 0) {
     return <p className="text-center text-slate-500 text-sm py-10">前提条件を設定してください</p>
@@ -463,7 +476,7 @@ function CashFlowTab({ rows, chartData, shortfall, trough, members, settings, is
 
       {/* サマリーカード */}
       <div className={`grid ${isPC ? "grid-cols-4" : "grid-cols-2"} gap-2`}>
-        <SummaryCard label="現在の資産" value={`${fmtMan(settings.initial_savings + settings.initial_investment)}万円`} />
+        <SummaryCard label="現在の資産" value={`${fmtMan(startAssets)}万円`} sub={assetSource} />
         <SummaryCard label="最低残高" value={trough ? `${fmtMan(trough.balance)}万円` : "—"}
           sub={trough ? `${trough.year}年` : ""} danger={!!trough && trough.balance < 0} />
         <SummaryCard label={`${last.year}年の残高`} value={`${fmtMan(last.balance)}万円`}

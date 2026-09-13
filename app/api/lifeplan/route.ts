@@ -65,8 +65,8 @@ export async function GET(req: NextRequest) {
           WHERE owner_user_id = ${me.id} AND date >= ${sinceStr} AND amount > 0
         `,
     isJoint
-      ? sql`SELECT savings_balance, investment_balance FROM assets WHERE owner_user_id IS NULL ORDER BY month DESC LIMIT 1`
-      : sql`SELECT savings_balance, investment_balance FROM assets WHERE owner_user_id = ${me.id} ORDER BY month DESC LIMIT 1`,
+      ? sql`SELECT month, savings_balance, investment_balance FROM assets WHERE owner_user_id IS NULL ORDER BY month DESC LIMIT 1`
+      : sql`SELECT month, savings_balance, investment_balance FROM assets WHERE owner_user_id = ${me.id} ORDER BY month DESC LIMIT 1`,
     // NISA・積立系カテゴリの直近1年の実績（積立シミュレーションの初期値に使う）
     sql<{ total: string }>`
       SELECT COALESCE(SUM(amount), 0)::text AS total FROM transactions
@@ -112,6 +112,8 @@ export async function GET(req: NextRequest) {
       annualIncome: Number(incomeRows[0]?.total ?? 0),
       savings: Number(assetRows[0]?.savings_balance ?? 0),
       investment: Number(assetRows[0]?.investment_balance ?? 0),
+      // どの月末の記録か。ライフプラン側で「いつ時点の資産か」を示すのに使う
+      assetMonth: (assetRows[0]?.month as string | undefined) ?? null,
     },
     scope: owner === null ? "joint" : "self",
   })
