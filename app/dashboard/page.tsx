@@ -170,6 +170,13 @@ export default function DashboardPage() {
   const investSaveTotal = groupAmount("投資") + groupAmount("貯蓄")
   const advanceTotal = groupAmount("立替")
 
+  // 今月いくら資産に回せたか。
+  //   ① 投資・貯蓄カテゴリで意図的に積み立てた額
+  //   ② 使わずに手元に残った額（収支）
+  // ②も口座に残っている以上は資産の増加なので、合わせて貯蓄率を出す。
+  const toAssets = investSaveTotal + viewBalance
+  const savingRate = viewNetIncome > 0 ? (toAssets / viewNetIncome) * 100 : 0
+
   // ─── 予算サマリー（表示中の個人/共同） ───────────────────────
   // 「支出」グループだけを見る。給与源泉税は手取りになる前に引かれていて
   // 自分の意思で減らせるものではないし、投資・貯蓄は使ったお金ではないので、
@@ -351,6 +358,32 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {viewNetIncome > 0 && (
+        <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3">
+          <div className="flex items-baseline justify-between mb-1">
+            <p className="text-xs text-slate-400">今月 資産に回せた額</p>
+            <span className={`text-xs font-semibold ${
+              savingRate >= 20 ? "text-green-400" : savingRate >= 10 ? "text-blue-400" : "text-amber-400"
+            }`}>
+              貯蓄率 {savingRate.toFixed(1)}%
+            </span>
+          </div>
+          <p className={`text-2xl font-bold ${toAssets >= 0 ? "text-teal-400" : "text-red-400"}`}>
+            {toAssets >= 0 ? "" : "−"}{toJPY(Math.abs(toAssets))}
+          </p>
+          <div className="mt-2 flex gap-3 text-[11px] text-slate-400">
+            <span>積立（投資・貯蓄） <span className="text-purple-300 font-semibold">{toJPY(investSaveTotal)}</span></span>
+            <span>使わずに残った分 <span className={`font-semibold ${viewBalance >= 0 ? "text-blue-300" : "text-red-300"}`}>
+              {viewBalance >= 0 ? "" : "−"}{toJPY(Math.abs(viewBalance))}
+            </span></span>
+          </div>
+          <p className="text-[10px] text-slate-500 mt-1.5">
+            手取り {toJPY(viewNetIncome)} に対する割合です。共働きで子がいない時期は20〜30%を確保できると、
+            この先の支出増に耐えられます
+          </p>
+        </div>
+      )}
 
       {viewCards.length > 0 && (
         <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3">
