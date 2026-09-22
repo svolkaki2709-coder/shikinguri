@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { fmtMoneyInput, parseNum } from "@/lib/num"
 import {
   ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts"
@@ -46,11 +47,11 @@ export function InvestSimulator({ members, nisaAnnual = 0, currentInvestment = 0
   const [targetMan, setTargetMan] = useState(saved.targetMan ?? "3000")
 
   const input = useMemo(() => ({
-    currentAge: Number(f.currentAge) || 0,
-    untilAge: Number(f.untilAge) || 0,
+    currentAge: parseNum(f.currentAge) || 0,
+    untilAge: parseNum(f.untilAge) || 0,
     monthly: Number(String(f.monthly).replace(/,/g, "")) || 0,
     annualExtra: Number(String(f.annualExtra).replace(/,/g, "")) || 0,
-    annualRate: Number(f.rate) || 0,
+    annualRate: parseNum(f.rate) || 0,
     initialValue: manToYen(f.initial),
     usedLifetime: manToYen(f.usedLifetime),
   }), [f])
@@ -117,12 +118,12 @@ export function InvestSimulator({ members, nisaAnnual = 0, currentInvestment = 0
           </Field>
           <Field label="毎月の積立額（円）" hint={nisaAnnual > 0 ? `家計簿の実績: 年${fmtMan(nisaAnnual)}万円` : undefined}>
             <input type="text" inputMode="numeric" value={f.monthly}
-              onChange={e => setF({ ...f, monthly: e.target.value })}
+              onChange={e => setF({ ...f, monthly: fmtMoneyInput(e.target.value) })}
               onFocus={e => e.currentTarget.select()} className={`${INPUT_CLS} w-full text-right`} />
           </Field>
           <Field label="年1回の追加積立（円）" hint="賞与から上乗せする場合">
             <input type="text" inputMode="numeric" value={f.annualExtra}
-              onChange={e => setF({ ...f, annualExtra: e.target.value })}
+              onChange={e => setF({ ...f, annualExtra: fmtMoneyInput(e.target.value) })}
               onFocus={e => e.currentTarget.select()} className={`${INPUT_CLS} w-full text-right`} />
           </Field>
           <Field label="想定の年利回り（%）" hint="全世界株の長期平均は5〜7%程度">
@@ -234,7 +235,7 @@ export function InvestSimulator({ members, nisaAnnual = 0, currentInvestment = 0
       <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
         <div className="px-4 py-2.5 bg-slate-800 border-b border-slate-800">
           <h4 className="text-xs font-semibold text-slate-300">
-            利回りが変わったら（月{Number(f.monthly).toLocaleString()}円 × {years}年）
+            利回りが変わったら（月{parseNum(f.monthly).toLocaleString()}円 × {years}年）
           </h4>
         </div>
         <table className="w-full text-xs">
@@ -281,7 +282,7 @@ export function InvestSimulator({ members, nisaAnnual = 0, currentInvestment = 0
           {input.untilAge}歳までの{years}年間、年利{input.annualRate}%で運用した場合の必要額です。
           {needMonthly > input.monthly ? (
             <span className="text-amber-300">
-              {" "}現在の月{Number(f.monthly).toLocaleString()}円より
+              {" "}現在の月{parseNum(f.monthly).toLocaleString()}円より
               {fmtYen(needMonthly - input.monthly)}多く積み立てる必要があります。
             </span>
           ) : (

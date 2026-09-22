@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
+import { fmtDecimalInput, parseNum } from "@/lib/num"
 import { fmtMan, manToYen, fmtYen } from "@/lib/money"
 import {
   calcMortgage, calcPension, calcInsuranceNeed, calcSurvivorPension, monthlyPayment,
@@ -96,7 +97,7 @@ function NumInput({ value, onChange, suffix }: {
   return (
     <div className="relative">
       <input type="text" inputMode="decimal" value={value}
-        onChange={e => onChange(e.target.value)}
+        onChange={e => onChange(fmtDecimalInput(e.target.value))}
         onFocus={e => e.currentTarget.select()}
         className={`${INPUT_CLS} w-full text-right ${suffix ? "pr-9" : ""}`} />
       {suffix && (
@@ -166,9 +167,9 @@ function MortgageTool({ settings, tools, scope, onChanged, flash }: Props) {
 
   const r = useMemo(() => calcMortgage({
     principal: manToYen(f.principal),
-    annualRate: Number(f.rate) || 0,
-    years: Number(f.years) || 1,
-    startYear: Number(f.startYear) || settings.start_year,
+    annualRate: parseNum(f.rate) || 0,
+    years: parseNum(f.years) || 1,
+    startYear: parseNum(f.startYear) || settings.start_year,
     annualIncome: manToYen(f.income),
     prepayment: manToYen(f.prepayment),
     deductionCap: manToYen(f.deductionCap),
@@ -177,7 +178,7 @@ function MortgageTool({ settings, tools, scope, onChanged, flash }: Props) {
   // 金利による総返済額の違い（金利の重みを実感するための比較）
   const rateCompare = useMemo(() => {
     const p = manToYen(f.principal)
-    const y = Number(f.years) || 1
+    const y = parseNum(f.years) || 1
     return [0.5, 1.0, 1.5, 2.0].map(rate => {
       const m = monthlyPayment(p, rate, y)
       return { rate, monthly: m, total: m * y * 12 }
@@ -198,7 +199,7 @@ function MortgageTool({ settings, tools, scope, onChanged, flash }: Props) {
       kind: "expense",
       name: "住宅ローン返済",
       annual_amount: Math.round(r.annual),
-      start_year: Number(f.startYear),
+      start_year: parseNum(f.startYear),
       end_year: r.endYear,
       growth_rate: 0,   // 固定額なので物価連動させない
       note: `借入${f.principal}万円 / 金利${f.rate}% / ${f.years}年`,
@@ -214,8 +215,8 @@ function MortgageTool({ settings, tools, scope, onChanged, flash }: Props) {
       kind: "income",
       name: "住宅ローン控除",
       annual_amount: Math.round(r.deduction.annualAvg),
-      start_year: Number(f.startYear),
-      end_year: Number(f.startYear) + 12,
+      start_year: parseNum(f.startYear),
+      end_year: parseNum(f.startYear) + 12,
       growth_rate: 0,
       note: "13年間の平均額",
     }, scope)
@@ -326,7 +327,7 @@ function MortgageTool({ settings, tools, scope, onChanged, flash }: Props) {
           <tbody>
             {rateCompare.map(c => (
               <tr key={c.rate} className={`border-b border-slate-800 last:border-0 ${
-                Math.abs(c.rate - Number(f.rate)) < 0.01 ? "bg-blue-500/10" : ""
+                Math.abs(c.rate - parseNum(f.rate)) < 0.01 ? "bg-blue-500/10" : ""
               }`}>
                 <td className="px-4 py-1.5 text-slate-300">{c.rate.toFixed(1)}%</td>
                 <td className="text-right px-4 py-1.5 text-slate-300">{fmtYen(c.monthly)}</td>
@@ -411,20 +412,20 @@ function PensionTool({ members, tools, scope, onChanged, flash, payslipHints }: 
   }, [memberId, tools])
 
   // 厚生年金の加入月数のうち、2003年3月以前は別計算になるので差し引く
-  const totalMonths = Math.max(0, (Number(f.workTo) - Number(f.workFrom)) * 12)
-  const monthsOld = Math.min(Number(f.monthsBefore2003) || 0, totalMonths)
+  const totalMonths = Math.max(0, (parseNum(f.workTo) - parseNum(f.workFrom)) * 12)
+  const monthsOld = Math.min(parseNum(f.monthsBefore2003) || 0, totalMonths)
   const enrolledMonths = totalMonths - monthsOld
 
   const baseInput = useMemo(() => ({
     avgAnnualIncome: manToYen(f.income),
     enrolledMonths,
-    basicMonths: Number(f.basicMonths) || 0,
+    basicMonths: parseNum(f.basicMonths) || 0,
     monthsBefore2003: monthsOld,
     avgMonthlyBefore2003: manToYen(f.incomeBefore2003) / 12,
   }), [f.income, f.basicMonths, f.incomeBefore2003, enrolledMonths, monthsOld])
 
   const r = useMemo(
-    () => calcPension({ ...baseInput, startAge: Number(f.startAge) || 65 }),
+    () => calcPension({ ...baseInput, startAge: parseNum(f.startAge) || 65 }),
     [baseInput, f.startAge]
   )
 
@@ -446,7 +447,7 @@ function PensionTool({ members, tools, scope, onChanged, flash, payslipHints }: 
       kind: "income",
       name: `公的年金（${member.name}）`,
       annual_amount: Math.round(r.total),
-      start_year: member.birth_year + Number(f.startAge),
+      start_year: member.birth_year + parseNum(f.startAge),
       end_year: null,
       growth_rate: 0,
       note: `平均年収${f.income}万円 / ${f.startAge}歳受給開始`,
@@ -605,7 +606,7 @@ function PensionTool({ members, tools, scope, onChanged, flash, payslipHints }: 
         <ResultRow label="老齢基礎年金（1階）" value={`${fmtMan(r.basic)}万円`} />
         <ResultRow label="老齢厚生年金（2階）" value={`${fmtMan(r.kousei)}万円`} />
         {member && (
-          <ResultRow label="受給開始年" value={`${member.birth_year + Number(f.startAge)}年`} />
+          <ResultRow label="受給開始年" value={`${member.birth_year + parseNum(f.startAge)}年`} />
         )}
       </div>
 
@@ -625,7 +626,7 @@ function PensionTool({ members, tools, scope, onChanged, flash, payslipHints }: 
           <tbody>
             {ageCompare.map(c => (
               <tr key={c.age} className={`border-b border-slate-800 last:border-0 ${
-                c.age === Number(f.startAge) ? "bg-blue-500/10" : ""
+                c.age === parseNum(f.startAge) ? "bg-blue-500/10" : ""
               }`}>
                 <td className="px-4 py-1.5 text-slate-300">{c.age}歳</td>
                 <td className={`text-right px-4 py-1.5 ${
@@ -647,7 +648,7 @@ function PensionTool({ members, tools, scope, onChanged, flash, payslipHints }: 
 
       <button onClick={register} disabled={busy || !member || r.total <= 0}
         className="w-full bg-blue-600 text-white rounded-lg py-3 text-sm font-semibold hover:bg-blue-700 disabled:opacity-40 transition-colors">
-        {busy ? "登録中..." : `年金 年${fmtMan(r.total)}万円を収入に登録（${member ? member.birth_year + Number(f.startAge) : ""}年〜）`}
+        {busy ? "登録中..." : `年金 年${fmtMan(r.total)}万円を収入に登録（${member ? member.birth_year + parseNum(f.startAge) : ""}年〜）`}
       </button>
     </div>
   )
@@ -694,23 +695,23 @@ function InsuranceTool({ settings, members, streams, events, tools, scope, flash
 
   const survivor = useMemo(() => calcSurvivorPension({
     avgAnnualIncome: manToYen(f.deceasedIncome),
-    enrolledMonths: Number(f.deceasedMonths) || 0,
+    enrolledMonths: parseNum(f.deceasedMonths) || 0,
     childCount: children.length,
   }), [f.deceasedIncome, f.deceasedMonths, children.length])
 
   const r = useMemo(() => calcInsuranceNeed({
     annualLivingCost: manToYen(f.living),
-    yearsUntilIndependence: Number(f.yearsIndep) || 0,
-    spouseRemainingYears: Number(f.spouseYears) || 0,
+    yearsUntilIndependence: parseNum(f.yearsIndep) || 0,
+    spouseRemainingYears: parseNum(f.spouseYears) || 0,
     educationCost: manToYen(f.education),
     annualHousingCost: manToYen(f.housing),
-    housingYears: Number(f.housingYears) || 0,
+    housingYears: parseNum(f.housingYears) || 0,
     funeralCost: manToYen(f.funeral),
     emergencyFund: manToYen(f.emergency),
     survivorPensionAnnual: manToYen(f.pensionAnnual),
-    survivorPensionYears: Number(f.pensionYears) || 0,
+    survivorPensionYears: parseNum(f.pensionYears) || 0,
     spouseAnnualIncome: manToYen(f.spouseIncome),
-    spouseWorkYears: Number(f.spouseWorkYears) || 0,
+    spouseWorkYears: parseNum(f.spouseWorkYears) || 0,
     currentAssets: manToYen(f.assets),
     deathBenefit: manToYen(f.deathBenefit),
   }), [f])

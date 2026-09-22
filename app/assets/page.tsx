@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
 import { useViewMode } from "@/components/ViewModeContext"
-import { toHalfWidth } from "@/lib/num"
+import { fmtMoneyInput, parseNum } from "@/lib/num"
 
 interface AssetRow { month: string; savings: number; investment: number; total: number }
 interface Goal { id: number; name: string; target_amount: number; deadline: string | null }
@@ -91,8 +91,8 @@ export default function AssetsPage() {
   // 空欄のまま保存して、もう一方の残高を0で上書きしてしまう事故を防ぐ。
   useEffect(() => {
     const row = assets.find(a => a.month === month)
-    setSavings(row ? String(row.savings) : "")
-    setInvestment(row ? String(row.investment) : "")
+    setSavings(row ? fmtMoneyInput(String(row.savings)) : "")
+    setInvestment(row ? fmtMoneyInput(String(row.investment)) : "")
   }, [month, assets])
 
   async function handleSaveAssets() {
@@ -106,8 +106,8 @@ export default function AssetsPage() {
           month,
           card_type: scope,
           // 未入力欄は null で送り、サーバー側で既存値を維持させる
-          savings_balance: savings === "" ? null : Number(savings),
-          investment_balance: investment === "" ? null : Number(investment),
+          savings_balance: savings === "" ? null : parseNum(savings),
+          investment_balance: investment === "" ? null : parseNum(investment),
         }),
       })
       setSaveMsg(res.ok ? "保存しました" : "保存に失敗しました")
@@ -134,7 +134,7 @@ export default function AssetsPage() {
       const res = await fetch("/api/goals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: goalName, target_amount: Number(goalAmount), deadline: goalDeadline || null }),
+        body: JSON.stringify({ name: goalName, target_amount: parseNum(goalAmount), deadline: goalDeadline || null }),
       })
       if (!res.ok) { alert("目標の追加に失敗しました"); return }
       setGoalName("")
@@ -278,13 +278,13 @@ export default function AssetsPage() {
                 <div>
                   <label className="text-xs text-slate-300 mb-1 block">貯金残高（円）</label>
                   <input type="text" inputMode="numeric" value={savings}
-                    onChange={e => setSavings(toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))}
+                    onChange={e => setSavings(fmtMoneyInput(e.target.value))}
                     placeholder="0" className="w-full border rounded-lg px-3 py-2 text-sm" />
                 </div>
                 <div>
                   <label className="text-xs text-slate-300 mb-1 block">投資残高（円）</label>
                   <input type="text" inputMode="numeric" value={investment}
-                    onChange={e => setInvestment(toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))}
+                    onChange={e => setInvestment(fmtMoneyInput(e.target.value))}
                     placeholder="0" className="w-full border rounded-lg px-3 py-2 text-sm" />
                 </div>
               </div>
@@ -338,7 +338,7 @@ export default function AssetsPage() {
                   placeholder="目標名（例：緊急資金100万）"
                   className="w-full border rounded-lg px-3 py-2 text-sm" />
                 <div className="grid grid-cols-2 gap-2">
-                  <input type="number" value={goalAmount} onChange={e => setGoalAmount(e.target.value)}
+                  <input type="text" inputMode="numeric" value={goalAmount} onChange={e => setGoalAmount(fmtMoneyInput(e.target.value))}
                     placeholder="目標額（円）"
                     className="w-full border rounded-lg px-3 py-2 text-sm" />
                   <input type="date" value={goalDeadline} onChange={e => setGoalDeadline(e.target.value)}

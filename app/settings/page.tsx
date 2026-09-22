@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
 import { useViewMode } from "@/components/ViewModeContext"
 import { MembersPanel } from "@/components/MembersPanel"
-import { toHalfWidth } from "@/lib/num"
+import { fmtMoneyInput, parseNum, toHalfWidth } from "@/lib/num"
 import { MonthSelect } from "@/components/MonthSelect"
 
 interface Card { id: number; name: string; card_type: string; color: string; has_csv: boolean; kind?: string; institution?: string | null }
@@ -339,7 +339,7 @@ function SettingsContent() {
     setEditingRecurringId(r.id)
     setEditRec({
       category: r.category,
-      amount: String(r.amount),
+      amount: fmtMoneyInput(String(r.amount)),
       day_of_month: String(r.day_of_month),
       memo: r.memo ?? "",
       period: !r.start_month && !r.end_month ? "forever"
@@ -361,7 +361,7 @@ function SettingsContent() {
 
   async function handleSaveRecurring(id: number) {
     if (!editRec) return
-    const amount = Number(toHalfWidth(editRec.amount).replace(/,/g, ""))
+    const amount = parseNum(editRec.amount)
     if (!editRec.category || isNaN(amount) || amount === 0) {
       alert("カテゴリと金額を確認してください")
       return
@@ -885,7 +885,7 @@ function SettingsContent() {
                           <div>
                             <label className="text-[10px] text-slate-500 block mb-0.5">金額（円）</label>
                             <input type="text" inputMode="numeric" value={editRec.amount}
-                              onChange={e => setEditRec({ ...editRec, amount: toHalfWidth(e.target.value).replace(/[^0-9-]/g, "") })}
+                              onChange={e => setEditRec({ ...editRec, amount: fmtMoneyInput(e.target.value) })}
                               className={`${inputCls} text-right`} />
                           </div>
                           <div>
@@ -1008,7 +1008,7 @@ function SettingsContent() {
                   <label className="text-xs text-slate-300 mb-1 block">🏦 貯金目標（円）</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">¥</span>
-                    <input type="number" value={planSavingsTarget} onChange={e => setPlanSavingsTarget(e.target.value)}
+                    <input type="text" inputMode="numeric" value={planSavingsTarget} onChange={e => setPlanSavingsTarget(fmtMoneyInput(e.target.value))}
                       placeholder="0" className="w-full border rounded-lg pl-6 pr-3 py-2 text-sm text-slate-100" />
                   </div>
                 </div>
@@ -1016,7 +1016,7 @@ function SettingsContent() {
                   <label className="text-xs text-slate-300 mb-1 block">📈 NISA積立目標（円）</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">¥</span>
-                    <input type="number" value={planNisaTarget} onChange={e => setPlanNisaTarget(e.target.value)}
+                    <input type="text" inputMode="numeric" value={planNisaTarget} onChange={e => setPlanNisaTarget(fmtMoneyInput(e.target.value))}
                       placeholder="0" className="w-full border rounded-lg pl-6 pr-3 py-2 text-sm text-slate-100" />
                   </div>
                 </div>

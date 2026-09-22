@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
 import { useViewMode } from "@/components/ViewModeContext"
 import { AmountInput } from "@/components/AmountInput"
-import { toHalfWidth } from "@/lib/num"
+import { fmtMoneyInput, toHalfWidth } from "@/lib/num"
 
 interface ParsedPayslip {
   paymentMonth: string | null
@@ -444,8 +444,7 @@ export default function ImportPayslipPage() {
                         type="text" inputMode="numeric" placeholder="0"
                         value={adj.amount}
                         onChange={e => {
-                          const v = toHalfWidth(e.target.value)
-                          if (v === "" || /^\d*$/.test(v.replace(/,/g, ""))) updateAdj(setIncomeAdj, adj.id, "amount", v)
+                          updateAdj(setIncomeAdj, adj.id, "amount", fmtMoneyInput(e.target.value))
                         }}
                         className={`w-28 border rounded-lg pl-5 pr-2 py-1 text-right text-xs font-medium outline-none focus:ring-1 focus:ring-blue-400 text-slate-100 ${
                           !isNaN(amt) && amt > 0 ? "border-green-500/40 bg-green-500/10" : "border-slate-800"
@@ -509,8 +508,7 @@ export default function ImportPayslipPage() {
                           type="text" inputMode="numeric" placeholder="0"
                           value={adj.amount}
                           onChange={e => {
-                            const v = toHalfWidth(e.target.value)
-                            if (v === "" || v === "-" || /^-?\d*$/.test(v.replace(/,/g, ""))) updateAdj(setDeductionAdj, adj.id, "amount", v)
+                            updateAdj(setDeductionAdj, adj.id, "amount", fmtMoneyInput(e.target.value))
                           }}
                           className={`w-28 border rounded-lg pl-5 pr-2 py-1 text-right text-xs font-medium outline-none focus:ring-1 focus:ring-blue-400 text-slate-100 ${
                             isNeg ? "border-green-500/40 bg-green-500/10" : isPos ? "border-red-500/40 bg-red-500/10" : "border-slate-800"

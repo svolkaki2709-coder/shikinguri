@@ -7,6 +7,7 @@ import { BottomNav } from "@/components/BottomNav"
 import { useViewMode } from "@/components/ViewModeContext"
 import { LIFE_EVENT_TEMPLATES, type LifeEventTemplate, STREAM_TEMPLATES } from "@/lib/lifeEventTemplates"
 import { toMan, fmtMan, manToYen, yenToManStr } from "@/lib/money"
+import { fmtDecimalInput } from "@/lib/num"
 import { RetirementGap } from "@/components/RetirementGap"
 import { JointContribution } from "@/components/JointContribution"
 import { LifePlanTools, type ToolRow, type PayslipHints } from "@/components/LifePlanTools"
@@ -872,7 +873,7 @@ function TemplateModal({ members, settings, scope, onClose, onAdded }: {
                   年額（万円）{picked.repeatYears > 1 && ` × ${picked.repeatYears}年`}
                 </label>
                 <input type="text" inputMode="decimal" value={amountMan}
-                  onChange={e => setAmountMan(e.target.value)}
+                  onChange={e => setAmountMan(fmtDecimalInput(e.target.value))}
                   onFocus={e => e.currentTarget.select()}
                   className={`${INPUT_CLS} w-full text-right`} />
               </div>
@@ -941,7 +942,7 @@ function EventEditModal({ draft, members, settings, onClose, onSave, focusAndSel
             <div>
               <label className="block text-[11px] text-slate-400 mb-1">年額（万円）</label>
               <input type="text" inputMode="decimal" value={f.amountMan}
-                onChange={e => setF({ ...f, amountMan: e.target.value })}
+                onChange={e => setF({ ...f, amountMan: fmtDecimalInput(e.target.value) })}
                 onFocus={e => e.currentTarget.select()}
                 className={`${INPUT_CLS} w-full text-right`} />
             </div>
@@ -1254,7 +1255,7 @@ function StreamEditModal({ draft, settings, onClose, onSave, focusAndSelect }: {
           <div>
             <label className="block text-[11px] text-slate-400 mb-1">年額（万円）</label>
             <input type="text" inputMode="decimal" value={f.amountMan}
-              onChange={e => setF({ ...f, amountMan: e.target.value })}
+              onChange={e => setF({ ...f, amountMan: fmtDecimalInput(e.target.value) })}
               onFocus={e => e.currentTarget.select()}
               className={`${INPUT_CLS} w-full text-right`} />
             <p className="text-[10px] text-slate-500 mt-0.5">
@@ -1457,12 +1458,12 @@ function SettingsTab({ settings, members, hints, scope, onSave, onChanged, flash
             <Field label="現在の預貯金（万円）">
               <input type="text" inputMode="decimal" value={f.savingsMan}
                 onFocus={e => e.currentTarget.select()}
-                onChange={e => setF({ ...f, savingsMan: e.target.value })} className={`${INPUT_CLS} w-full text-right`} />
+                onChange={e => setF({ ...f, savingsMan: fmtDecimalInput(e.target.value) })} className={`${INPUT_CLS} w-full text-right`} />
             </Field>
             <Field label="現在の投資資産（万円）">
               <input type="text" inputMode="decimal" value={f.investmentMan}
                 onFocus={e => e.currentTarget.select()}
-                onChange={e => setF({ ...f, investmentMan: e.target.value })} className={`${INPUT_CLS} w-full text-right`} />
+                onChange={e => setF({ ...f, investmentMan: fmtDecimalInput(e.target.value) })} className={`${INPUT_CLS} w-full text-right`} />
             </Field>
           </div>
 

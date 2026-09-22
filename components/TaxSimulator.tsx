@@ -1,4 +1,5 @@
 "use client"
+import { fmtDecimalInput } from "@/lib/num"
 
 import { useEffect, useState, useMemo } from "react"
 import {
@@ -127,13 +128,13 @@ export function TaxSimulator() {
         <div className="grid grid-cols-2 gap-3">
           <Field label="年間の給与収入（万円）" hint="非課税の通勤手当を除いた額">
             <input type="text" inputMode="decimal" value={f.salary}
-              onChange={e => setF({ ...f, salary: e.target.value })}
+              onChange={e => setF({ ...f, salary: fmtDecimalInput(e.target.value) })}
               onFocus={e => e.currentTarget.select()}
               className={`${INPUT_CLS} w-full text-right`} />
           </Field>
           <Field label="社会保険料の年額（万円）" hint="健康保険・厚生年金・雇用保険の合計">
             <input type="text" inputMode="decimal" value={f.social}
-              onChange={e => setF({ ...f, social: e.target.value })}
+              onChange={e => setF({ ...f, social: fmtDecimalInput(e.target.value) })}
               onFocus={e => e.currentTarget.select()}
               className={`${INPUT_CLS} w-full text-right`} />
           </Field>
@@ -151,19 +152,19 @@ export function TaxSimulator() {
         <div className="grid grid-cols-2 gap-3">
           <Field label="iDeCoの年間掛金（万円）">
             <input type="text" inputMode="decimal" value={f.ideco}
-              onChange={e => setF({ ...f, ideco: e.target.value })}
+              onChange={e => setF({ ...f, ideco: fmtDecimalInput(e.target.value) })}
               onFocus={e => e.currentTarget.select()}
               className={`${INPUT_CLS} w-full text-right`} />
           </Field>
           <Field label="生命保険料の年間払込（万円）" hint={`控除額 ${yen(life.income)}（所得税）`}>
             <input type="text" inputMode="decimal" value={f.life}
-              onChange={e => setF({ ...f, life: e.target.value })}
+              onChange={e => setF({ ...f, life: fmtDecimalInput(e.target.value) })}
               onFocus={e => e.currentTarget.select()}
               className={`${INPUT_CLS} w-full text-right`} />
           </Field>
           <Field label="医療費（万円）" hint={result.medicalDeduction > 0 ? `控除額 ${yen(result.medicalDeduction)}` : "10万円を超えた分が控除"}>
             <input type="text" inputMode="decimal" value={f.medical}
-              onChange={e => setF({ ...f, medical: e.target.value })}
+              onChange={e => setF({ ...f, medical: fmtDecimalInput(e.target.value) })}
               onFocus={e => e.currentTarget.select()}
               className={`${INPUT_CLS} w-full text-right`} />
           </Field>
