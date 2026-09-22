@@ -100,6 +100,8 @@ function LifePlanContent() {
   const [loading, setLoading] = useState(true)
   const [settings, setSettings] = useState<Settings | null>(null)
   const [members, setMembers] = useState<Member[]>([])
+  // 家族構成は世帯共通。個人プランでも年齢の表示に使う
+  const [householdMembers, setHouseholdMembers] = useState<Member[]>([])
   const [streams, setStreams] = useState<Stream[]>([])
   const [events, setEvents] = useState<LifeEvent[]>([])
   const [tools, setTools] = useState<ToolRow[]>([])
@@ -142,6 +144,9 @@ function LifePlanContent() {
         ...t,
         member_id: t.member_id == null ? null : Number(t.member_id),
       })))
+      setHouseholdMembers((d.householdMembers ?? []).map((m: Member) => ({
+        ...m, birth_year: Number(m.birth_year),
+      })))
       setHints(d.actualHints ?? null)
       setPayslipHints(d.payslipHints ?? null)
     } finally {
@@ -170,6 +175,9 @@ function LifePlanContent() {
   const assetSource = recordedAssets > 0
     ? (hints?.assetMonth ? `${hints.assetMonth.slice(0, 4)}年${Number(hints.assetMonth.slice(5, 7))}月末の記録` : "資産管理の記録")
     : "前提条件の手入力"
+
+  // 年齢の列は世帯の家族構成で描く（個人プランには家族を登録しないため）
+  const ageMembers = householdMembers.length > 0 ? householdMembers : members
 
   const cashFlow = useMemo<CashRow[]>(() => {
     if (!settings) return []
@@ -216,7 +224,7 @@ function LifePlanContent() {
       })
     }
     return rows
-  }, [settings, streams, events, members, startAssets])
+  }, [settings, streams, events, ageMembers, startAssets])
 
   // 資金ショート（残高がマイナスになる最初の年）と、期間中の最低残高
   const shortfall = useMemo(() => cashFlow.find(r => r.balance < 0) ?? null, [cashFlow])
@@ -331,13 +339,13 @@ function LifePlanContent() {
             {tab === "cashflow" && (
               <CashFlowTab
                 rows={cashFlow} chartData={chartData} shortfall={shortfall} trough={trough}
-                members={members} settings={settings} isPC={isPC}
+                members={ageMembers} settings={settings} isPC={isPC}
                 startAssets={startAssets} assetSource={assetSource}
               />
             )}
             {tab === "events" && (
               <EventsTab
-                events={events} members={members} settings={settings} scope={scope}
+                events={events} members={ageMembers} settings={settings} scope={scope}
                 onChanged={load} flash={flash} focusAndSelect={focusAndSelect}
               />
             )}
@@ -349,7 +357,7 @@ function LifePlanContent() {
             )}
             {tab === "share" && (
               <JointContribution
-                members={members}
+                members={ageMembers}
                 events={events}
                 hints={hints}
                 scope={scope}
@@ -359,7 +367,7 @@ function LifePlanContent() {
             )}
             {tab === "retire" && (
               <RetirementGap
-                members={members}
+                members={ageMembers}
                 settings={settings}
                 hints={hints}
                 payslipHints={payslipHints}
@@ -370,7 +378,7 @@ function LifePlanContent() {
             )}
             {tab === "tools" && (
               <LifePlanTools
-                settings={settings} members={members} streams={streams} events={events}
+                settings={settings} members={ageMembers} streams={streams} events={events}
                 tools={tools} scope={scope} onChanged={load} flash={flash}
                 payslipHints={payslipHints}
                 nisaAnnual={hints?.nisaAnnual ?? 0}
@@ -379,7 +387,7 @@ function LifePlanContent() {
             )}
             {tab === "settings" && (
               <SettingsTab
-                settings={settings} members={members} hints={hints} scope={scope}
+                settings={settings} members={ageMembers} hints={hints} scope={scope}
                 onSave={saveSettings} onChanged={load} flash={flash} focusAndSelect={focusAndSelect}
               />
             )}
@@ -1364,7 +1372,28 @@ function SettingsTab({ settings, members, hints, scope, onSave, onChanged, flash
 
   return (
     <div className="space-y-3">
-      {/* 家族構成 */}
+      {/* 家族構成（世帯で1つ。個人プランでは共同の登録を参照するだけにする） */}
+      {scope !== "joint" ? (
+        <div className="bg-slate-900 rounded-xl border border-slate-800 p-4">
+          <h3 className="text-xs font-semibold text-slate-300 mb-2">家族構成</h3>
+          {members.length > 0 ? (
+            <div className="space-y-1.5">
+              {members.map(m => (
+                <div key={m.id} className="flex items-center gap-2 text-sm">
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">{m.relation}</span>
+                  <span className="text-slate-200 flex-1">{m.name}</span>
+                  <span className="text-xs text-slate-500">{m.birth_year}年生 · {thisYear - m.birth_year}歳</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-500">まだ登録がありません</p>
+          )}
+          <p className="text-[11px] text-slate-500 mt-2">
+            家族構成は世帯で1つです。追加・変更は共同のライフプランから行ってください
+          </p>
+        </div>
+      ) : (
       <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
         <div className="px-4 py-2.5 bg-slate-800 border-b border-slate-800">
           <h3 className="text-xs font-semibold text-slate-300">家族構成</h3>
@@ -1398,6 +1427,7 @@ function SettingsTab({ settings, members, hints, scope, onSave, onChanged, flash
           </button>
         </div>
       </div>
+      )}
 
       {/* 前提条件 */}
       <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">

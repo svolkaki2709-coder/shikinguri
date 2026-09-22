@@ -122,8 +122,14 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // 家族構成は世帯で1つ。個人プランでも年齢の表示に使うため、共同の登録を返す
+  const householdMembers = isJoint
+    ? members
+    : await sql`SELECT * FROM life_members WHERE owner_user_id IS NULL ORDER BY sort_order, id`
+
   return NextResponse.json({
     settings: settingsRows[0] ?? null,
+    householdMembers,
     payslipHints,
     members,
     streams,
