@@ -60,7 +60,7 @@ const num = (v: string) => {
 export function JointContribution({ members, events, hints, saved, scope, onSaved }: {
   members: Member[]
   events: LifeEvent[]
-  hints: { annualExpense: number; savings: number; budgetExpenseAnnual?: number } | null
+  hints: { annualExpense: number; savings: number; budgetExpenseAnnual?: number; assetMonth?: string | null } | null
   saved: Params | null
   scope: string
   onSaved: () => void
@@ -241,9 +241,12 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
           />
           <Row
             label="生活防衛資金の積立"
-            hint={bufferGap > 0
-              ? `目標 ${yen(bufferTarget)}（生活費${num(p.bufferMonths) || 6}ヶ月分）に対し ${yen(bufferGap)} 不足`
-              : "目標額に到達済み"}
+            hint={
+              `目標 ${yen(bufferTarget)}（生活費${num(p.bufferMonths) || 6}ヶ月分）` +
+              ` ／ 今の共同貯蓄 ${yen(hints?.savings ?? 0)}` +
+              (hints?.assetMonth ? `（${hints.assetMonth.slice(0, 4)}年${Number(hints.assetMonth.slice(5, 7))}月末の記録）` : "（資産管理に記録がありません）") +
+              (bufferGap > 0 ? ` → ${yen(bufferGap)} 不足` : " → 到達済み")
+            }
             value={bufferMonthly}
           />
         </div>
