@@ -294,6 +294,8 @@ export async function POST(req: NextRequest) {
       balanceCount: balances.length,
       csvBillingTotal,
       verified,
+      // 差額を利息・手数料として登録できるよう、対象期間の終わりを返す
+      endDate,
     })
   } catch (e: unknown) {
     const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e)

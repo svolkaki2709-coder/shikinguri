@@ -35,7 +35,7 @@ export default function ImportPage() {
     imported: number; skipped: number
     incomeImported?: number; incomeTotal?: number
     transferCount?: number; balanceCount?: number
-    importedTotal?: number; csvBillingTotal?: number | null; verified?: boolean | null
+    importedTotal?: number; csvBillingTotal?: number | null; verified?: boolean | null; endDate?: string
   } | null>(null)
   const [error, setError] = useState("")
   const [logs, setLogs] = useState<ImportLog[]>([])
@@ -64,6 +64,35 @@ export default function ImportPage() {
     if (cards.length === 0) { setCardId(null); return }
     if (!cards.some(c => c.id === cardId)) setCardId(cards[0].id)
   }, [cards, cardId])
+
+  const [addingDiff, setAddingDiff] = useState(false)
+  const [diffAdded, setDiffAdded] = useState(false)
+
+  // 明細に出ない費用（利息・手数料・年会費）を1件の明細として補う
+  async function addDifference(diff: number) {
+    if (!cardId) return
+    setAddingDiff(true)
+    try {
+      const res = await fetch("/api/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: result?.endDate ?? new Date().toISOString().slice(0, 10),
+          card_id: cardId,
+          // どの世帯にも必ずある「その他」に入れる（手数料カテゴリは無いことがある）
+          category: "その他",
+          amount: diff,
+          memo: "CSV請求額との差額（利息・手数料など）",
+          source: "csv",
+        }),
+      })
+      if (!res.ok) { setError("差額の登録に失敗しました"); return }
+      setDiffAdded(true)
+      fetchLogs()
+    } finally {
+      setAddingDiff(false)
+    }
+  }
 
   async function fetchLogs() {
     const d = await fetch("/api/import-csv").then(r => r.json())
@@ -94,7 +123,9 @@ export default function ImportPage() {
           incomeImported: data.incomeImported, incomeTotal: data.incomeTotal,
           transferCount: data.transferCount, balanceCount: data.balanceCount,
           importedTotal: data.importedTotal, csvBillingTotal: data.csvBillingTotal, verified: data.verified,
+          endDate: data.endDate,
         })
+        setDiffAdded(false)
         setFile(null)
         if (fileRef.current) fileRef.current.value = ""
         fetchLogs()
@@ -280,9 +311,33 @@ export default function ImportPage() {
                 <span className="font-semibold ml-1">
                   CSV請求額 ¥{result.csvBillingTotal.toLocaleString()} {result.verified ? "＝" : "≠"} 取込合計 ¥{(result.importedTotal ?? 0).toLocaleString()}
                 </span>
-                {!result.verified && (
-                  <p className="text-xs mt-1">金額が一致していません。明細を確認してください。</p>
-                )}
+                {!result.verified && (() => {
+                  const diff = (result.csvBillingTotal ?? 0) - (result.importedTotal ?? 0)
+                  return (
+                    <div className="text-xs mt-1 space-y-1.5">
+                      <p>
+                        差額 <span className="font-semibold">¥{Math.abs(diff).toLocaleString()}</span>
+                        {diff > 0 ? "（請求額のほうが多い）" : "（取込のほうが多い）"}
+                      </p>
+                      {diff > 0 && (
+                        <p className="text-red-200/80 leading-relaxed">
+                          キャッシングの利息・リボや分割の手数料・年会費など、明細行として載らない費用が
+                          請求額に含まれていることがあります。心当たりがあれば、下のボタンで差額を1件の明細として登録できます
+                        </p>
+                      )}
+                      {diff !== 0 && !diffAdded && (
+                        <button
+                          onClick={() => addDifference(diff)}
+                          disabled={addingDiff}
+                          className="bg-red-500/20 border border-red-500/40 rounded px-2.5 py-1 font-semibold hover:bg-red-500/30 transition-colors disabled:opacity-50"
+                        >
+                          {addingDiff ? "登録中..." : `差額 ¥${Math.abs(diff).toLocaleString()} を利息・手数料として登録`}
+                        </button>
+                      )}
+                      {diffAdded && <p className="text-green-300">差額を登録しました。請求額と一致します</p>}
+                    </div>
+                  )
+                })()}
               </div>
             )}
             {result.csvBillingTotal == null && result.importedTotal != null && (
