@@ -416,8 +416,10 @@ function BudgetContent() {
     category: string, cardType: string, value: string,
     periodType: "monthly" | "this_month" = "monthly"
   ) {
-    const amount = Number(value.replace(/,/g, ""))
-    if (isNaN(amount) || value.trim() === "") { setEditingBudget(null); return }
+    // 空にして確定＝「予算なし」にしたい、という操作。0で保存して消えるようにする。
+    // （以前はここで何もせず閉じていたため、消したつもりが元の金額に戻っていた）
+    const amount = value.trim() === "" ? 0 : Number(value.replace(/,/g, ""))
+    if (isNaN(amount)) { setEditingBudget(null); return }
     await fetch("/api/budget", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -445,8 +447,8 @@ function BudgetContent() {
     category: string, cardType: string, m: string, value: string,
     mode: "this" | "from" | "all" = "this"
   ) {
-    const amount = Number(value.replace(/,/g, ""))
-    if (isNaN(amount) || value.trim() === "") { setEditingMonthBudget(null); return }
+    const amount = value.trim() === "" ? 0 : Number(value.replace(/,/g, ""))
+    if (isNaN(amount)) { setEditingMonthBudget(null); return }
 
     const bodyData = mode === "all"
       ? { category, amount, card_type: cardType, month: null, is_from_month: false }
