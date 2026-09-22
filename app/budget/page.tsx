@@ -1154,11 +1154,11 @@ function BudgetContent() {
                           {rows.map(row => {
                             const rowSign = getCategorySign(row)
                             const rowFavorable = rowSign === 1 || moreIsBetter(row.groupType)
-                            // 収入・投資系: 実績 > 予算 = 良い → diff = 実績 - 予算
-                            // 支出系: 実績 < 予算 = 良い → diff = 予算 - 実績
-                            const diff = rowFavorable
-                              ? row.yearActual - row.yearBudget
-                              : row.yearBudget - row.yearActual
+                            // 差額は常に「実績 − 予算」。プラス＝予算より多く出入りした。
+                            // 良し悪しは符号ではなく色で示す（支出のプラスは使いすぎ＝赤、
+                            // 収入・投資のプラスは目標超え＝緑）。
+                            const diff = row.yearActual - row.yearBudget
+                            const diffBad = rowFavorable ? diff < 0 : diff > 0
                             return (
                               <tr key={`${row.name}-${row.cardType}`}
                                 className={`border-b border-slate-800 hover:bg-yellow-500/10 transition-colors ${gc?.row ?? "bg-slate-900"}`}>
@@ -1168,8 +1168,9 @@ function BudgetContent() {
                                 </td>
                                 {months.map(m => {
                                   const { budget: mb, actual: ma } = row.byMonth[m] ?? { budget: 0, actual: 0 }
-                                  const mdiff = rowFavorable ? ma - mb : mb - ma
-                                  const isOver = mb > 0 && (rowFavorable ? ma < mb : ma > mb)
+                                  const mdiff = ma - mb
+                                  const mdiffBad = rowFavorable ? mdiff < 0 : mdiff > 0
+                                  const isOver = mb > 0 && mdiffBad
                                   const isEditingCell = editingMonthBudget?.category === row.name && editingMonthBudget?.cardType === row.cardType && editingMonthBudget?.month === m
                                   return (
                                     <td key={m} className={`text-right px-2 py-1 group/cell ${isOver && viewMode === "actual" ? "bg-red-500/10" : ""}`}>
@@ -1215,7 +1216,7 @@ function BudgetContent() {
                                         </span>
                                       )}
                                       {viewMode === "diff" && (
-                                        <span className={`font-medium ${mb === 0 ? "text-slate-600" : mdiff < 0 ? "text-red-400" : "text-green-400"}`}>
+                                        <span className={`font-medium ${mb === 0 ? "text-slate-600" : mdiffBad ? "text-red-400" : "text-green-400"}`}>
                                           {mb > 0 ? `${mdiff >= 0 ? "+" : ""}${toJPYShort(mdiff)}` : "—"}
                                         </span>
                                       )}
@@ -1256,7 +1257,7 @@ function BudgetContent() {
                                           ) : (
                                             <span
                                               onClick={() => setEditingMonthBudget({ category: row.name, cardType: row.cardType, month: m, value: mb > 0 ? String(mb) : "", mode: "this" })}
-                                              className={`block cursor-pointer hover:text-blue-400 hover:underline ${mb > 0 ? (mdiff < 0 ? "text-red-400" : "text-blue-400") : "text-gray-200 opacity-0 group-hover/cell:opacity-100"}`}
+                                              className={`block cursor-pointer hover:text-blue-400 hover:underline ${mb > 0 ? (mdiffBad ? "text-red-400" : "text-blue-400") : "text-gray-200 opacity-0 group-hover/cell:opacity-100"}`}
                                               title="クリックして予算を設定"
                                             >
                                               {mb > 0 ? `予${toJPYShort(mb)}` : "+ 予算"}
@@ -1280,7 +1281,7 @@ function BudgetContent() {
                                     </span>
                                   )}
                                   {viewMode === "diff" && (
-                                    <span className={`font-semibold ${row.yearBudget === 0 ? "text-slate-600" : diff < 0 ? "text-red-400" : "text-green-400"}`}>
+                                    <span className={`font-semibold ${row.yearBudget === 0 ? "text-slate-600" : diffBad ? "text-red-400" : "text-green-400"}`}>
                                       {row.yearBudget > 0 ? `${diff >= 0 ? "+" : ""}${toJPYShort(diff)}` : "—"}
                                     </span>
                                   )}
@@ -1290,7 +1291,7 @@ function BudgetContent() {
                                         {row.yearActual > 0 ? toJPYShort(row.yearActual) : "—"}
                                       </span>
                                       {row.yearBudget > 0 && (
-                                        <span className={`block font-medium ${diff < 0 ? "text-red-400" : "text-green-400"}`}>
+                                        <span className={`block font-medium ${diffBad ? "text-red-400" : "text-green-400"}`}>
                                           {diff >= 0 ? "+" : ""}{toJPYShort(diff)}
                                         </span>
                                       )}
@@ -1301,16 +1302,17 @@ function BudgetContent() {
                                 {(() => {
                                   const rb = rangeMonths.reduce((s, m) => s + (row.byMonth[m]?.budget ?? 0), 0)
                                   const ra = rangeMonths.reduce((s, m) => s + (row.byMonth[m]?.actual ?? 0), 0)
-                                  const rdiff = rowSign === 1 ? ra - rb : rb - ra
+                                  const rdiff = ra - rb
+                                  const rdiffBad = rowFavorable ? rdiff < 0 : rdiff > 0
                                   return (
                                     <td className="text-right px-3 py-1.5 bg-indigo-500/10 border-l border-indigo-500/20">
                                       {viewMode === "budget" && <span className="font-semibold text-indigo-300">{rb > 0 ? toJPYShort(rb) : "—"}</span>}
                                       {viewMode === "actual" && <span className={`font-semibold ${ra > rb && rb > 0 ? "text-red-400" : "text-indigo-300"}`}>{ra > 0 ? toJPYShort(ra) : "—"}</span>}
-                                      {viewMode === "diff" && <span className={`font-semibold ${rb === 0 ? "text-slate-600" : rdiff < 0 ? "text-red-400" : "text-green-400"}`}>{rb > 0 ? `${rdiff >= 0 ? "+" : ""}${toJPYShort(rdiff)}` : "—"}</span>}
+                                      {viewMode === "diff" && <span className={`font-semibold ${rb === 0 ? "text-slate-600" : rdiffBad ? "text-red-400" : "text-green-400"}`}>{rb > 0 ? `${rdiff >= 0 ? "+" : ""}${toJPYShort(rdiff)}` : "—"}</span>}
                                       {viewMode === "both" && (
                                         <span className="text-[10px] leading-tight">
                                           <span className={`block font-semibold ${ra > 0 ? "text-indigo-300" : "text-slate-600"}`}>{ra > 0 ? toJPYShort(ra) : "—"}</span>
-                                          {rb > 0 && <span className={`block font-medium ${rdiff < 0 ? "text-red-400" : "text-green-400"}`}>{rdiff >= 0 ? "+" : ""}{toJPYShort(rdiff)}</span>}
+                                          {rb > 0 && <span className={`block font-medium ${rdiffBad ? "text-red-400" : "text-green-400"}`}>{rdiff >= 0 ? "+" : ""}{toJPYShort(rdiff)}</span>}
                                         </span>
                                       )}
                                     </td>
