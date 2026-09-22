@@ -44,6 +44,12 @@ const DEFAULTS: Params = {
 }
 
 const yen = (n: number) => `¥${Math.round(n).toLocaleString("ja-JP")}`
+/** 入力途中でも3桁区切りにする。保存・計算時は num() でカンマを外す */
+const money = (v: string) => {
+  const raw = toHalfWidth(v ?? "").replace(/[^0-9]/g, "")
+  return raw === "" ? "" : Number(raw).toLocaleString("ja-JP")
+}
+
 const num = (v: string) => {
   const n = Number(toHalfWidth(v ?? "").replace(/,/g, ""))
   return isNaN(n) ? 0 : n
@@ -57,7 +63,18 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
   scope: string
   onSaved: () => void
 }) {
-  const [p, setP] = useState<Params>({ ...DEFAULTS, ...(saved ?? {}) })
+  const [p, setP] = useState<Params>(() => {
+    const base = { ...DEFAULTS, ...(saved ?? {}) }
+    // 保存済みの値（カンマ無し）も表示時に3桁区切りへ揃える
+    return {
+      ...base,
+      current: money(base.current),
+      stepAmount: money(base.stepAmount),
+      livingCost: money(base.livingCost),
+      incomes: Object.fromEntries(Object.entries(base.incomes ?? {}).map(([k, v]) => [k, money(String(v))])),
+      shares: Object.fromEntries(Object.entries(base.shares ?? {}).map(([k, v]) => [k, money(String(v))])),
+    }
+  })
   const set = <K extends keyof Params>(k: K, v: Params[K]) => setP(prev => ({ ...prev, [k]: v }))
 
   const thisYear = new Date().getFullYear()
@@ -170,7 +187,7 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
             value={living}
             editable={
               <input className={`${input} w-28`} inputMode="numeric" placeholder="自動"
-                value={p.livingCost} onChange={e => set("livingCost", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} />
+                value={p.livingCost} onChange={e => set("livingCost", money(e.target.value))} />
             }
           />
           <Row
@@ -246,10 +263,10 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
             <p className="text-xs text-slate-400">それぞれの手取り月収</p>
             {members.map(m => (
               <div key={m.id} className="flex items-center gap-2">
-                <span className="text-sm text-slate-300 flex-1">{m.name}</span>
-                <input className={`${input} w-32`} inputMode="numeric" placeholder="0"
+                <span className="text-sm text-slate-300 w-24 shrink-0 truncate">{m.name}</span>
+                <input className={`${input} flex-1 min-w-0`} inputMode="numeric" placeholder="0"
                   value={p.incomes[m.id] ?? ""}
-                  onChange={e => set("incomes", { ...p.incomes, [m.id]: toHalfWidth(e.target.value).replace(/[^0-9]/g, "") })} />
+                  onChange={e => set("incomes", { ...p.incomes, [m.id]: money(e.target.value) })} />
               </div>
             ))}
           </div>
@@ -260,10 +277,10 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
             <p className="text-xs text-slate-400">それぞれが毎月出す額</p>
             {members.map(m => (
               <div key={m.id} className="flex items-center gap-2">
-                <span className="text-sm text-slate-300 flex-1">{m.name}</span>
-                <input className={`${input} w-32`} inputMode="numeric" placeholder="0"
+                <span className="text-sm text-slate-300 w-24 shrink-0 truncate">{m.name}</span>
+                <input className={`${input} flex-1 min-w-0`} inputMode="numeric" placeholder="0"
                   value={p.shares[m.id] ?? ""}
-                  onChange={e => set("shares", { ...p.shares, [m.id]: toHalfWidth(e.target.value).replace(/[^0-9]/g, "") })} />
+                  onChange={e => set("shares", { ...p.shares, [m.id]: money(e.target.value) })} />
               </div>
             ))}
           </div>
@@ -297,16 +314,16 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
 
         {p.method !== "custom" && (
           <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400 flex-1">今の拠出額（世帯合計）</span>
-            <input className={`${input} w-32`} inputMode="numeric" placeholder="0"
-              value={p.current} onChange={e => set("current", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} />
+            <span className="text-xs text-slate-400 shrink-0">今の拠出額（世帯合計）</span>
+            <input className={`${input} flex-1 min-w-0`} inputMode="numeric" placeholder="0"
+              value={p.current} onChange={e => set("current", money(e.target.value))} />
           </div>
         )}
 
         <div className="grid grid-cols-2 gap-2">
           <Field label="1回の増額（世帯合計）">
             <input className={input} inputMode="numeric" value={p.stepAmount}
-              onChange={e => set("stepAmount", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} />
+              onChange={e => set("stepAmount", money(e.target.value))} />
           </Field>
           <Field label="増やす間隔（ヶ月）">
             <input className={input} inputMode="numeric" value={p.stepMonths}
