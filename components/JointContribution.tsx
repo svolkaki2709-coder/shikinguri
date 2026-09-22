@@ -27,7 +27,8 @@ interface Params {
   eventYears: string                // 何年先までのライフイベントを積み立てるか
   bufferMonths: string              // 生活防衛資金として生活費の何ヶ月分を持つか
   bufferSpreadMonths: string        // 生活防衛資金を何ヶ月かけて貯めるか
-  livingCost: string                // 毎月の共同生活費（空なら実績から自動）
+  livingSource: "budget" | "actual" | "manual"  // 生活費をどこから取るか
+  livingCost: string                // 生活費の手入力値（livingSource=manual のとき使う）
 }
 
 const DEFAULTS: Params = {
@@ -40,6 +41,7 @@ const DEFAULTS: Params = {
   eventYears: "10",
   bufferMonths: "6",
   bufferSpreadMonths: "24",
+  livingSource: "budget",
   livingCost: "",
 }
 
@@ -58,7 +60,7 @@ const num = (v: string) => {
 export function JointContribution({ members, events, hints, saved, scope, onSaved }: {
   members: Member[]
   events: LifeEvent[]
-  hints: { annualExpense: number; savings: number } | null
+  hints: { annualExpense: number; savings: number; budgetExpenseAnnual?: number } | null
   saved: Params | null
   scope: string
   onSaved: () => void
@@ -80,7 +82,14 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
   const thisYear = new Date().getFullYear()
 
   // ── 1. いくら必要か ───────────────────────────────────────
-  const living = p.livingCost ? num(p.livingCost) : Math.round((hints?.annualExpense ?? 0) / 12)
+  // 生活費の取り方は3通り。予算は「これで暮らすと決めた額」、実績は「実際に使った額」。
+  // 決めた額どおりに暮らせていないなら実績のほうが現実的なので、選べるようにしている。
+  const budgetMonthly = Math.round((hints?.budgetExpenseAnnual ?? 0) / 12)
+  const actualMonthly = Math.round((hints?.annualExpense ?? 0) / 12)
+  const living =
+    p.livingSource === "manual" ? num(p.livingCost)
+    : p.livingSource === "actual" ? actualMonthly
+    : (budgetMonthly || actualMonthly)
 
   const eventYears = Math.max(1, num(p.eventYears) || 10)
   // 今後 eventYears 年以内のライフイベント。
@@ -190,13 +199,39 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
         <div className="space-y-2">
           <Row
             label="共同の生活費"
-            hint={p.livingCost ? "手入力" : "直近1年の共同支出の平均"}
+            hint={
+              p.livingSource === "manual" ? "手入力した金額を使います"
+              : p.livingSource === "actual" ? "直近1年の共同支出の平均"
+              : budgetMonthly > 0 ? "予実管理で立てた毎月の予算の合計" : "予算が未設定のため実績の平均を使っています"
+            }
             value={living}
             editable={
-              <input className={`${input} w-28`} inputMode="numeric" placeholder="自動"
-                value={p.livingCost} onChange={e => set("livingCost", money(e.target.value))} />
+              <div className="flex items-center gap-1.5">
+                <div className="flex rounded-lg bg-slate-800 p-0.5 text-[11px]">
+                  {([["budget", "予算"], ["actual", "実績"], ["manual", "手入力"]] as const).map(([k, label]) => (
+                    <button key={k} type="button" onClick={() => set("livingSource", k)}
+                      className={`px-2 py-1 rounded-md transition-colors ${
+                        p.livingSource === k ? "bg-blue-600 text-white" : "text-slate-400"
+                      }`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {p.livingSource === "manual" && (
+                  <input className={`${input} w-28`} inputMode="numeric" placeholder="0"
+                    value={p.livingCost} onChange={e => set("livingCost", money(e.target.value))} />
+                )}
+              </div>
             }
           />
+          {p.livingSource !== "manual" && budgetMonthly > 0 && actualMonthly > 0 && (
+            <p className="text-[11px] text-slate-500 -mt-1">
+              予算 {yen(budgetMonthly)} / 実績 {yen(actualMonthly)}
+              {actualMonthly > budgetMonthly
+                ? "（実績が予算を超えています。実績で見ておくほうが安全です）"
+                : "（予算内で収まっています）"}
+            </p>
+          )}
           <Row
             label="ライフイベントの積立"
             hint={eventIncome > 0
