@@ -27,6 +27,7 @@ interface Params {
   eventYears: string                // 何年先までのライフイベントを積み立てるか
   bufferMonths: string              // 生活防衛資金として生活費の何ヶ月分を持つか
   bufferSpreadMonths: string        // 生活防衛資金を何ヶ月かけて貯めるか
+  earmarked: string                 // 使い道が決まっている取り置き（結婚式費用など）
   livingSource: "budget" | "actual" | "manual"  // 生活費をどこから取るか
   livingCost: string                // 生活費の手入力値（livingSource=manual のとき使う）
 }
@@ -41,6 +42,7 @@ const DEFAULTS: Params = {
   eventYears: "10",
   bufferMonths: "6",
   bufferSpreadMonths: "24",
+  earmarked: "",
   livingSource: "budget",
   livingCost: "",
 }
@@ -71,6 +73,7 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
     return {
       ...base,
       current: money(base.current),
+      earmarked: money(base.earmarked),
       stepAmount: money(base.stepAmount),
       livingCost: money(base.livingCost),
       incomes: Object.fromEntries(Object.entries(base.incomes ?? {}).map(([k, v]) => [k, money(String(v))])),
@@ -92,28 +95,61 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
     : (budgetMonthly || actualMonthly)
 
   const eventYears = Math.max(1, num(p.eventYears) || 10)
-  // 今後 eventYears 年以内のライフイベント。
-  // ご祝儀や出産育児一時金のように戻ってくるお金は、その分だけ積み立てる必要がないので差し引く。
-  const { eventExpense, eventIncome } = useMemo(() => {
-    const inWindow = (e: LifeEvent) => {
-      let s = 0
+  // 使い道が決まっている取り置き（結婚式費用など）。
+  // 生活防衛資金とは別枠で、イベントの支払いに先に充てる。
+  const earmarked = num(p.earmarked)
+
+  // 今後 eventYears 年以内のライフイベントを年ごとに集計する。
+  // 単純な月割りだと「10年で割った額」になり、2年後のイベントには間に合わない。
+  // 年ごとに「その年までに必要な累計額」を出し、残り月数で割った額のうち
+  // 一番厳しいものを必要額とする（直近の大きなイベントが効く）。
+  const eventPlan = useMemo(() => {
+    const byYear = new Map<number, number>()
+    const add = (y: number, v: number) => byYear.set(y, (byYear.get(y) ?? 0) + v)
+    for (const e of events) {
       for (let i = 0; i < Math.max(1, e.repeat_years); i++) {
         const y = e.year + i
-        if (y >= thisYear && y < thisYear + eventYears) s += e.amount
+        if (y < thisYear || y >= thisYear + eventYears) continue
+        add(y, e.kind === "expense" ? e.amount : -e.amount)
       }
-      return s
     }
-    return {
-      eventExpense: events.filter(e => e.kind === "expense").reduce((sum, e) => sum + inWindow(e), 0),
-      eventIncome: events.filter(e => e.kind === "income").reduce((sum, e) => sum + inWindow(e), 0),
+    const years = [...byYear.keys()].sort((a, b) => a - b)
+    let cumulative = 0
+    return years.map(y => {
+      cumulative += byYear.get(y) ?? 0
+      // その年の支払いまでの残り月数。今年のイベントは「今すぐ必要」とみなす
+      const monthsLeft = Math.max(1, (y - thisYear) * 12)
+      const shortfall = Math.max(0, cumulative - earmarked)
+      return { year: y, net: byYear.get(y) ?? 0, cumulative, monthsLeft, monthly: Math.round(shortfall / monthsLeft) }
+    })
+  }, [events, eventYears, thisYear, earmarked])
+
+  const eventExpense = useMemo(() => events.filter(e => e.kind === "expense").reduce((sum, e) => {
+    let v = 0
+    for (let i = 0; i < Math.max(1, e.repeat_years); i++) {
+      const y = e.year + i
+      if (y >= thisYear && y < thisYear + eventYears) v += e.amount
     }
-  }, [events, eventYears, thisYear])
-  // 戻りが上回っても「積立が不要」になるだけで、マイナスの積立にはしない
-  const eventTotal = Math.max(0, eventExpense - eventIncome)
-  const eventMonthly = Math.round(eventTotal / (eventYears * 12))
+    return sum + v
+  }, 0), [events, eventYears, thisYear])
+  const eventIncome = useMemo(() => events.filter(e => e.kind === "income").reduce((sum, e) => {
+    let v = 0
+    for (let i = 0; i < Math.max(1, e.repeat_years); i++) {
+      const y = e.year + i
+      if (y >= thisYear && y < thisYear + eventYears) v += e.amount
+    }
+    return sum + v
+  }, 0), [events, eventYears, thisYear])
+
+  // 一番きついイベント（これに合わせれば、他はすべて間に合う）
+  const binding = eventPlan.reduce<typeof eventPlan[number] | null>(
+    (worst, r) => (worst === null || r.monthly > worst.monthly ? r : worst), null)
+  const eventMonthly = binding ? binding.monthly : 0
 
   const bufferTarget = living * (num(p.bufferMonths) || 6)
-  const bufferGap = Math.max(0, bufferTarget - (hints?.savings ?? 0))
+  // 取り置き分は使い道が決まっているので、防衛資金としては数えない
+  const freeSavings = Math.max(0, (hints?.savings ?? 0) - earmarked)
+  const bufferGap = Math.max(0, bufferTarget - freeSavings)
   const bufferMonthly = Math.round(bufferGap / Math.max(1, num(p.bufferSpreadMonths) || 24))
 
   const needed = living + eventMonthly + bufferMonthly
@@ -234,16 +270,50 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
           )}
           <Row
             label="ライフイベントの積立"
-            hint={eventIncome > 0
-              ? `${eventYears}年以内の支出 ${yen(eventExpense)} − 戻り ${yen(eventIncome)}（ご祝儀・一時金など）を月割り`
-              : `${eventYears}年以内の予定 ${yen(eventExpense)} を月割り`}
+            hint={binding
+              ? `${binding.year}年の支払いに間に合わせる金額です（${eventYears}年以内の支出 ${yen(eventExpense)}${eventIncome > 0 ? ` − 戻り ${yen(eventIncome)}` : ""}）`
+              : `${eventYears}年以内に予定されたイベントはありません`}
             value={eventMonthly}
           />
+
+          {eventPlan.length > 0 && (
+            <div className="bg-slate-800/50 rounded-lg p-2.5 overflow-x-auto">
+              <p className="text-[11px] text-slate-400 mb-1.5">
+                各イベントに間に合うか（取り置き {yen(earmarked)} を先に充当）
+              </p>
+              <table className="w-full text-[11px] whitespace-nowrap">
+                <thead>
+                  <tr className="text-slate-500">
+                    <th className="text-left font-medium py-0.5">年</th>
+                    <th className="text-right font-medium py-0.5">その年の収支</th>
+                    <th className="text-right font-medium py-0.5">必要累計</th>
+                    <th className="text-right font-medium py-0.5">残り</th>
+                    <th className="text-right font-medium py-0.5">必要な月額</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {eventPlan.map(r => (
+                    <tr key={r.year} className={r === binding ? "text-amber-300 font-semibold" : "text-slate-400"}>
+                      <td className="py-0.5">{r.year}年</td>
+                      <td className="text-right py-0.5">{r.net >= 0 ? `−${yen(r.net)}` : `+${yen(-r.net)}`}</td>
+                      <td className="text-right py-0.5">{yen(Math.max(0, r.cumulative))}</td>
+                      <td className="text-right py-0.5">{r.monthsLeft}ヶ月</td>
+                      <td className="text-right py-0.5">{yen(r.monthly)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="text-[10px] text-slate-500 mt-1.5">
+                一番きつい年（色付き）に合わせておけば、他の年はすべて間に合います
+              </p>
+            </div>
+          )}
           <Row
             label="生活防衛資金の積立"
             hint={
               `目標 ${yen(bufferTarget)}（生活費${num(p.bufferMonths) || 6}ヶ月分）` +
-              ` ／ 今の共同貯蓄 ${yen(hints?.savings ?? 0)}` +
+              ` ／ 共同貯蓄 ${yen(hints?.savings ?? 0)}` +
+              (earmarked > 0 ? ` − 取り置き ${yen(earmarked)} = 使える分 ${yen(freeSavings)}` : "") +
               (hints?.assetMonth ? `（${hints.assetMonth.slice(0, 4)}年${Number(hints.assetMonth.slice(5, 7))}月末の記録）` : "（資産管理に記録がありません）") +
               (bufferGap > 0 ? ` → ${yen(bufferGap)} 不足` : " → 到達済み")
             }
@@ -271,6 +341,17 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
               <input className={input} inputMode="numeric" value={p.bufferSpreadMonths}
                 onChange={e => set("bufferSpreadMonths", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} />
             </Field>
+          </div>
+          <div className="mt-2">
+            <label className="text-[10px] text-slate-500 block mb-0.5">
+              使い道が決まっている取り置き（結婚式費用など）
+            </label>
+            <input className={input} inputMode="numeric" placeholder="0"
+              value={p.earmarked} onChange={e => set("earmarked", money(e.target.value))} />
+            <p className="text-[11px] text-slate-500 mt-1">
+              共同貯蓄のうち、すでに使い道が決まっている分です。生活防衛資金には数えず、
+              先にライフイベントの支払いへ充てます
+            </p>
           </div>
           <p className="text-[11px] text-slate-500 mt-2">
             生活防衛資金は、2人とも働けなくなっても暮らせる期間の生活費です。共働きなら3〜6ヶ月分、
