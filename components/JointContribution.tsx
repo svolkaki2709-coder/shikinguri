@@ -83,17 +83,24 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
   const living = p.livingCost ? num(p.livingCost) : Math.round((hints?.annualExpense ?? 0) / 12)
 
   const eventYears = Math.max(1, num(p.eventYears) || 10)
-  // 今後 eventYears 年以内に予定している支出イベントの合計（繰り返す年数も数える）
-  const eventTotal = useMemo(() => events
-    .filter(e => e.kind === "expense")
-    .reduce((sum, e) => {
+  // 今後 eventYears 年以内のライフイベント。
+  // ご祝儀や出産育児一時金のように戻ってくるお金は、その分だけ積み立てる必要がないので差し引く。
+  const { eventExpense, eventIncome } = useMemo(() => {
+    const inWindow = (e: LifeEvent) => {
       let s = 0
       for (let i = 0; i < Math.max(1, e.repeat_years); i++) {
         const y = e.year + i
         if (y >= thisYear && y < thisYear + eventYears) s += e.amount
       }
-      return sum + s
-    }, 0), [events, eventYears, thisYear])
+      return s
+    }
+    return {
+      eventExpense: events.filter(e => e.kind === "expense").reduce((sum, e) => sum + inWindow(e), 0),
+      eventIncome: events.filter(e => e.kind === "income").reduce((sum, e) => sum + inWindow(e), 0),
+    }
+  }, [events, eventYears, thisYear])
+  // 戻りが上回っても「積立が不要」になるだけで、マイナスの積立にはしない
+  const eventTotal = Math.max(0, eventExpense - eventIncome)
   const eventMonthly = Math.round(eventTotal / (eventYears * 12))
 
   const bufferTarget = living * (num(p.bufferMonths) || 6)
@@ -192,7 +199,9 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
           />
           <Row
             label="ライフイベントの積立"
-            hint={`${eventYears}年以内の予定 ${yen(eventTotal)} を月割り`}
+            hint={eventIncome > 0
+              ? `${eventYears}年以内の支出 ${yen(eventExpense)} − 戻り ${yen(eventIncome)}（ご祝儀・一時金など）を月割り`
+              : `${eventYears}年以内の予定 ${yen(eventExpense)} を月割り`}
             value={eventMonthly}
           />
           <Row
