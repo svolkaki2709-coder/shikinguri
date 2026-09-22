@@ -45,6 +45,21 @@ const GROUP_COLORS: Record<string, { header: string; row: string; text: string; 
 
 const GROUP_ORDER = ["収入", "支出", "振替", "投資", "貯蓄", "立替", "税金"]
 
+/**
+ * 月別予算の入れ方。
+ *  this   … その月だけ
+ *  from   … その月以降すべて
+ *  all    … 毎月（既定の予算）
+ *  every2 … その月から1ヶ月おき（水道代のように2ヶ月まとめて請求されるもの）
+ */
+type BudgetMode = "this" | "from" | "all" | "every2"
+const BUDGET_MODES: { key: BudgetMode; label: string; color: string }[] = [
+  { key: "this", label: "この月", color: "bg-blue-500" },
+  { key: "from", label: "以降", color: "bg-purple-500" },
+  { key: "all", label: "全月", color: "bg-green-500" },
+  { key: "every2", label: "隔月", color: "bg-cyan-500" },
+]
+
 /** グループヘッダーの背景色（固定列の継ぎ目を同じ色で塗り足すために使う） */
 const GROUP_HEX: Record<string, string> = {
   収入: "#16a34a", 支出: "#2563eb", 振替: "#6b7280", 投資: "#9333ea",
@@ -446,15 +461,44 @@ function BudgetContent() {
 
   // ─── 年次テーブル: 月別予算インライン編集 ─────────────────────
   const [editingMonthBudget, setEditingMonthBudget] = useState<{
-    category: string; cardType: string; month: string; value: string; mode: "this" | "from" | "all"
+    category: string; cardType: string; month: string; value: string; mode: BudgetMode
   } | null>(null)
 
   async function handleMonthBudgetSave(
     category: string, cardType: string, m: string, value: string,
-    mode: "this" | "from" | "all" = "this"
+    mode: BudgetMode = "this"
   ) {
     const amount = value.trim() === "" ? 0 : Number(value.replace(/,/g, ""))
     if (isNaN(amount)) { setEditingMonthBudget(null); return }
+
+    // 隔月（水道代など2ヶ月まとめて請求されるもの）は、請求月に満額・間の月は0を
+    // 明示的に入れる。0を入れておかないと、毎月の既定予算がその月に効いてしまう。
+    if (mode === "every2") {
+      const startIdx = months.indexOf(m)
+      const targets = months
+        .map((mo, i) => ({ mo, i }))
+        .filter(({ i }) => i >= startIdx)
+        .map(({ mo, i }) => ({ month: mo, amount: (i - startIdx) % 2 === 0 ? amount : 0 }))
+
+      for (const t of targets) {
+        await fetch("/api/budget", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ category, amount: t.amount, card_type: cardType, month: t.month, is_from_month: false }),
+        })
+      }
+      setCategories(prev => prev.map(c => {
+        if (c.name !== category || c.cardType !== cardType) return c
+        const newByMonth = { ...c.byMonth }
+        for (const t of targets) {
+          newByMonth[t.month] = { ...(newByMonth[t.month] ?? { actual: 0 }), budget: t.amount }
+        }
+        const newYearBudget = months.reduce((s, mo) => s + (newByMonth[mo]?.budget ?? 0), 0)
+        return { ...c, byMonth: newByMonth, yearBudget: newYearBudget }
+      }))
+      setEditingMonthBudget(null)
+      return
+    }
 
     const bodyData = mode === "all"
       ? { category, amount, card_type: cardType, month: null, is_from_month: false }
@@ -1178,15 +1222,13 @@ function BudgetContent() {
                                         isEditingCell ? (
                                           <div className="flex flex-col gap-0.5 items-end" onClick={e => e.stopPropagation()}>
                                             <div className="flex rounded overflow-hidden border border-slate-800 text-[9px]">
-                                              {(["this", "from", "all"] as const).map((md, i) => (
+                                              {BUDGET_MODES.map(({ key: md, label, color }, i) => (
                                                 <button key={md} type="button"
                                                   onMouseDown={e => { e.preventDefault(); setEditingMonthBudget({ ...editingMonthBudget, mode: md }) }}
                                                   className={`px-1.5 py-0.5 ${i > 0 ? "border-l border-slate-800" : ""} transition-colors ${
-                                                    editingMonthBudget.mode === md
-                                                      ? md === "this" ? "bg-blue-500 text-white" : md === "from" ? "bg-purple-500 text-white" : "bg-green-500 text-white"
-                                                      : "bg-slate-900 text-slate-500"
+                                                    editingMonthBudget.mode === md ? `${color} text-white` : "bg-slate-900 text-slate-500"
                                                   }`}>
-                                                  {md === "this" ? "この月" : md === "from" ? "以降" : "全月"}
+                                                  {label}
                                                 </button>
                                               ))}
                                             </div>
@@ -1233,15 +1275,13 @@ function BudgetContent() {
                                             <span className="block" onClick={e => e.stopPropagation()}>
                                               <span className="flex justify-end mb-0.5">
                                                 <span className="flex rounded overflow-hidden border border-slate-800 text-[9px]">
-                                                  {(["this", "from", "all"] as const).map((md, i) => (
+                                                  {BUDGET_MODES.map(({ key: md, label, color }, i) => (
                                                     <button key={md} type="button"
                                                       onMouseDown={e => { e.preventDefault(); setEditingMonthBudget({ ...editingMonthBudget, mode: md }) }}
                                                       className={`px-1 py-0.5 ${i > 0 ? "border-l border-slate-800" : ""} transition-colors ${
-                                                        editingMonthBudget.mode === md
-                                                          ? md === "this" ? "bg-blue-500 text-white" : md === "from" ? "bg-purple-500 text-white" : "bg-green-500 text-white"
-                                                          : "bg-slate-900 text-slate-500"
+                                                        editingMonthBudget.mode === md ? `${color} text-white` : "bg-slate-900 text-slate-500"
                                                       }`}>
-                                                      {md === "this" ? "この月" : md === "from" ? "以降" : "全月"}
+                                                      {label}
                                                     </button>
                                                   ))}
                                                 </span>
