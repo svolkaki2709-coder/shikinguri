@@ -707,20 +707,21 @@ function BudgetContent() {
         ═══════════════════════════════════════════════════════ */}
         {mainTab === "monthly" && (
           <div className="space-y-3">
+            <div className={isPC ? "flex items-stretch gap-2" : "space-y-3"}>
             {/* 月選択 */}
-            <div className="flex items-center gap-2 bg-slate-900 rounded-xl shadow-sm border border-slate-800 px-3 py-2">
+            <div className={`flex items-center gap-1 bg-slate-900 rounded-xl shadow-sm border border-slate-800 px-2 py-1.5 ${isPC ? "w-52 shrink-0" : ""}`}>
               <button onClick={() => setMonth(prevMonth(month))}
-                className="text-slate-400 hover:text-blue-400 px-2 py-1 rounded hover:bg-slate-800 text-lg font-bold">‹</button>
+                className="text-slate-400 hover:text-blue-400 px-1.5 py-0.5 rounded hover:bg-slate-800 text-lg font-bold">‹</button>
               <input type="month" value={month} onChange={e => setMonth(e.target.value)}
-                className="flex-1 text-center text-sm font-semibold text-slate-100 border-0 outline-none bg-transparent" />
+                className="flex-1 min-w-0 text-center text-sm font-semibold text-slate-100 border-0 outline-none bg-transparent" />
               <button onClick={() => setMonth(nextMonth(month))}
-                className="text-slate-400 hover:text-blue-400 px-2 py-1 rounded hover:bg-slate-800 text-lg font-bold">›</button>
+                className="text-slate-400 hover:text-blue-400 px-1.5 py-0.5 rounded hover:bg-slate-800 text-lg font-bold">›</button>
             </div>
 
             {/* 収支サマリーカード（個人/共同で切替） */}
             {cardTypeFilter === "self" ? (
-              <div className={`grid ${isPC ? "grid-cols-4" : "grid-cols-2"} gap-2`}>
-                <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 text-center">
+              <div className={`grid ${isPC ? "grid-cols-4 flex-1" : "grid-cols-2"} gap-2`}>
+                <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 px-3 py-2 text-center">
                   <p className="text-[11px] text-slate-400 mb-1">収入</p>
                   <p className="text-sm font-bold text-green-400">{toJPY(incomeTotal)}</p>
                   {selfTaxTotal > 0 && (
@@ -730,17 +731,17 @@ function BudgetContent() {
                     </>
                   )}
                 </div>
-                <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 text-center">
+                <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 px-3 py-2 text-center">
                   <p className="text-[11px] text-slate-400 mb-1">支出</p>
                   <p className={`text-sm font-bold ${selfActual > selfBudget && selfBudget > 0 ? "text-red-400" : "text-slate-100"}`}>
                     {toJPY(selfActual)}
                   </p>
                 </div>
-                <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 text-center">
+                <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 px-3 py-2 text-center">
                   <p className="text-[11px] text-slate-400 mb-1">予算</p>
                   <p className="text-sm font-bold text-slate-300">{toJPY(selfBudget)}</p>
                 </div>
-                <div className={`rounded-xl shadow-sm p-3 text-center ${selfVariance > 0 ? "bg-red-500/10" : "bg-blue-500/10"}`}>
+                <div className={`rounded-xl shadow-sm px-3 py-2 text-center ${selfVariance > 0 ? "bg-red-500/10" : "bg-blue-500/10"}`}>
                   <p className="text-[11px] text-slate-400 mb-1">予実差</p>
                   <p className={`text-sm font-bold ${selfVariance > 0 ? "text-red-400" : "text-blue-400"}`}>
                     {selfVariance > 0 ? "+" : ""}{toJPY(selfVariance)}
@@ -751,8 +752,8 @@ function BudgetContent() {
                 </div>
               </div>
             ) : (
-              <div className={`grid ${isPC ? "grid-cols-4" : "grid-cols-2"} gap-2`}>
-                <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 text-center">
+              <div className={`grid ${isPC ? "grid-cols-4 flex-1" : "grid-cols-2"} gap-2`}>
+                <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 px-3 py-2 text-center">
                   <p className="text-[11px] text-slate-400 mb-1">入金</p>
                   <p className="text-sm font-bold text-green-400">{toJPY(jointIncomeTotal)}</p>
                   {jointTaxTotal > 0 && (
@@ -762,17 +763,17 @@ function BudgetContent() {
                     </>
                   )}
                 </div>
-                <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 text-center">
+                <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 px-3 py-2 text-center">
                   <p className="text-[11px] text-slate-400 mb-1">支出</p>
                   <p className={`text-sm font-bold ${jointActual > jointBudget && jointBudget > 0 ? "text-red-400" : "text-slate-100"}`}>
                     {toJPY(jointActual)}
                   </p>
                 </div>
-                <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 text-center">
+                <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 px-3 py-2 text-center">
                   <p className="text-[11px] text-slate-400 mb-1">予算</p>
                   <p className="text-sm font-bold text-slate-300">{toJPY(jointBudget)}</p>
                 </div>
-                <div className={`rounded-xl shadow-sm p-3 text-center ${jointVariance > 0 ? "bg-red-500/10" : "bg-amber-500/10"}`}>
+                <div className={`rounded-xl shadow-sm px-3 py-2 text-center ${jointVariance > 0 ? "bg-red-500/10" : "bg-amber-500/10"}`}>
                   <p className="text-[11px] text-slate-400 mb-1">予実差</p>
                   <p className={`text-sm font-bold ${jointVariance > 0 ? "text-red-400" : "text-amber-400"}`}>
                     {jointVariance > 0 ? "+" : ""}{toJPY(jointVariance)}
@@ -783,31 +784,32 @@ function BudgetContent() {
                 </div>
               </div>
             )}
+            </div>
 
-            {/* 予算も実績も無い行の表示切替 */}
-            {hiddenRowCount > 0 && (
-              <button
-                onClick={() => setShowEmptyRows(v => !v)}
-                className="w-full text-[11px] text-slate-500 hover:text-slate-300 py-1"
-              >
-                {showEmptyRows
-                  ? "今月動きのないカテゴリを隠す"
-                  : `今月動きのないカテゴリを表示（${hiddenRowCount}件）`}
-              </button>
-            )}
-
-            {/* 個人/共同トグル */}
-            <div className="flex rounded-lg bg-slate-800 p-0.5">
-              {([["self", "個人"] as const, ["joint", "共同"] as const]).map(([k, label]) => (
-                <button key={k} onClick={() => setCardTypeFilter(k)}
-                  className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    cardTypeFilter === k
-                      ? k === "self" ? "bg-slate-900 text-indigo-400 shadow-sm" : "bg-slate-900 text-amber-400 shadow-sm"
-                      : "text-slate-400"
-                  }`}>
-                  {label}
+            {/* 個人/共同トグルと、動きのない行の表示切替を1行にまとめる */}
+            <div className="flex items-center gap-2">
+              <div className={`flex rounded-lg bg-slate-800 p-0.5 ${isPC ? "w-64" : "flex-1"}`}>
+                {([["self", "個人"] as const, ["joint", "共同"] as const]).map(([k, label]) => (
+                  <button key={k} onClick={() => setCardTypeFilter(k)}
+                    className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                      cardTypeFilter === k
+                        ? k === "self" ? "bg-slate-900 text-indigo-400 shadow-sm" : "bg-slate-900 text-amber-400 shadow-sm"
+                        : "text-slate-400"
+                    }`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {hiddenRowCount > 0 && (
+                <button
+                  onClick={() => setShowEmptyRows(v => !v)}
+                  className="text-[11px] text-slate-500 hover:text-slate-300 whitespace-nowrap ml-auto"
+                >
+                  {showEmptyRows
+                    ? "動きのないカテゴリを隠す"
+                    : `動きのないカテゴリを表示（${hiddenRowCount}）`}
                 </button>
-              ))}
+              )}
             </div>
 
             {monthlyLoading && (
