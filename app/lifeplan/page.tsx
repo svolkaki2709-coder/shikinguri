@@ -90,6 +90,12 @@ function LifePlanContent() {
   function setScope(v: "self" | "joint") { setScopeState(v); syncUrl("ct", v) }
   function setTab(v: Tab) { setTabState(v); syncUrl("tab", v) }
 
+  // 共同→個人に切り替えたとき、個人には無いタブを開いたままにしない
+  useEffect(() => {
+    if (scope !== "joint" && tab === "share") setTab("cashflow")
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope, tab])
+
   const [loading, setLoading] = useState(true)
   const [settings, setSettings] = useState<Settings | null>(null)
   const [members, setMembers] = useState<Member[]>([])
@@ -306,7 +312,8 @@ function LifePlanContent() {
                 ["cashflow", "📊 キャッシュフロー"],
                 ["events", "🎯 ライフイベント"],
                 ["streams", "💰 収入・支出"],
-                ["share", "🤝 2人の分担"],
+                // 分担は2人で出し合う共同の話なので、個人のプランでは出さない
+                ...(scope === "joint" ? [["share", "🤝 2人の分担"] as const] : []),
                 ["tools", "🧮 ツール"],
                 ["settings", "⚙️ 前提条件"],
               ] as const).map(([k, label]) => (
