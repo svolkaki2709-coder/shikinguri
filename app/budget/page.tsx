@@ -683,6 +683,13 @@ function BudgetContent() {
                       {diffLabel}{toJPY(Math.abs(effectiveDiff))}
                     </span>
                   )}
+                  {/* 予算未設定でも実績があるものは、グループ合計には効いている。
+                      何も出さないと「超過の合計が一致しない」と読めてしまうので明示する */}
+                  {sign !== 0 && !hasBudget && b.actual !== 0 && (
+                    <span className="text-xs font-semibold shrink-0 ml-2 text-amber-400">
+                      予算なし {toJPY(Math.abs(b.actual))}
+                    </span>
+                  )}
                 </div>
                 <div className="w-full bg-slate-800 rounded-full h-1.5 mb-1">
                   <div
