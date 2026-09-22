@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useMemo, Suspense } from "react"
+import { useEffect, useState, useMemo, useCallback, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { toHalfWidth } from "@/lib/num"
@@ -236,26 +236,30 @@ function BudgetContent() {
       }
       setEditingRow(null)
       if (drillDown) refreshDrillDown(drillDown)
+      // カテゴリ・金額を変えると集計が変わるので、一覧側も取り直す
+      await Promise.all([loadMonthly(), loadYearly()])
     } finally {
       setEditSaving(false)
     }
   }
 
   // ─── データ取得: 月次 ──────────────────────────────────────────
-  useEffect(() => {
+  const loadMonthly = useCallback(() => {
     setMonthlyLoading(true)
-    fetch(`/api/budget?month=${month}`)
+    return fetch(`/api/budget?month=${month}`)
       .then(r => r.json())
       .then(budgetData => setBudgets(budgetData.budgets ?? []))
       .finally(() => setMonthlyLoading(false))
   }, [month])
 
+  useEffect(() => { loadMonthly() }, [loadMonthly])
+
   // ─── データ取得: 年次 ──────────────────────────────────────────
-  useEffect(() => {
+  const loadYearly = useCallback(() => {
     setYearlyLoading(true)
     const from = `${year}-01`
     const to = `${year}-12`
-    fetch(`/api/budget-table?from=${from}&to=${to}`)
+    return fetch(`/api/budget-table?from=${from}&to=${to}`)
       .then(r => r.json())
       .then(d => {
         setMonths(d.months ?? [])
@@ -264,6 +268,8 @@ function BudgetContent() {
       })
       .finally(() => setYearlyLoading(false))
   }, [year])
+
+  useEffect(() => { loadYearly() }, [loadYearly])
 
   // ─── 月次: グループ集計 ────────────────────────────────────────
   // 予算も実績も無いカテゴリは、その月には関係が無いので既定では隠す。
