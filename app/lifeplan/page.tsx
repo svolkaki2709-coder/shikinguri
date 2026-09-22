@@ -7,6 +7,7 @@ import { BottomNav } from "@/components/BottomNav"
 import { useViewMode } from "@/components/ViewModeContext"
 import { LIFE_EVENT_TEMPLATES, type LifeEventTemplate, STREAM_TEMPLATES } from "@/lib/lifeEventTemplates"
 import { toMan, fmtMan, manToYen, yenToManStr } from "@/lib/money"
+import { RetirementGap } from "@/components/RetirementGap"
 import { JointContribution } from "@/components/JointContribution"
 import { LifePlanTools, type ToolRow, type PayslipHints } from "@/components/LifePlanTools"
 import { SaveButton } from "@/components/SaveButton"
@@ -45,7 +46,7 @@ interface CashRow {
   balance: number
 }
 
-type Tab = "cashflow" | "events" | "streams" | "share" | "tools" | "settings"
+type Tab = "cashflow" | "events" | "streams" | "share" | "retire" | "tools" | "settings"
 
 const CATEGORY_COLORS: Record<string, string> = {
   教育: "bg-blue-500/15 text-blue-300",
@@ -314,6 +315,7 @@ function LifePlanContent() {
                 ["streams", "💰 収入・支出"],
                 // 分担は2人で出し合う共同の話なので、個人のプランでは出さない
                 ...(scope === "joint" ? [["share", "🤝 2人の分担"] as const] : []),
+                ["retire", "🏖️ 老後資金"],
                 ["tools", "🧮 ツール"],
                 ["settings", "⚙️ 前提条件"],
               ] as const).map(([k, label]) => (
@@ -352,6 +354,17 @@ function LifePlanContent() {
                 hints={hints}
                 scope={scope}
                 saved={(tools.find(t => t.tool === "contribution")?.params ?? null) as never}
+                onSaved={load}
+              />
+            )}
+            {tab === "retire" && (
+              <RetirementGap
+                members={members}
+                settings={settings}
+                hints={hints}
+                payslipHints={payslipHints}
+                scope={scope}
+                saved={(tools.find(t => t.tool === "retirement")?.params ?? null) as never}
                 onSaved={load}
               />
             )}
