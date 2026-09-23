@@ -33,6 +33,7 @@ interface Params {
   stepMonths: string                // 何ヶ月ごとに増やすか
   stepStart: string                 // 最初に増やす年月（YYYY-MM。空なら今月から間隔ぶん後）
   eventMode: "flat" | "ramp"        // イベント積立を定額にするか、段階的に増やすか
+  includeBuffer: boolean            // 生活防衛資金を計算に含めるか
   eventCurrent: string              // 段階的に増やす場合の、今月のイベント積立額
   eventYears: string                // 何年先までのライフイベントを積み立てるか
   bufferMonths: string              // 生活防衛資金として生活費の何ヶ月分を持つか
@@ -52,6 +53,7 @@ const DEFAULTS: Params = {
   stepMonths: "6",
   stepStart: "",
   eventMode: "flat",
+  includeBuffer: true,
   eventCurrent: "",
   eventYears: "10",
   bufferMonths: "6",
@@ -215,7 +217,9 @@ export function JointContribution({ members, events, hints, inflationRate, saved
   // A. 生活のための分（毎月の生活費＋生活防衛資金の積立）
   //    使って消えるお金と、もしものときの備え。イベントとは混ぜない。
   // ════════════════════════════════════════════════════════
-  const bufferTarget = living * (num(p.bufferMonths) || 6)
+  // 防衛資金を外した場合は目標0として扱う（余った貯蓄はイベントに回せる）
+  const includeBuffer = p.includeBuffer !== false
+  const bufferTarget = includeBuffer ? living * (p.bufferMonths === "" ? 6 : num(p.bufferMonths)) : 0
   // 取り置き分は使い道が決まっているので、防衛資金としては数えない
   const freeSavings = Math.max(0, (hints?.savings ?? 0) - earmarkedTotal)
   const bufferGap = Math.max(0, bufferTarget - freeSavings)
@@ -444,16 +448,23 @@ export function JointContribution({ members, events, hints, inflationRate, saved
                 : "（予算内で収まっています）"}
             </p>
           )}
+          <label className="flex items-center gap-2 text-xs text-slate-300">
+            <input type="checkbox" checked={includeBuffer}
+              onChange={e => set("includeBuffer", e.target.checked)} />
+            生活防衛資金の積立を計算に含める
+          </label>
+          {includeBuffer && (
           <Row
             label="生活防衛資金の積立"
             hint={
-              `目標 ${yen(bufferTarget)}（生活費${num(p.bufferMonths) || 6}ヶ月分）` +
+              `目標 ${yen(bufferTarget)}（生活費${p.bufferMonths === "" ? 6 : num(p.bufferMonths)}ヶ月分）` +
               ` ／ 共同貯蓄 ${yen(hints?.savings ?? 0)}` +
               (earmarkedTotal > 0 ? ` − 取り置き ${yen(earmarkedTotal)} = 使える分 ${yen(freeSavings)}` : "") +
               (bufferGap > 0 ? ` → ${yen(bufferGap)} 不足を${bufferSpread}ヶ月で貯める` : " → 到達済み")
             }
             value={bufferMonthly}
           />
+          )}
         </div>
 
         <div className="flex items-center justify-between border-t border-slate-800 pt-2.5">
@@ -462,7 +473,7 @@ export function JointContribution({ members, events, hints, inflationRate, saved
         </div>
         <p className="text-[11px] text-slate-500">
           生活費は物価が年{inflationRate}%上がる前提で、1年後は約{yen(livingAt(12))}、5年後は約{yen(livingAt(60))}になります。
-          防衛資金の積立は{bufferGap > 0 ? `${monthLabel(bufferSpread - 1)}まで` : "不要"}です
+          {includeBuffer ? `防衛資金の積立は${bufferGap > 0 ? `${monthLabel(bufferSpread - 1)}まで` : "不要"}です` : "防衛資金は計算から外しています"}
         </p>
 
         <details className="text-xs">
