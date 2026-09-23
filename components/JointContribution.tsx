@@ -27,7 +27,8 @@ interface Params {
   eventYears: string                // 何年先までのライフイベントを積み立てるか
   bufferMonths: string              // 生活防衛資金として生活費の何ヶ月分を持つか
   bufferSpreadMonths: string        // 生活防衛資金を何ヶ月かけて貯めるか
-  earmarked: string                 // 使い道が決まっている取り置き（結婚式費用など）
+  earmarked: string                 // 用途を決めていない取り置き
+  earmarks: Record<string, string>  // イベントごとの取り置き（キーは "年|イベント名"）
   livingSource: "budget" | "actual" | "manual"  // 生活費をどこから取るか
   livingCost: string                // 生活費の手入力値（livingSource=manual のとき使う）
 }
@@ -43,6 +44,7 @@ const DEFAULTS: Params = {
   bufferMonths: "6",
   bufferSpreadMonths: "24",
   earmarked: "",
+  earmarks: {},
   livingSource: "budget",
   livingCost: "",
 }
@@ -74,6 +76,7 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
       ...base,
       current: money(base.current),
       earmarked: money(base.earmarked),
+      earmarks: Object.fromEntries(Object.entries(base.earmarks ?? {}).map(([k, v]) => [k, money(String(v))])),
       stepAmount: money(base.stepAmount),
       livingCost: money(base.livingCost),
       incomes: Object.fromEntries(Object.entries(base.incomes ?? {}).map(([k, v]) => [k, money(String(v))])),
@@ -95,9 +98,31 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
     : (budgetMonthly || actualMonthly)
 
   const eventYears = Math.max(1, num(p.eventYears) || 10)
-  // 使い道が決まっている取り置き（結婚式費用など）。
-  // 生活防衛資金とは別枠で、イベントの支払いに先に充てる。
-  const earmarked = num(p.earmarked)
+  // 取り置き（すでに用途が決まっているお金）。
+  // イベントごとに割り当てられるが、用途を決めていない分も置ける。
+  // どちらも生活防衛資金には数えず、イベントの支払いに先に充てる。
+  const eventKey = (year: number, name: string) => `${year}|${name}`
+
+  // 期間内の支出イベント（同じ年・同じ名前はまとめる）
+  const expenseEvents = useMemo(() => {
+    const map = new Map<string, { key: string; year: number; name: string; amount: number }>()
+    for (const e of events) {
+      if (e.kind !== "expense") continue
+      for (let i = 0; i < Math.max(1, e.repeat_years); i++) {
+        const y = e.year + i
+        if (y < thisYear || y >= thisYear + eventYears) continue
+        const k = eventKey(y, e.name)
+        const cur = map.get(k)
+        if (cur) cur.amount += e.amount
+        else map.set(k, { key: k, year: y, name: e.name, amount: e.amount })
+      }
+    }
+    return [...map.values()].sort((a, b) => a.year - b.year || a.name.localeCompare(b.name))
+  }, [events, eventYears, thisYear])
+
+  const earmarkFor = (key: string) => num(p.earmarks?.[key] ?? "")
+  const earmarkedFree = num(p.earmarked)
+  const earmarkedTotal = expenseEvents.reduce((s2, e) => s2 + earmarkFor(e.key), 0) + earmarkedFree
 
   // 今後 eventYears 年以内のライフイベントを年ごとに集計する。
   // 単純な月割りだと「10年で割った額」になり、2年後のイベントには間に合わない。
@@ -119,10 +144,15 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
       cumulative += byYear.get(y) ?? 0
       // その年の支払いまでの残り月数。今年のイベントは「今すぐ必要」とみなす
       const monthsLeft = Math.max(1, (y - thisYear) * 12)
-      const shortfall = Math.max(0, cumulative - earmarked)
-      return { year: y, net: byYear.get(y) ?? 0, cumulative, monthsLeft, monthly: Math.round(shortfall / monthsLeft) }
+      // その年までのイベントに割り当てた取り置き＋用途未定の分を充当する
+      const allocated = expenseEvents
+        .filter(e => e.year <= y)
+        .reduce((s2, e) => s2 + earmarkFor(e.key), 0) + earmarkedFree
+      const shortfall = Math.max(0, cumulative - allocated)
+      return { year: y, net: byYear.get(y) ?? 0, cumulative, allocated, monthsLeft, monthly: Math.round(shortfall / monthsLeft) }
     })
-  }, [events, eventYears, thisYear, earmarked])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events, eventYears, thisYear, expenseEvents, p.earmarks, p.earmarked])
 
   const eventExpense = useMemo(() => events.filter(e => e.kind === "expense").reduce((sum, e) => {
     let v = 0
@@ -148,7 +178,7 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
 
   const bufferTarget = living * (num(p.bufferMonths) || 6)
   // 取り置き分は使い道が決まっているので、防衛資金としては数えない
-  const freeSavings = Math.max(0, (hints?.savings ?? 0) - earmarked)
+  const freeSavings = Math.max(0, (hints?.savings ?? 0) - earmarkedTotal)
   const bufferGap = Math.max(0, bufferTarget - freeSavings)
   const bufferMonthly = Math.round(bufferGap / Math.max(1, num(p.bufferSpreadMonths) || 24))
 
@@ -278,23 +308,50 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
             value={eventMonthly}
           />
 
-          <div className="flex items-center gap-2 bg-slate-800/40 rounded-lg px-2.5 py-2">
-            <div className="min-w-0 flex-1">
-              <p className="text-sm text-slate-300">取り置き（使い道が決まっている分）</p>
+          <div className="bg-slate-800/40 rounded-lg px-2.5 py-2 space-y-2">
+            <div>
+              <p className="text-sm text-slate-300">取り置き（すでに確保してあるお金）</p>
               <p className="text-[11px] text-slate-500">
-                結婚式費用など。生活防衛資金には数えず、先にイベントの支払いへ充てます
+                どのイベント用かを選んで入れてください。生活防衛資金には数えず、先にその支払いへ充てます
               </p>
             </div>
-            <div className="w-36 shrink-0">
-              <input className={input} inputMode="numeric" placeholder="0"
-                value={p.earmarked} onChange={e => set("earmarked", money(e.target.value))} />
+
+            {expenseEvents.map(ev => (
+              <div key={ev.key} className="flex items-center gap-2">
+                <span className="text-xs text-slate-400 flex-1 min-w-0 truncate">
+                  {ev.year}年 {ev.name}
+                  <span className="text-slate-600 ml-1.5">{yen(ev.amount)}</span>
+                </span>
+                <div className="w-32 shrink-0">
+                  <input className={input} inputMode="numeric" placeholder="0"
+                    value={p.earmarks?.[ev.key] ?? ""}
+                    onChange={e => set("earmarks", { ...(p.earmarks ?? {}), [ev.key]: money(e.target.value) })} />
+                </div>
+              </div>
+            ))}
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500 flex-1 min-w-0">用途を決めていない分</span>
+              <div className="w-32 shrink-0">
+                <input className={input} inputMode="numeric" placeholder="0"
+                  value={p.earmarked} onChange={e => set("earmarked", money(e.target.value))} />
+              </div>
             </div>
+
+            {earmarkedTotal > 0 && (
+              <p className={`text-[11px] ${earmarkedTotal > (hints?.savings ?? 0) ? "text-red-400" : "text-slate-500"}`}>
+                取り置きの合計 {yen(earmarkedTotal)}
+                {earmarkedTotal > (hints?.savings ?? 0)
+                  ? `（共同貯蓄 ${yen(hints?.savings ?? 0)} を超えています）`
+                  : `／ 共同貯蓄 ${yen(hints?.savings ?? 0)}`}
+              </p>
+            )}
           </div>
 
           {eventPlan.length > 0 && (
             <div className="bg-slate-800/50 rounded-lg p-2.5 overflow-x-auto">
               <p className="text-[11px] text-slate-400 mb-1.5">
-                各イベントに間に合うか（取り置き {yen(earmarked)} を先に充当）
+                各イベントに間に合うか（取り置き {yen(earmarkedTotal)} を先に充当）
               </p>
               <table className="w-full text-[11px] whitespace-nowrap">
                 <thead>
@@ -302,6 +359,7 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
                     <th className="text-left font-medium py-0.5">年</th>
                     <th className="text-right font-medium py-0.5">その年の収支</th>
                     <th className="text-right font-medium py-0.5">必要累計</th>
+                    <th className="text-right font-medium py-0.5">取り置き充当</th>
                     <th className="text-right font-medium py-0.5">残り</th>
                     <th className="text-right font-medium py-0.5">必要な月額</th>
                   </tr>
@@ -312,6 +370,7 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
                       <td className="py-0.5">{r.year}年</td>
                       <td className="text-right py-0.5">{r.net >= 0 ? `−${yen(r.net)}` : `+${yen(-r.net)}`}</td>
                       <td className="text-right py-0.5">{yen(Math.max(0, r.cumulative))}</td>
+                      <td className="text-right py-0.5">{yen(r.allocated)}</td>
                       <td className="text-right py-0.5">{r.monthsLeft}ヶ月</td>
                       <td className="text-right py-0.5">{yen(r.monthly)}</td>
                     </tr>
@@ -328,7 +387,7 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
             hint={
               `目標 ${yen(bufferTarget)}（生活費${num(p.bufferMonths) || 6}ヶ月分）` +
               ` ／ 共同貯蓄 ${yen(hints?.savings ?? 0)}` +
-              (earmarked > 0 ? ` − 取り置き ${yen(earmarked)} = 使える分 ${yen(freeSavings)}` : "") +
+              (earmarkedTotal > 0 ? ` − 取り置き ${yen(earmarkedTotal)} = 使える分 ${yen(freeSavings)}` : "") +
               (hints?.assetMonth ? `（${hints.assetMonth.slice(0, 4)}年${Number(hints.assetMonth.slice(5, 7))}月末の記録）` : "（資産管理に記録がありません）") +
               (bufferGap > 0 ? ` → ${yen(bufferGap)} 不足` : " → 到達済み")
             }
