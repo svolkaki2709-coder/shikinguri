@@ -35,6 +35,8 @@ interface Params {
   eventMode: "flat" | "ramp"        // イベント積立を定額にするか、段階的に増やすか
   includeBuffer: boolean            // 生活防衛資金を計算に含めるか
   eventCurrent: string              // 段階的に増やす場合の、今月のイベント積立額
+  /** 保存した時点の「月末残高の見込み」。実績と比べて計画からのズレを見る */
+  baseline?: { savedAt: string; values: Record<string, number> }
   eventYears: string                // 何年先までのライフイベントを積み立てるか
   bufferMonths: string              // 生活防衛資金として生活費の何ヶ月分を持つか
   bufferSpreadMonths: string        // 生活防衛資金を何ヶ月かけて貯めるか
@@ -76,11 +78,13 @@ const num = (v: string) => {
   return isNaN(n) ? 0 : n
 }
 
-export function JointContribution({ members, events, hints, inflationRate, saved, scope, onSaved }: {
+export function JointContribution({ members, events, hints, inflationRate, assetHistory, saved, scope, onSaved }: {
   members: Member[]
   events: LifeEvent[]
   /** 物価上昇率（%）。イベント金額は今の物価で登録されているので将来価値に直す */
   inflationRate: number
+  /** 資産管理に記録した月末残高（新しい順） */
+  assetHistory: { month: string; savings: number; investment: number }[]
   hints: { annualExpense: number; savings: number; budgetExpenseAnnual?: number; assetMonth?: string | null; budgetYear?: number } | null
   saved: Params | null
   scope: string
@@ -371,6 +375,22 @@ export function JointContribution({ members, events, hints, inflationRate, saved
     return [...ts].sort((a, b) => a - b).slice(0, 24)
   }, [planSim, horizon, bufferSpread, thisMonth])
 
+  /**
+   * 共同口座の月末残高の見込み。
+   * 生活費は入れた分がそのまま出ていくので残高には効かない。
+   * 残るのは防衛資金の積立とイベント用の積立で、イベントの月に支払い（受取）が起きる。
+   */
+  const projectedBalanceAt = useMemo(() => {
+    const out: number[] = []
+    let bal = hints?.savings ?? 0
+    for (let t = 0; t < horizon; t++) {
+      bal += bufferAt(t) + eventPartAt(t) + (eventByMonth.get(t)?.amount ?? 0)
+      out.push(Math.round(bal))
+    }
+    return out
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hints?.savings, horizon, bufferMonthly, bufferSpread, planSim, eventByMonth])
+
   const monthKey = (t: number) => {
     const total = (thisYear * 12 + (thisMonth - 1)) + t
     return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, "0")}`
@@ -384,7 +404,18 @@ export function JointContribution({ members, events, hints, inflationRate, saved
     const res = await fetch("/api/lifeplan/tools", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tool: "contribution", params: p, card_type: scope }),
+      body: JSON.stringify({
+        tool: "contribution",
+        card_type: scope,
+        params: {
+          ...p,
+          // 今の計画での月末残高の見込み（3年分）。月末に記録した実績と比べる基準になる
+          baseline: {
+            savedAt: monthKey(0),
+            values: Object.fromEntries(projectedBalanceAt.slice(0, 36).map((v, t) => [monthKey(t), v])),
+          },
+        },
+      }),
     })
     if (!res.ok) throw new Error("保存に失敗しました")
     onSaved()
@@ -771,6 +802,16 @@ export function JointContribution({ members, events, hints, inflationRate, saved
         </p>
       </div>
 
+      <PlanVsActual
+        baseline={p.baseline}
+        history={assetHistory}
+        yen={yen}
+        monthsToNextEvent={(() => {
+          const next = [...eventByMonth.entries()].filter(([, v]) => v.amount < 0).map(([t]) => t).sort((a, b) => a - b)[0]
+          return next === undefined ? null : { months: Math.max(1, next), label: monthLabel(next), names: eventByMonth.get(next)?.names ?? [] }
+        })()}
+      />
+
       <SaveButton label="この分担プランを保存する" onSave={save} />
 
       <p className="text-[11px] text-slate-500 leading-relaxed">
@@ -804,6 +845,82 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div>
       <label className="text-[10px] text-slate-500 block mb-0.5">{label}</label>
       {children}
+    </div>
+  )
+}
+
+/**
+ * 計画と実績の比較。
+ * 保存したときの「月末残高の見込み」と、資産管理に記録した月末残高を並べる。
+ * 利息や臨時の出入りで実際の残高はずれていくので、そのズレを毎月確認して計画を合わせる。
+ */
+function PlanVsActual({ baseline, history, yen, monthsToNextEvent }: {
+  baseline?: { savedAt: string; values: Record<string, number> }
+  history: { month: string; savings: number }[]
+  yen: (n: number) => string
+  monthsToNextEvent: { months: number; label: string; names: string[] } | null
+}) {
+  const rows = (baseline ? history : [])
+    .filter(h => baseline!.values[h.month] !== undefined)
+    .slice(0, 6)
+    .map(h => ({ month: h.month, plan: baseline!.values[h.month], actual: h.savings, diff: h.savings - baseline!.values[h.month] }))
+
+  const latest = rows[0]
+  const label = (m: string) => `${m.slice(0, 4)}年${Number(m.slice(5, 7))}月末`
+
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2">
+      <h3 className="text-sm font-bold text-slate-100">計画と実績のズレ</h3>
+      {!baseline ? (
+        <p className="text-xs text-slate-400">
+          この画面で「保存する」を押すと、その時点の計画での月末残高の見込みが記録されます。
+          あとは毎月末に資産管理で共同の残高を入れると、計画より多いか少ないかがここに出ます
+        </p>
+      ) : rows.length === 0 ? (
+        <p className="text-xs text-slate-400">
+          {label(baseline.savedAt)}からの計画を記録済みです。資産管理で共同の月末残高を入れると、ここで比較できます
+        </p>
+      ) : (
+        <>
+          <p className={`text-sm font-semibold ${latest.diff >= 0 ? "text-green-300" : "text-amber-300"}`}>
+            {label(latest.month)}時点で、計画より {yen(Math.abs(latest.diff))} {latest.diff >= 0 ? "多い" : "少ない"}です
+          </p>
+          <p className="text-xs text-slate-400">
+            {latest.diff >= 0
+              ? "利息や支出の節約で上振れしています。このまま積み増しておくと次のイベントに余裕ができます"
+              : monthsToNextEvent
+                ? `次の支払い（${monthsToNextEvent.label}・${monthsToNextEvent.names.join("・")}）までに取り戻すなら、あと${monthsToNextEvent.months}ヶ月、毎月 ${yen(Math.ceil(-latest.diff / monthsToNextEvent.months / 1000) * 1000)} の上乗せが目安です`
+                : "不足分を上乗せするか、計画を見直してください"}
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs whitespace-nowrap">
+              <thead>
+                <tr className="text-slate-500 border-b border-slate-800">
+                  <th className="text-left py-1 px-2 font-medium">月末</th>
+                  <th className="text-right py-1 px-2 font-medium">計画</th>
+                  <th className="text-right py-1 px-2 font-medium">実績</th>
+                  <th className="text-right py-1 px-2 font-medium">差</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(r => (
+                  <tr key={r.month} className="border-b border-slate-800 last:border-0">
+                    <td className="py-1 px-2 text-slate-300">{label(r.month)}</td>
+                    <td className="py-1 px-2 text-right text-slate-400">{yen(r.plan)}</td>
+                    <td className="py-1 px-2 text-right text-slate-200">{yen(r.actual)}</td>
+                    <td className={`py-1 px-2 text-right font-semibold ${r.diff >= 0 ? "text-green-400" : "text-amber-400"}`}>
+                      {r.diff >= 0 ? "+" : "−"}{yen(Math.abs(r.diff))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-[11px] text-slate-500">
+            計画を立て直したいときは、もう一度「保存する」を押すと、その時点を新しい基準にします
+          </p>
+        </>
+      )}
     </div>
   )
 }

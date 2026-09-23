@@ -103,6 +103,8 @@ function LifePlanContent() {
   const [members, setMembers] = useState<Member[]>([])
   // 家族構成は世帯共通。個人プランでも年齢の表示に使う
   const [householdMembers, setHouseholdMembers] = useState<Member[]>([])
+  // 月末残高の記録（資産管理）。計画と実績の比較に使う
+  const [assetHistory, setAssetHistory] = useState<{ month: string; savings: number; investment: number }[]>([])
   const [streams, setStreams] = useState<Stream[]>([])
   const [events, setEvents] = useState<LifeEvent[]>([])
   const [tools, setTools] = useState<ToolRow[]>([])
@@ -149,6 +151,7 @@ function LifePlanContent() {
       setHouseholdMembers((d.householdMembers ?? []).map((m: Member) => ({
         ...m, birth_year: Number(m.birth_year),
       })))
+      setAssetHistory(d.assetHistory ?? [])
       setHints(d.actualHints ?? null)
       setPayslipHints(d.payslipHints ?? null)
     } finally {
@@ -363,6 +366,7 @@ function LifePlanContent() {
                 events={events}
                 hints={hints}
                 inflationRate={settings.inflation_rate}
+                assetHistory={assetHistory}
                 scope={scope}
                 saved={(tools.find(t => t.tool === "contribution")?.params ?? null) as never}
                 onSaved={load}

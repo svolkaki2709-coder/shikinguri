@@ -144,8 +144,22 @@ export async function GET(req: NextRequest) {
     ? members
     : await sql`SELECT * FROM life_members WHERE owner_user_id IS NULL ORDER BY sort_order, id`
 
+  // 月末残高の履歴（計画と実績の比較に使う）
+  const assetHistory = isJoint
+    ? await sql<{ month: string; savings_balance: number; investment_balance: number }>`
+        SELECT month, savings_balance, investment_balance FROM assets
+        WHERE owner_user_id IS NULL ORDER BY month DESC LIMIT 36`
+    : await sql<{ month: string; savings_balance: number; investment_balance: number }>`
+        SELECT month, savings_balance, investment_balance FROM assets
+        WHERE owner_user_id = ${me.id} ORDER BY month DESC LIMIT 36`
+
   return NextResponse.json({
     settings: settingsRows[0] ?? null,
+    assetHistory: assetHistory.map(a => ({
+      month: String(a.month).slice(0, 7),
+      savings: Number(a.savings_balance),
+      investment: Number(a.investment_balance),
+    })),
     householdMembers,
     payslipHints,
     members,
