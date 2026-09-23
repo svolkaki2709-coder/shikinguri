@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react"
 import { SaveButton } from "@/components/SaveButton"
 import { toHalfWidth } from "@/lib/num"
+import { MonthSelect } from "@/components/MonthSelect"
 
 /**
  * 共同口座への「毎月いくらずつ出し合うか」の計画。
@@ -30,6 +31,7 @@ interface Params {
   current: string                   // 今の世帯合計の拠出額（円）
   stepAmount: string                // 1回の増額幅（世帯合計・円）
   stepMonths: string                // 何ヶ月ごとに増やすか
+  stepStart: string                 // 最初に増やす年月（YYYY-MM。空なら今月から間隔ぶん後）
   eventYears: string                // 何年先までのライフイベントを積み立てるか
   bufferMonths: string              // 生活防衛資金として生活費の何ヶ月分を持つか
   bufferSpreadMonths: string        // 生活防衛資金を何ヶ月かけて貯めるか
@@ -46,6 +48,7 @@ const DEFAULTS: Params = {
   current: "",
   stepAmount: "10000",
   stepMonths: "6",
+  stepStart: "",
   eventYears: "10",
   bufferMonths: "6",
   bufferSpreadMonths: "24",
@@ -248,6 +251,15 @@ export function JointContribution({ members, events, hints, inflationRate, saved
   //   残高 = 前月残高 ＋ 拠出（段階的に増える）− 生活費（物価で上がる）± イベント
   const stepAmount = num(p.stepAmount)
   const stepMonths = Math.max(1, num(p.stepMonths) || 6)
+  // 最初に増やす月（今月から何ヶ月後か）。昇給月や賞与月に合わせられるようにする
+  const firstStepT = (() => {
+    if (!p.stepStart) return stepMonths
+    const [y, m] = p.stepStart.split("-").map(Number)
+    if (!y || !m) return stepMonths
+    return Math.max(0, (y - new Date().getFullYear()) * 12 + (m - (new Date().getMonth() + 1)))
+  })()
+  /** 今月から t ヶ月後の時点で、何回増額済みか */
+  const stepsAt = (t: number) => (t < firstStepT ? 0 : 1 + Math.floor((t - firstStepT) / stepMonths))
   const horizon = eventYears * 12
   const startBalance = hints?.savings ?? 0
 
@@ -279,13 +291,15 @@ export function JointContribution({ members, events, hints, inflationRate, saved
     let firstShort: number | null = null
     const rows: { t: number; contribution: number; balance: number; events: string[] }[] = []
     for (let t = 0; t < horizon; t++) {
-      const contribution = start + step * Math.floor(t / stepMonths)
+      const contribution = start + step * stepsAt(t)
       const livingNow = living * Math.pow(1 + infl, t / 12)
       const ev = eventByMonth.get(t)
       balance += contribution - livingNow + (ev?.amount ?? 0)
       if (balance < minBalance) { minBalance = balance; minAt = t }
       if (balance < 0 && firstShort === null) firstShort = t
-      if (t % stepMonths === 0 || ev) rows.push({ t, contribution, balance, events: ev?.names ?? [] })
+      // 表には「今月」「増額した月」「イベントがある月」を並べる
+      const stepped = t > 0 && stepsAt(t) !== stepsAt(t - 1)
+      if (t === 0 || stepped || ev) rows.push({ t, contribution, balance, events: ev?.names ?? [] })
     }
     return { minBalance, minAt, firstShort, rows }
   }
@@ -293,7 +307,7 @@ export function JointContribution({ members, events, hints, inflationRate, saved
   const sim = useMemo(
     () => simulate(current, stepAmount),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [current, stepAmount, stepMonths, living, infl, eventByMonth, startBalance, horizon],
+    [current, stepAmount, stepMonths, firstStepT, living, infl, eventByMonth, startBalance, horizon],
   )
 
   /** 残高が一度も0を下回らない最小の値を二分探索で求める */
@@ -310,7 +324,7 @@ export function JointContribution({ members, events, hints, inflationRate, saved
   const requiredStep = useMemo(
     () => (sim.firstShort === null ? 0 : minimalToAvoidShort(x => simulate(current, x).minBalance)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sim.firstShort, current, stepMonths, living, infl, eventByMonth, startBalance, horizon],
+    [sim.firstShort, current, stepMonths, firstStepT, living, infl, eventByMonth, startBalance, horizon],
   )
   // 増額しない場合、最初からいくら入れれば間に合うか
   const requiredFlat = useMemo(
@@ -319,6 +333,10 @@ export function JointContribution({ members, events, hints, inflationRate, saved
     [sim.firstShort, stepMonths, living, infl, eventByMonth, startBalance, horizon],
   )
 
+  const monthKey = (t: number) => {
+    const total = (thisYear * 12 + (thisMonth - 1)) + t
+    return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, "0")}`
+  }
   const monthLabel = (t: number) => {
     const total = (thisYear * 12 + (thisMonth - 1)) + t
     return `${Math.floor(total / 12)}年${(total % 12) + 1}月`
@@ -632,6 +650,14 @@ export function JointContribution({ members, events, hints, inflationRate, saved
               onChange={e => set("stepMonths", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} />
           </Field>
         </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-slate-400">最初に増やす月</span>
+          <MonthSelect value={p.stepStart || monthKey(firstStepT)}
+            onChange={v => set("stepStart", v)} yearsBack={0} yearsAhead={10} />
+          <span className="text-[11px] text-slate-500">
+            以降は{stepMonths}ヶ月ごと。昇給月（4月など）や賞与月に合わせると続けやすくなります
+          </span>
+        </div>
 
         {sim.firstShort === null ? (
           <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
@@ -656,7 +682,7 @@ export function JointContribution({ members, events, hints, inflationRate, saved
               間に合わせるには、どちらかにしてください
             </p>
             <ul className="text-xs text-slate-300 list-disc pl-5 space-y-0.5">
-              <li>{stepMonths}ヶ月ごとの増額を <span className="font-semibold text-amber-200">{yen(requiredStep)}</span> にする（今の開始額 {yen(current)} のまま）</li>
+              <li>{monthLabel(firstStepT)}から{stepMonths}ヶ月ごとの増額を <span className="font-semibold text-amber-200">{yen(requiredStep)}</span> にする（今の開始額 {yen(current)} のまま）</li>
               <li>増額せず、最初から <span className="font-semibold text-amber-200">毎月 {yen(requiredFlat)}</span> にする</li>
             </ul>
           </div>
