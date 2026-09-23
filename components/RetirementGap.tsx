@@ -270,8 +270,10 @@ export function RetirementGap({ members, settings, hints, payslipHints, saved, s
                   <span className="text-xs text-slate-400 flex-1">
                     今の生活費 {yen(baseMonthly)} の
                   </span>
-                  <input className={`${input} w-20`} inputMode="numeric" value={p.livingRate}
-                    onChange={e => set("livingRate", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} />
+                  <div className="w-20 shrink-0">
+                    <input className={input} inputMode="numeric" value={p.livingRate}
+                      onChange={e => set("livingRate", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} />
+                  </div>
                   <span className="text-xs text-slate-400">% = {yen(retireLiving)}</span>
                 </div>
               )}

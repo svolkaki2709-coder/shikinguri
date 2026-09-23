@@ -254,8 +254,10 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
                   ))}
                 </div>
                 {p.livingSource === "manual" && (
-                  <input className={`${input} w-28`} inputMode="numeric" placeholder="0"
-                    value={p.livingCost} onChange={e => set("livingCost", money(e.target.value))} />
+                  <div className="w-28">
+                    <input className={input} inputMode="numeric" placeholder="0"
+                      value={p.livingCost} onChange={e => set("livingCost", money(e.target.value))} />
+                  </div>
                 )}
               </div>
             }
@@ -283,8 +285,10 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
                 結婚式費用など。生活防衛資金には数えず、先にイベントの支払いへ充てます
               </p>
             </div>
-            <input className={`${input} w-32 shrink-0`} inputMode="numeric" placeholder="0"
-              value={p.earmarked} onChange={e => set("earmarked", money(e.target.value))} />
+            <div className="w-36 shrink-0">
+              <input className={input} inputMode="numeric" placeholder="0"
+                value={p.earmarked} onChange={e => set("earmarked", money(e.target.value))} />
+            </div>
           </div>
 
           {eventPlan.length > 0 && (
