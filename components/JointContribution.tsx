@@ -389,6 +389,21 @@ export function JointContribution({ members, events, hints, inflationRate, asset
     if (n === 0) return living
     return Math.ceil((living * Math.pow(1 + infl, n)) / 1000) * 1000
   }
+  /** 実際に出ていく生活費。物価は毎月少しずつ上がる */
+  const spendAt = (t: number) => Math.round(living * Math.pow(1 + infl, t / 12))
+  /** 出し合う生活費と実際の支出の差の累計（t ヶ月後まで）。マイナスなら口座からの持ち出し */
+  const livingDriftUpTo = (t: number) => {
+    let d = 0
+    for (let k = 0; k <= t; k++) d += livingAt(k) - spendAt(k)
+    return d
+  }
+  // 見直しの直前が一番ずれるので、1年分の累計と最も持ち出しが大きい時点を出しておく
+  const drift12 = livingDriftUpTo(11)
+  const worstDrift = (() => {
+    let worst = 0, at = 0
+    for (let t = 0; t < 60; t++) { const d = livingDriftUpTo(t); if (d < worst) { worst = d; at = t } }
+    return { amount: worst, at }
+  })()
   const bufferAt = (t: number) => (t < bufferSpread ? bufferMonthly : 0)
   const totalAt = (t: number) => livingAt(t) + bufferAt(t) + eventPartAt(t)
   const totalNow = totalAt(0)
@@ -422,7 +437,8 @@ export function JointContribution({ members, events, hints, inflationRate, asset
     const out: number[] = []
     let bal = netSavings
     for (let t = 0; t < horizon; t++) {
-      bal += bufferAt(t) + eventPartAt(t) + (eventByMonth.get(t)?.amount ?? 0)
+      // 生活費は「出し合う額 − 実際の支出」の差だけが残高に残る
+      bal += bufferAt(t) + eventPartAt(t) + (eventByMonth.get(t)?.amount ?? 0) + (livingAt(t) - spendAt(t))
       // 月末に記録する残高には、入金日から月末までにまだ使っていない生活費も含まれる
       out.push(Math.round(bal + livingAt(t) * carryFrac))
     }
@@ -580,6 +596,9 @@ export function JointContribution({ members, events, hints, inflationRate, asset
         <p className="text-[11px] text-slate-500">
           生活費は毎年{reviewMonth}月に物価上昇（年{inflationRate}%）ぶんを上乗せして見直す前提です。
           1年後は{yen(livingAt(12))}、5年後は{yen(livingAt(60))}になります。
+          一方で実際の支出は毎月少しずつ上がるので、見直し前の月は出し合う額より多く出ていきます
+          （この1年の差の累計 {drift12 >= 0 ? "+" : "−"}{yen(Math.abs(drift12))}
+          {worstDrift.amount < 0 ? `、最大で${monthLabel(worstDrift.at)}に${yen(-worstDrift.amount)}の持ち出し` : ""}）。
           {includeBuffer ? `防衛資金の積立は${bufferGap > 0 ? `${monthLabel(bufferSpread - 1)}まで` : "不要"}です` : "防衛資金は計算から外しています"}
         </p>
 
@@ -847,7 +866,8 @@ export function JointContribution({ members, events, hints, inflationRate, asset
             <thead>
               <tr className="text-slate-500 border-b border-slate-800">
                 <th className="text-left py-1.5 px-2 font-medium">時期</th>
-                <th className="text-right py-1.5 px-2 font-medium">生活費</th>
+                <th className="text-right py-1.5 px-2 font-medium">生活費（出し合う）</th>
+                <th className="text-right py-1.5 px-2 font-medium">生活費（実際の支出）</th>
                 <th className="text-right py-1.5 px-2 font-medium">防衛資金</th>
                 <th className="text-right py-1.5 px-2 font-medium">イベント</th>
                 <th className="text-right py-1.5 px-2 font-medium">合計</th>
@@ -866,6 +886,7 @@ export function JointContribution({ members, events, hints, inflationRate, asset
                   <tr key={t} className="border-b border-slate-800 last:border-0">
                     <td className="py-1.5 px-2 text-slate-300">{monthLabel(t)}</td>
                     <td className="py-1.5 px-2 text-right text-slate-400">{yen(livingAt(t))}</td>
+                    <td className={`py-1.5 px-2 text-right ${spendAt(t) > livingAt(t) ? "text-amber-400" : "text-slate-500"}`}>{yen(spendAt(t))}</td>
                     <td className="py-1.5 px-2 text-right text-slate-400">{bufferAt(t) > 0 ? yen(bufferAt(t)) : "—"}</td>
                     <td className="py-1.5 px-2 text-right text-slate-400">{yen(eventPartAt(t))}</td>
                     <td className="py-1.5 px-2 text-right font-semibold text-slate-100">{yen(total)}</td>
