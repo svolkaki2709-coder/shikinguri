@@ -36,6 +36,7 @@ interface Params {
   includeBuffer: boolean            // 生活防衛資金を計算に含めるか
   depositDay: string                // 毎月、共同口座にお金を入れる日（給料日あたり）
   sameAccount: boolean              // 生活費と貯蓄を同じ口座で管理しているか
+  reviewMonth: string               // 生活費の拠出額を見直す月（年1回、物価上昇分を上乗せ）
   eventCurrent: string              // 段階的に増やす場合の、今月のイベント積立額
   /** 保存した時点の「月末残高の見込み」。実績と比べて計画からのズレを見る */
   baseline?: { savedAt: string; values: Record<string, number> }
@@ -60,6 +61,7 @@ const DEFAULTS: Params = {
   includeBuffer: true,
   depositDay: "25",
   sameAccount: true,
+  reviewMonth: "4",
   eventCurrent: "",
   eventYears: "10",
   bufferMonths: "6",
@@ -374,7 +376,19 @@ export function JointContribution({ members, events, hints, inflationRate, asset
   // ════════════════════════════════════════════════════════
   // C. 合計：2人で出し合う額（月ごと）
   // ════════════════════════════════════════════════════════
-  const livingAt = (t: number) => Math.round(living * Math.pow(1 + infl, t / 12))
+  // 生活費の拠出額。実際には毎月少しずつ変えたりしないので、
+  // 年に1回の見直し月にだけ物価上昇分を上乗せし、1,000円単位に切り上げる。
+  const reviewMonth = Math.min(12, Math.max(1, num(p.reviewMonth) || 4))
+  const reviewsBy = (t: number) => {
+    let n = 0
+    for (let k = 1; k <= t; k++) if (((thisMonth - 1 + k) % 12) + 1 === reviewMonth) n++
+    return n
+  }
+  const livingAt = (t: number) => {
+    const n = reviewsBy(t)
+    if (n === 0) return living
+    return Math.ceil((living * Math.pow(1 + infl, n)) / 1000) * 1000
+  }
   const bufferAt = (t: number) => (t < bufferSpread ? bufferMonthly : 0)
   const totalAt = (t: number) => livingAt(t) + bufferAt(t) + eventPartAt(t)
   const totalNow = totalAt(0)
@@ -391,11 +405,13 @@ export function JointContribution({ members, events, hints, inflationRate, asset
       if (tableView === "monthly") { ts.add(t); continue }
       if (tableView === "yearly") { if (t % 12 === 0) ts.add(t); continue }
       if (planSim.byT[t]?.contribution !== planSim.byT[t - 1]?.contribution) ts.add(t)
+      if (livingAt(t) !== livingAt(t - 1)) ts.add(t)   // 生活費の見直し月
       if (includeBuffer && bufferGap > 0 && t === bufferSpread) ts.add(t)
       if (eventByMonth.has(t)) ts.add(t)
     }
     return [...ts].sort((a, b) => a - b).slice(0, tableView === "monthly" ? 60 : 30)
-  }, [planSim, horizon, bufferSpread, bufferGap, includeBuffer, eventByMonth, tableView])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [planSim, horizon, bufferSpread, bufferGap, includeBuffer, eventByMonth, tableView, living, reviewMonth, infl])
 
   /**
    * 共同口座の月末残高の見込み。
@@ -526,6 +542,18 @@ export function JointContribution({ members, events, hints, inflationRate, asset
             )}
           </div>
 
+          <div className="flex items-center gap-2 bg-slate-800/40 rounded-lg px-2.5 py-2">
+            <span className="text-xs text-slate-300 flex-1">
+              生活費の見直し月
+              <span className="block text-[11px] text-slate-500">年に1回、物価上昇ぶんを上乗せする月（昇給月に合わせるのがおすすめ）</span>
+            </span>
+            <div className="w-16 shrink-0">
+              <input className={input} inputMode="numeric" value={p.reviewMonth}
+                onChange={e => set("reviewMonth", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} />
+            </div>
+            <span className="text-xs text-slate-400">月</span>
+          </div>
+
           <label className="flex items-center gap-2 text-xs text-slate-300">
             <input type="checkbox" checked={includeBuffer}
               onChange={e => set("includeBuffer", e.target.checked)} />
@@ -550,7 +578,8 @@ export function JointContribution({ members, events, hints, inflationRate, asset
           <span className="text-lg font-bold text-sky-300">{yen(livingPartNow)}</span>
         </div>
         <p className="text-[11px] text-slate-500">
-          生活費は物価が年{inflationRate}%上がる前提で、1年後は約{yen(livingAt(12))}、5年後は約{yen(livingAt(60))}になります。
+          生活費は毎年{reviewMonth}月に物価上昇（年{inflationRate}%）ぶんを上乗せして見直す前提です。
+          1年後は{yen(livingAt(12))}、5年後は{yen(livingAt(60))}になります。
           {includeBuffer ? `防衛資金の積立は${bufferGap > 0 ? `${monthLabel(bufferSpread - 1)}まで` : "不要"}です` : "防衛資金は計算から外しています"}
         </p>
 
@@ -857,7 +886,7 @@ export function JointContribution({ members, events, hints, inflationRate, asset
         </div>
         <p className="text-[11px] text-slate-500 leading-relaxed">
           {tableView === "changes"
-            ? "今月と、積立額が変わる月（増額・防衛資金の積立終了）、イベントのある月を並べています。"
+            ? "今月と、金額が変わる月（生活費の見直し・イベント積立の増額・防衛資金の積立終了）、イベントのある月を並べています。"
             : tableView === "monthly" ? "毎月の推移です（最大5年分）。" : "1年ごとの推移です。"}
           生活費は物価上昇{inflationRate}%込み。イベント用残高は、取り置きと積立からイベントの支払いを差し引いた残りです
         </p>
