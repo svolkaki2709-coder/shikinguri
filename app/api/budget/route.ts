@@ -140,7 +140,7 @@ export async function PUT(req: NextRequest) {
   if (!me) return unauthorized()
 
   try {
-    const { category, amount, card_type, month, is_from_month } = await req.json()
+    const { category, amount, card_type, month, is_from_month, recurring } = await req.json()
     const ct = card_type === "joint" ? "joint" : "self"
     const owner = ownerFor(ct, me.id)
 
@@ -162,8 +162,8 @@ export async function PUT(req: NextRequest) {
           AND month = ${month}
       `
       await sql`
-        INSERT INTO budgets (category, amount, card_type, month, is_from_month, owner_user_id)
-        VALUES (${category}, ${Number(amount)}, ${ct}, ${month}, ${!!is_from_month}, ${owner})
+        INSERT INTO budgets (category, amount, card_type, month, is_from_month, recurring, owner_user_id)
+        VALUES (${category}, ${Number(amount)}, ${ct}, ${month}, ${!!is_from_month}, ${!!recurring}, ${owner})
       `
     } else {
       // デフォルト予算（month = NULL）

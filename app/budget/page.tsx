@@ -484,7 +484,8 @@ function BudgetContent() {
         await fetch("/api/budget", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ category, amount: t.amount, card_type: cardType, month: t.month, is_from_month: false }),
+          // 隔月は毎年くり返す予算。単発（この月だけ）と区別して保存する
+          body: JSON.stringify({ category, amount: t.amount, card_type: cardType, month: t.month, is_from_month: false, recurring: true }),
         })
       }
       setCategories(prev => prev.map(c => {

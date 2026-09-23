@@ -362,6 +362,7 @@ function LifePlanContent() {
                 members={ageMembers}
                 events={events}
                 hints={hints}
+                inflationRate={settings.inflation_rate}
                 scope={scope}
                 saved={(tools.find(t => t.tool === "contribution")?.params ?? null) as never}
                 onSaved={load}

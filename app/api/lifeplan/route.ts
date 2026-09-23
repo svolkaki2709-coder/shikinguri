@@ -84,14 +84,16 @@ export async function GET(req: NextRequest) {
   const budgetRows = isJoint
     ? await sql<BudgetRecord & { group_type: string | null }>`
         SELECT b.category, b.card_type, b.amount, b.month::text AS month,
-               COALESCE(b.is_from_month, FALSE) AS is_from_month, c.group_type
+               COALESCE(b.is_from_month, FALSE) AS is_from_month,
+               COALESCE(b.recurring, FALSE) AS recurring, c.group_type
         FROM budgets b
         LEFT JOIN categories c ON c.name = b.category AND c.card_type = b.card_type
         WHERE b.owner_user_id IS NULL
       `
     : await sql<BudgetRecord & { group_type: string | null }>`
         SELECT b.category, b.card_type, b.amount, b.month::text AS month,
-               COALESCE(b.is_from_month, FALSE) AS is_from_month, c.group_type
+               COALESCE(b.is_from_month, FALSE) AS is_from_month,
+               COALESCE(b.recurring, FALSE) AS recurring, c.group_type
         FROM budgets b
         LEFT JOIN categories c ON c.name = b.category AND c.card_type = b.card_type
         WHERE b.owner_user_id = ${me.id}
@@ -107,8 +109,12 @@ export async function GET(req: NextRequest) {
   }
   const isIncome = (cat: string, ct: string) => (groupOf.get(`${cat}__${ct}`) ?? "支出") === "収入"
 
-  const budgetExpenseAnnual = annualBudget(resolver, budgetYear, isExpense)
-  const budgetIncomeAnnual = annualBudget(resolver, budgetYear, isIncome)
+  // 経常（毎月・隔月など毎年くり返す分）と、今年だけの単発を分ける。
+  // 将来の見込みに単発を混ぜると、毎年その支出が続く前提になってしまう。
+  const budgetExpenseAnnual = annualBudget(resolver, budgetYear, isExpense, { onlyRecurring: true })
+  const budgetIncomeAnnual = annualBudget(resolver, budgetYear, isIncome, { onlyRecurring: true })
+  const budgetExpenseWithOneOff = annualBudget(resolver, budgetYear, isExpense)
+  const budgetOneOffAnnual = budgetExpenseWithOneOff - budgetExpenseAnnual
 
   // ── 給与明細から年金の計算材料を作る ──────────────────────
   // 厚生年金保険料（個人負担）＝ 標準報酬月額 × 9.15%（18.3%の労使折半）
@@ -157,6 +163,7 @@ export async function GET(req: NextRequest) {
       // 今年の予算の年額（隔月・月別の上書きを織り込んだもの）
       budgetExpenseAnnual,
       budgetIncomeAnnual,
+      budgetOneOffAnnual,
       budgetYear,
     },
     scope: owner === null ? "joint" : "self",

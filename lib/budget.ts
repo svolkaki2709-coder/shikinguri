@@ -16,18 +16,24 @@ export interface BudgetRecord {
   amount: number | string
   month: string | null
   is_from_month?: boolean | null
+  /** 隔月などで毎年くり返すもの。false はその月だけの単発 */
+  recurring?: boolean | null
 }
 
 export interface BudgetResolver {
-  /** その月に効いている予算額 */
-  resolve: (category: string, cardType: string, month: string) => number
+  /**
+   * その月に効いている予算額。
+   * onlyRecurring=true のときは、その月だけの単発予算を無視して
+   * 「毎年くり返す分」だけを返す（翌年以降の見込みに使う）。
+   */
+  resolve: (category: string, cardType: string, month: string, onlyRecurring?: boolean) => number
   /** 予算レコードがあるカテゴリの一覧 */
   keys: { category: string; cardType: string }[]
 }
 
 export function buildBudgetResolver(rows: BudgetRecord[]): BudgetResolver {
   const def: Record<string, number> = {}
-  const exact: Record<string, Record<string, number>> = {}
+  const exact: Record<string, Record<string, { amount: number; recurring: boolean }>> = {}
   const fromMonth: Record<string, { month: string; amount: number }[]> = {}
   const keySet = new Set<string>()
 
@@ -42,7 +48,7 @@ export function buildBudgetResolver(rows: BudgetRecord[]): BudgetResolver {
       ;(fromMonth[key] ??= []).push({ month: mm, amount })
     } else {
       const mm = String(b.month).slice(0, 7)
-      ;(exact[key] ??= {})[mm] = amount
+      ;(exact[key] ??= {})[mm] = { amount, recurring: !!b.recurring }
     }
   }
   for (const k of Object.keys(fromMonth)) {
@@ -50,9 +56,10 @@ export function buildBudgetResolver(rows: BudgetRecord[]): BudgetResolver {
   }
 
   return {
-    resolve(category, cardType, month) {
+    resolve(category, cardType, month, onlyRecurring = false) {
       const key = `${category}__${cardType}`
-      if (exact[key]?.[month] !== undefined) return exact[key][month]
+      const hit = exact[key]?.[month]
+      if (hit !== undefined && (!onlyRecurring || hit.recurring)) return hit.amount
       for (const rec of fromMonth[key] ?? []) {
         if (rec.month <= month) return rec.amount
       }
@@ -70,13 +77,14 @@ export function annualBudget(
   resolver: BudgetResolver,
   year: number,
   include: (category: string, cardType: string) => boolean,
+  opts: { onlyRecurring?: boolean } = {},
 ): number {
   let total = 0
   for (let m = 1; m <= 12; m++) {
     const month = `${year}-${String(m).padStart(2, "0")}`
     for (const k of resolver.keys) {
       if (!include(k.category, k.cardType)) continue
-      total += resolver.resolve(k.category, k.cardType, month)
+      total += resolver.resolve(k.category, k.cardType, month, opts.onlyRecurring)
     }
   }
   return total

@@ -18,7 +18,7 @@ import { toHalfWidth } from "@/lib/num"
 interface Member { id: number; name: string }
 interface LifeEvent {
   year: number; month: number | null; kind: "income" | "expense"
-  amount: number; repeat_years: number; name: string
+  amount: number; repeat_years: number; name: string; inflate?: boolean
 }
 
 /** 月が未設定のイベントは、年の半ば（6月）に起きるものとして扱う */
@@ -67,9 +67,11 @@ const num = (v: string) => {
   return isNaN(n) ? 0 : n
 }
 
-export function JointContribution({ members, events, hints, saved, scope, onSaved }: {
+export function JointContribution({ members, events, hints, inflationRate, saved, scope, onSaved }: {
   members: Member[]
   events: LifeEvent[]
+  /** 物価上昇率（%）。イベント金額は今の物価で登録されているので将来価値に直す */
+  inflationRate: number
   hints: { annualExpense: number; savings: number; budgetExpenseAnnual?: number; assetMonth?: string | null; budgetYear?: number } | null
   saved: Params | null
   scope: string
@@ -109,6 +111,14 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
   // どちらも生活防衛資金には数えず、イベントの支払いに先に充てる。
   const eventKey = (year: number, name: string) => `${year}|${name}`
   const thisMonth = new Date().getMonth() + 1
+  const infl = (inflationRate ?? 0) / 100
+  /**
+   * 今の物価で登録された金額を、その年の価格に直す。
+   * 食費や式場代のように物価とともに上がるものは、今の金額のまま積み立てると足りなくなる。
+   * 一時金・給付金のように金額が決まっているもの（inflate=false）はそのまま。
+   */
+  const atYear = (amount: number, year: number, inflate?: boolean) =>
+    inflate === false ? amount : Math.round(amount * Math.pow(1 + infl, Math.max(0, year - thisYear)))
   /** 今から何ヶ月後か（今月・過去は「今すぐ」扱いの1ヶ月） */
   const monthsUntil = (year: number, month: number) =>
     Math.max(1, (year - thisYear) * 12 + (month - thisMonth))
@@ -123,8 +133,8 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
         if (y < thisYear || y >= thisYear + eventYears) continue
         const k = eventKey(y, e.name)
         const cur = map.get(k)
-        if (cur) cur.amount += e.amount
-        else map.set(k, { key: k, year: y, month: e.month ?? DEFAULT_MONTH, name: e.name, amount: e.amount })
+        if (cur) cur.amount += atYear(e.amount, y, e.inflate)
+        else map.set(k, { key: k, year: y, month: e.month ?? DEFAULT_MONTH, name: e.name, amount: atYear(e.amount, y, e.inflate) })
       }
     }
     return [...map.values()].sort((a, b) => a.year - b.year || a.month - b.month)
@@ -148,9 +158,10 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
       for (let i = 0; i < Math.max(1, e.repeat_years); i++) {
         const y = e.year + i
         if (y < thisYear || y >= thisYear + eventYears) continue
+        const v = atYear(e.amount, y, e.inflate)
         occurrences.push({
           year: y, month: e.month ?? DEFAULT_MONTH,
-          amount: e.kind === "expense" ? e.amount : -e.amount,
+          amount: e.kind === "expense" ? v : -v,
           name: e.name, kind: e.kind,
         })
       }
@@ -174,22 +185,16 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [events, eventYears, thisYear, thisMonth, expenseEvents, p.earmarks, p.earmarked])
 
-  const eventExpense = useMemo(() => events.filter(e => e.kind === "expense").reduce((sum, e) => {
+  const sumEvents = (kind: "income" | "expense") => events.filter(e => e.kind === kind).reduce((sum, e) => {
     let v = 0
     for (let i = 0; i < Math.max(1, e.repeat_years); i++) {
       const y = e.year + i
-      if (y >= thisYear && y < thisYear + eventYears) v += e.amount
+      if (y >= thisYear && y < thisYear + eventYears) v += atYear(e.amount, y, e.inflate)
     }
     return sum + v
-  }, 0), [events, eventYears, thisYear])
-  const eventIncome = useMemo(() => events.filter(e => e.kind === "income").reduce((sum, e) => {
-    let v = 0
-    for (let i = 0; i < Math.max(1, e.repeat_years); i++) {
-      const y = e.year + i
-      if (y >= thisYear && y < thisYear + eventYears) v += e.amount
-    }
-    return sum + v
-  }, 0), [events, eventYears, thisYear])
+  }, 0)
+  const eventExpense = sumEvents("expense")
+  const eventIncome = sumEvents("income")
 
   // 一番きついイベント（これに合わせれば、他はすべて間に合う）
   const binding = eventPlan.reduce<typeof eventPlan[number] | null>(
@@ -406,7 +411,9 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
               </table>
               <p className="text-[10px] text-slate-500 mt-1.5">
                 一番きつい時点（色付き）に合わせておけば、他はすべて間に合います。
-                月が未設定のイベントは、その年の{DEFAULT_MONTH}月に起きるものとして計算しています
+                月が未設定のイベントは、その年の{DEFAULT_MONTH}月に起きるものとして計算しています。
+                金額は物価上昇{inflationRate}%を見込んだその年の価格です
+                （一時金など金額が決まっているものは除く）
               </p>
             </div>
           )}
@@ -427,6 +434,11 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
           <span className="text-sm font-semibold text-slate-200">毎月の必要額</span>
           <span className="text-lg font-bold text-blue-400">{yen(needed)}</span>
         </div>
+        <p className="text-[11px] text-slate-500">
+          生活費は今の物価での金額です。物価が年{inflationRate}%上がるなら、
+          1年後は約{yen(Math.round(living * (1 + infl)))}、5年後は約{yen(Math.round(living * Math.pow(1 + infl, 5)))}
+          になります。金額を固定せず、年に一度は見直してください
+        </p>
 
         <details className="text-xs">
           <summary className="text-slate-500 cursor-pointer">計算の前提を変える</summary>
