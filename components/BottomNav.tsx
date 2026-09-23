@@ -21,6 +21,7 @@ const moreItems = [
   { href: "/learn", label: "制度ガイド（給付金・控除）", icon: "📚" },
   { href: "/todos", label: "やることリスト（2人で管理）", icon: "✅" },
   { href: "/assets", label: "資産管理", icon: "💹" },
+  { href: "/money-map", label: "口座マップ（お金の流れ）", icon: "🗺" },
   { href: "/input", label: "入力ページ（定期支出の確定）", icon: "✏️" },
   { href: "/import", label: "CSV取込", icon: "📂" },
   { href: "/import-payslip", label: "給与明細取込", icon: "💴" },

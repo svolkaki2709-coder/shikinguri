@@ -208,6 +208,7 @@ taxable_commute, total_deduction, year_end_adjustment, owner_user_id
 - `schema_migrations`: `scripts/migrate.mjs`の適用済みマイグレーションID記録
 - `life_members` / `life_settings` / `life_streams` / `life_events` / `life_tools`: ライフプラン（キャッシュフロー表・FPツールの入力値）
 - `todos`: 2人で進める手続き・タスク（`/todos`）。テンプレート取込は `template_key` で重複登録を防いでいる
+- `money_accounts` / `money_flows`: 口座マップ（`/money-map`）。家計簿の cards とは別に、貯蓄・証券口座なども並べる図専用のノードと流れ。流れは片方でも共同口座が絡めば共同として保存
 
 ---
 
