@@ -34,6 +34,8 @@ interface Params {
   stepStart: string                 // 最初に増やす年月（YYYY-MM。空なら今月から間隔ぶん後）
   eventMode: "flat" | "ramp"        // イベント積立を定額にするか、段階的に増やすか
   includeBuffer: boolean            // 生活防衛資金を計算に含めるか
+  depositDay: string                // 毎月、共同口座にお金を入れる日（給料日あたり）
+  sameAccount: boolean              // 生活費と貯蓄を同じ口座で管理しているか
   eventCurrent: string              // 段階的に増やす場合の、今月のイベント積立額
   /** 保存した時点の「月末残高の見込み」。実績と比べて計画からのズレを見る */
   baseline?: { savedAt: string; values: Record<string, number> }
@@ -56,6 +58,8 @@ const DEFAULTS: Params = {
   stepStart: "",
   eventMode: "flat",
   includeBuffer: true,
+  depositDay: "25",
+  sameAccount: true,
   eventCurrent: "",
   eventYears: "10",
   bufferMonths: "6",
@@ -221,11 +225,21 @@ export function JointContribution({ members, events, hints, inflationRate, asset
   // A. 生活のための分（毎月の生活費＋生活防衛資金の積立）
   //    使って消えるお金と、もしものときの備え。イベントとは混ぜない。
   // ════════════════════════════════════════════════════════
+  // ── 入金日による補正 ──
+  // 25日に入金するなら、月末の残高には「これから1ヶ月で使う生活費」の大半がまだ残っている。
+  // それを貯蓄として数えると、防衛資金もイベント資金も多く見積もってしまうので差し引く。
+  const depositDay = Math.min(31, Math.max(1, num(p.depositDay) || 25))
+  // 貯蓄を別口座で分けて記録しているなら、月末残高に生活費は混ざらないので補正しない
+  const carryFrac = p.sameAccount === false ? 0 : Math.min(1, depositDay / 30)
+  const operatingCash = Math.round(living * carryFrac)
+  const recordedSavings = hints?.savings ?? 0
+  const netSavings = Math.max(0, recordedSavings - operatingCash)
+
   // 防衛資金を外した場合は目標0として扱う（余った貯蓄はイベントに回せる）
   const includeBuffer = p.includeBuffer !== false
   const bufferTarget = includeBuffer ? living * (p.bufferMonths === "" ? 6 : num(p.bufferMonths)) : 0
   // 取り置き分は使い道が決まっているので、防衛資金としては数えない
-  const freeSavings = Math.max(0, (hints?.savings ?? 0) - earmarkedTotal)
+  const freeSavings = Math.max(0, netSavings - earmarkedTotal)
   const bufferGap = Math.max(0, bufferTarget - freeSavings)
   const bufferSpread = Math.max(1, num(p.bufferSpreadMonths) || 24)
   const bufferMonthly = Math.round(bufferGap / bufferSpread)
@@ -277,7 +291,7 @@ export function JointContribution({ members, events, hints, inflationRate, asset
 
   // 月ごとのイベント収支（今からの月数 → 金額。支出はマイナス）
   const eventByMonth = useMemo(() => {
-    const m = new Map<number, { amount: number; names: string[] }>()
+    const m = new Map<number, { amount: number; out: number; in: number; names: string[] }>()
     for (const e of events) {
       for (let i = 0; i < Math.max(1, e.repeat_years); i++) {
         const y = e.year + i
@@ -285,8 +299,8 @@ export function JointContribution({ members, events, hints, inflationRate, asset
         const t = (y - thisYear) * 12 + (mo - thisMonth)
         if (t < 0 || t >= horizon) continue
         const v = atYear(e.amount, y, e.inflate)
-        const cur = m.get(t) ?? { amount: 0, names: [] }
-        cur.amount += e.kind === "expense" ? -v : v
+        const cur = m.get(t) ?? { amount: 0, out: 0, in: 0, names: [] }
+        if (e.kind === "expense") { cur.amount -= v; cur.out += v } else { cur.amount += v; cur.in += v }
         cur.names.push(e.name)
         m.set(t, cur)
       }
@@ -305,9 +319,12 @@ export function JointContribution({ members, events, hints, inflationRate, asset
     for (let t = 0; t < horizon; t++) {
       const contribution = start + step * stepsAt(t)
       const ev = eventByMonth.get(t)
-      balance += contribution + (ev?.amount ?? 0)
-      if (balance < minBalance) { minBalance = balance; minAt = t }
-      if (balance < 0 && firstShort === null) firstShort = t
+      // 入金は毎月の入金日（25日など）。イベントの支払いがそれより前に来ても
+      // 払えるかを見るため、判定は「その月の入金前」の残高で行う（受取も入金後に扱う）
+      const beforeDeposit = balance - (ev?.out ?? 0)
+      if (beforeDeposit < minBalance) { minBalance = beforeDeposit; minAt = t }
+      if (beforeDeposit < 0 && firstShort === null) firstShort = t
+      balance = beforeDeposit + contribution + (ev?.in ?? 0)
       byT.push({ t, contribution, balance, events: ev?.names ?? [] })
     }
     return { minBalance, minAt, firstShort, byT }
@@ -382,14 +399,15 @@ export function JointContribution({ members, events, hints, inflationRate, asset
    */
   const projectedBalanceAt = useMemo(() => {
     const out: number[] = []
-    let bal = hints?.savings ?? 0
+    let bal = netSavings
     for (let t = 0; t < horizon; t++) {
       bal += bufferAt(t) + eventPartAt(t) + (eventByMonth.get(t)?.amount ?? 0)
-      out.push(Math.round(bal))
+      // 月末に記録する残高には、入金日から月末までにまだ使っていない生活費も含まれる
+      out.push(Math.round(bal + livingAt(t) * carryFrac))
     }
     return out
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hints?.savings, horizon, bufferMonthly, bufferSpread, planSim, eventByMonth])
+  }, [netSavings, horizon, bufferMonthly, bufferSpread, planSim, eventByMonth, carryFrac])
 
   const monthKey = (t: number) => {
     const total = (thisYear * 12 + (thisMonth - 1)) + t
@@ -479,6 +497,30 @@ export function JointContribution({ members, events, hints, inflationRate, asset
                 : "（予算内で収まっています）"}
             </p>
           )}
+          <div className="bg-slate-800/40 rounded-lg px-2.5 py-2 space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-300 flex-1">毎月、共同口座に入れる日</span>
+              <div className="w-16 shrink-0">
+                <input className={input} inputMode="numeric" value={p.depositDay}
+                  onChange={e => set("depositDay", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} />
+              </div>
+              <span className="text-xs text-slate-400">日</span>
+            </div>
+            <label className="flex items-center gap-2 text-[11px] text-slate-400">
+              <input type="checkbox" checked={p.sameAccount !== false}
+                onChange={e => set("sameAccount", e.target.checked)} />
+              生活費と貯蓄を同じ口座で管理している（月末残高に、これから使う生活費も含まれる）
+            </label>
+            {p.sameAccount !== false && (
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              {hints?.assetMonth ? `${hints.assetMonth.slice(0, 4)}年${Number(hints.assetMonth.slice(5, 7))}月末` : "月末"}の残高
+              {" "}{yen(recordedSavings)} には、{depositDay}日に入れてまだ使っていない生活費（約{yen(operatingCash)}）が含まれます。
+              貯蓄としてはこれを除いた <span className="text-slate-300">{yen(netSavings)}</span> で計算しています。
+              イベントの支払いは、その月の入金より前に来ても払えるかで判定します
+            </p>
+            )}
+          </div>
+
           <label className="flex items-center gap-2 text-xs text-slate-300">
             <input type="checkbox" checked={includeBuffer}
               onChange={e => set("includeBuffer", e.target.checked)} />
@@ -489,7 +531,7 @@ export function JointContribution({ members, events, hints, inflationRate, asset
             label="生活防衛資金の積立"
             hint={
               `目標 ${yen(bufferTarget)}（生活費${p.bufferMonths === "" ? 6 : num(p.bufferMonths)}ヶ月分）` +
-              ` ／ 共同貯蓄 ${yen(hints?.savings ?? 0)}` +
+              ` ／ 共同貯蓄 ${yen(netSavings)}` +
               (earmarkedTotal > 0 ? ` − 取り置き ${yen(earmarkedTotal)} = 使える分 ${yen(freeSavings)}` : "") +
               (bufferGap > 0 ? ` → ${yen(bufferGap)} 不足を${bufferSpread}ヶ月で貯める` : " → 到達済み")
             }
@@ -567,11 +609,11 @@ export function JointContribution({ members, events, hints, inflationRate, asset
             </div>
 
             {earmarkedTotal > 0 && (
-              <p className={`text-[11px] ${earmarkedTotal > (hints?.savings ?? 0) ? "text-red-400" : "text-slate-500"}`}>
+              <p className={`text-[11px] ${earmarkedTotal > netSavings ? "text-red-400" : "text-slate-500"}`}>
                 取り置きの合計 {yen(earmarkedTotal)}
-                {earmarkedTotal > (hints?.savings ?? 0)
-                  ? `（共同貯蓄 ${yen(hints?.savings ?? 0)} を超えています）`
-                  : `／ 共同貯蓄 ${yen(hints?.savings ?? 0)}`}
+                {earmarkedTotal > netSavings
+                  ? `（使える共同貯蓄 ${yen(netSavings)} を超えています）`
+                  : `／ 使える共同貯蓄 ${yen(netSavings)}`}
               </p>
             )}
           </div>
