@@ -809,12 +809,13 @@ function TemplateModal({ members, settings, scope, onClose, onAdded }: {
     <div className="fixed inset-0 z-[100] bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-4"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="bg-slate-900 rounded-t-2xl sm:rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col border border-slate-800">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800 shrink-0">
           <h3 className="text-sm font-bold text-slate-100">ライフイベントのテンプレート</h3>
           <button onClick={onClose} className="text-slate-500 hover:text-slate-300 text-2xl leading-none">×</button>
         </div>
 
-        <div className="flex gap-1 px-3 py-2 border-b border-slate-800 overflow-x-auto">
+        {/* 縦に伸びる一覧（flex-1）に押されて潰れないよう shrink-0 にする */}
+        <div className="flex gap-1 px-3 py-2 border-b border-slate-800 overflow-x-auto shrink-0">
           {LIFE_EVENT_TEMPLATES.map(g => (
             <button key={g.group} onClick={() => { setGroup(g.group); setPicked(null) }}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
