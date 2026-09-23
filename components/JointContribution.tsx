@@ -372,6 +372,10 @@ export function JointContribution({ members, events, hints, inflationRate, asset
   )
   const eventPartAt = (t: number) => planSim.byT[t]?.contribution ?? 0
 
+  // 最後のイベントのあとに残るイベント用の資金（積み立てすぎていないかの確認用）
+  const lastEventT = [...eventByMonth.keys()].sort((a, b) => b - a)[0]
+  const leftover = lastEventT === undefined ? 0 : Math.round(planSim.byT[lastEventT]?.balance ?? 0)
+
   /**
    * イベント用のお金を「通帳」のように時系列で並べる。
    * スタートの残高 → 積み立てで増える → イベントで出ていく（入ってくる）→ 残り、の順に追う。
@@ -480,6 +484,10 @@ export function JointContribution({ members, events, hints, inflationRate, asset
     const total = (thisYear * 12 + (thisMonth - 1)) + t
     return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, "0")}`
   }
+  const lastEventLabel = lastEventT === undefined ? "" : (() => {
+    const total = (thisYear * 12 + (thisMonth - 1)) + lastEventT
+    return `${Math.floor(total / 12)}年${(total % 12) + 1}月・${(eventByMonth.get(lastEventT)?.names ?? []).join("・")}`
+  })()
   const monthLabel = (t: number) => {
     const total = (thisYear * 12 + (thisMonth - 1)) + t
     return `${Math.floor(total / 12)}年${(total % 12) + 1}月`
@@ -761,7 +769,23 @@ export function JointContribution({ members, events, hints, inflationRate, asset
                   className="text-[11px] text-amber-200 underline">この増額にする</button>
               </div>
             ) : (
-              <p className="text-xs text-green-300">この増やし方なら、どのイベントの支払いにも間に合います</p>
+              <div className="space-y-1">
+                <p className="text-xs text-green-300">この増やし方なら、どのイベントの支払いにも間に合います</p>
+                {leftover > 100000 && requiredStep < stepAmount && (
+                  <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-2.5 text-xs space-y-1">
+                    <p className="text-emerald-200">
+                      ただし最後のイベント（{lastEventLabel}）のあとに {yen(leftover)} 残ります。
+                      増額を続けるほど、必要以上に積み立てる計算になるためです
+                    </p>
+                    <p className="text-slate-300">
+                      間に合うぎりぎりの増額は1回あたり <span className="font-semibold">{yen(requiredStep)}</span> です。
+                      余裕として残すか、その分を防衛資金や投資に回すかで決めてください
+                    </p>
+                    <button type="button" onClick={() => set("stepAmount", money(String(requiredStep)))}
+                      className="text-[11px] text-emerald-200 underline">ぎりぎりの増額にする</button>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}
