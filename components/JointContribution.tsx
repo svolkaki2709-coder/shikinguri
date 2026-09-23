@@ -414,8 +414,13 @@ export function JointContribution({ members, events, hints, inflationRate, asset
     if (n === 0) return living
     return Math.ceil((living * Math.pow(1 + infl, n)) / 1000) * 1000
   }
-  /** 実際に出ていく生活費。物価は毎月少しずつ上がる */
-  const spendAt = (t: number) => Math.round(living * Math.pow(1 + infl, t / 12))
+  /**
+   * 実際に出ていく生活費。出し合う額（予算・手入力など）とは別に、
+   * 直近1年の共同支出の平均を基準にし、物価は毎月少しずつ上がるとみる。
+   * 実績がまだ無いときだけ、出し合う額を代わりに使う。
+   */
+  const spendBase = actualMonthly > 0 ? actualMonthly : living
+  const spendAt = (t: number) => Math.round(spendBase * Math.pow(1 + infl, t / 12))
   /** 出し合う生活費と実際の支出の差の累計（t ヶ月後まで）。マイナスなら口座からの持ち出し */
   const livingDriftUpTo = (t: number) => {
     let d = 0
@@ -523,7 +528,7 @@ export function JointContribution({ members, events, hints, inflationRate, asset
 
         <div className="space-y-2">
           <Row
-            label="共同の生活費"
+            label="出し合う生活費"
             hint={
               p.livingSource === "manual" ? "手入力した金額を使います"
               : p.livingSource === "actual" ? "直近1年の共同支出の平均"
@@ -551,12 +556,20 @@ export function JointContribution({ members, events, hints, inflationRate, asset
               </div>
             }
           />
-          {p.livingSource !== "manual" && budgetMonthly > 0 && actualMonthly > 0 && (
-            <p className="text-[11px] text-slate-500 -mt-1">
-              予算 {yen(budgetMonthly)}（{hints?.budgetYear ?? new Date().getFullYear()}年）/ 実績 {yen(actualMonthly)}（直近1年）
-              {actualMonthly > budgetMonthly
-                ? "（実績が予算を超えています。実績で見ておくほうが安全です）"
-                : "（予算内で収まっています）"}
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm text-slate-300">実際の支出（見込み）</p>
+              <p className="text-[11px] text-slate-500">
+                {actualMonthly > 0 ? "直近1年の共同支出の平均。物価上昇を毎月上乗せして比べます" : "実績がまだ無いため、出し合う額と同じとみています"}
+              </p>
+            </div>
+            <span className="text-sm font-semibold text-slate-100 w-24 text-right shrink-0">{yen(spendBase)}</span>
+          </div>
+          {spendBase !== living && (
+            <p className={`text-[11px] -mt-1 ${spendBase > living ? "text-amber-400" : "text-slate-500"}`}>
+              {spendBase > living
+                ? `実際の支出が出し合う額より毎月約${yen(spendBase - living)}多い見込みです。このままだと生活費口座が少しずつ減っていきます`
+                : `出し合う額のほうが毎月約${yen(living - spendBase)}多く、生活費口座に少しずつ余りが貯まる見込みです`}
             </p>
           )}
           <div className="bg-slate-800/40 rounded-lg px-2.5 py-2 space-y-1">
