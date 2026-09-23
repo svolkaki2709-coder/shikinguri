@@ -39,6 +39,18 @@ interface Params {
   reviewMonth: string               // （廃止）旧：生活費の見直し月
   livingMode: "inflation" | "fixed" // 見直しのときの生活費の上げ方（物価上昇ぶん／決めた額）
   livingStep: string                // livingMode=fixed のとき、見直しごとに上げる額
+  /**
+   * 期間ごとの取り決め（産休・育休・転職など）。
+   * その期間だけ分担の割合と、イベント用の積立額を変えられる。
+   */
+  periods: {
+    id: string
+    label: string
+    from: string                    // YYYY-MM
+    to: string                      // YYYY-MM
+    ratios: Record<string, string>  // メンバーID → 割合（%）
+    eventAdjust: string             // イベント用の積立を毎月いくら増減するか（マイナスで減らす）
+  }[]
   eventCurrent: string              // 段階的に増やす場合の、今月のイベント積立額
   /** 保存した時点の「月末残高の見込み」。実績と比べて計画からのズレを見る */
   baseline?: { savedAt: string; values: Record<string, number> }
@@ -65,6 +77,7 @@ const DEFAULTS: Params = {
   sameAccount: true,
   reviewMonth: "4",
   livingMode: "inflation",
+  periods: [],
   livingStep: "5000",
   eventCurrent: "",
   eventYears: "10",
@@ -256,9 +269,31 @@ export function JointContribution({ members, events, hints, inflationRate, asset
   const incomeTotal = members.reduce((s, m) => s + num(p.incomes[m.id] ?? ""), 0)
   const customTotal = members.reduce((s, m) => s + num(p.shares[m.id] ?? ""), 0)
 
-  /** 世帯合計 total を、選んだ方式で各メンバーに割り振る */
-  function split(total: number): { member: Member; amount: number; ratio: number }[] {
+  /** 今月から t ヶ月後の YYYY-MM */
+  const ymOf = (t: number) => {
+    const total = (thisYear * 12 + (thisMonth - 1)) + t
+    return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, "0")}`
+  }
+  /** t ヶ月後に効いている期間の取り決め（重なっていれば後に追加したもの） */
+  const periodAt = (t: number) => {
+    const ym = ymOf(t)
+    const list = (p.periods ?? []).filter(pr => pr.from && pr.to && pr.from <= ym && ym <= pr.to)
+    return list.length > 0 ? list[list.length - 1] : null
+  }
+
+  /** 世帯合計 total を、選んだ方式で各メンバーに割り振る。t を渡すと期間の取り決めを優先する */
+  function split(total: number, t?: number): { member: Member; amount: number; ratio: number }[] {
     if (members.length === 0) return []
+    const pr = t === undefined ? null : periodAt(t)
+    if (pr) {
+      const sum = members.reduce((s2, m) => s2 + num(pr.ratios[m.id] ?? ""), 0)
+      if (sum > 0) {
+        return members.map(m => {
+          const r = num(pr.ratios[m.id] ?? "") / sum
+          return { member: m, amount: Math.round(total * r), ratio: r }
+        })
+      }
+    }
     if (p.method === "custom" && customTotal > 0) {
       // 金額指定は「比率」として使い、必要額に合わせて按分する
       return members.map(m => {
@@ -324,7 +359,9 @@ export function JointContribution({ members, events, hints, inflationRate, asset
     let firstShort: number | null = null
     const byT: { t: number; contribution: number; balance: number; events: string[] }[] = []
     for (let t = 0; t < horizon; t++) {
-      const contribution = start + step * stepsAt(t)
+      // 期間の取り決めで、その間だけ積立を増減する（産休中は減らす、など）
+      const adj = num(periodAt(t)?.eventAdjust ?? "")
+      const contribution = Math.max(0, start + step * stepsAt(t) + adj)
       const ev = eventByMonth.get(t)
       // 入金は毎月の入金日（25日など）。イベントの支払いがそれより前に来ても
       // 払えるかを見るため、判定は「その月の入金前」の残高で行う（受取も入金後に扱う）
@@ -353,14 +390,14 @@ export function JointContribution({ members, events, hints, inflationRate, asset
   const requiredFlat = useMemo(
     () => minimalToAvoidShort(x => simulateEvent(x, 0).minBalance),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [eventByMonth, eventStartBalance, horizon],
+    [eventByMonth, eventStartBalance, horizon, p.periods],
   )
   const eventCurrent = num(p.eventCurrent)
   // 段階的に増やす場合、今の額から始めて1回いくら増やせば間に合うか
   const requiredStep = useMemo(
     () => minimalToAvoidShort(x => simulateEvent(eventCurrent, x).minBalance),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [eventCurrent, stepMonths, firstStepT, eventByMonth, eventStartBalance, horizon],
+    [eventCurrent, stepMonths, firstStepT, eventByMonth, eventStartBalance, horizon, p.periods],
   )
 
   // 採用するプラン。段階的の場合は、入力した増額で足りなければ必要な増額に引き上げる
@@ -368,7 +405,7 @@ export function JointContribution({ members, events, hints, inflationRate, asset
   const eventSim = useMemo(
     () => (p.eventMode === "ramp" ? simulateEvent(eventCurrent, stepAmount) : simulateEvent(requiredFlat, 0)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [p.eventMode, eventCurrent, stepAmount, requiredFlat, stepMonths, firstStepT, eventByMonth, eventStartBalance, horizon],
+    [p.eventMode, eventCurrent, stepAmount, requiredFlat, stepMonths, firstStepT, eventByMonth, eventStartBalance, horizon, p.periods],
   )
   const planSim = useMemo(
     () => (p.eventMode === "ramp" ? simulateEvent(eventCurrent, rampStep) : eventSim),
@@ -460,12 +497,13 @@ export function JointContribution({ members, events, hints, inflationRate, asset
       if (tableView === "yearly") { if (t % 12 === 0) ts.add(t); continue }
       if (planSim.byT[t]?.contribution !== planSim.byT[t - 1]?.contribution) ts.add(t)
       if (livingAt(t) !== livingAt(t - 1)) ts.add(t)   // 生活費の見直し月
+      if (periodAt(t)?.id !== periodAt(t - 1)?.id) ts.add(t) // 期間の取り決めの始まり・終わり
       if (includeBuffer && bufferGap > 0 && t === bufferSpread) ts.add(t)
       if (eventByMonth.has(t)) ts.add(t)
     }
     return [...ts].sort((a, b) => a - b).slice(0, tableView === "monthly" ? 60 : 30)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planSim, horizon, bufferSpread, bufferGap, includeBuffer, eventByMonth, tableView, living, firstStepT, stepMonths, infl])
+  }, [planSim, horizon, bufferSpread, bufferGap, includeBuffer, eventByMonth, tableView, living, firstStepT, stepMonths, infl, p.periods])
 
   /**
    * 共同口座の月末残高の見込み。
@@ -946,7 +984,7 @@ export function JointContribution({ members, events, hints, inflationRate, asset
         )}
 
         <div className="border border-blue-500/30 bg-blue-500/5 rounded-lg p-3 space-y-1">
-          {split(totalNow).map(sp => (
+          {split(totalNow, 0).map(sp => (
             <div key={sp.member.id} className="flex items-center justify-between text-sm">
               <span className="text-slate-300">
                 {sp.member.name}
@@ -956,6 +994,13 @@ export function JointContribution({ members, events, hints, inflationRate, asset
             </div>
           ))}
         </div>
+
+        <PeriodEditor
+          periods={p.periods ?? []}
+          members={members}
+          onChange={list => set("periods", list)}
+          defaultFrom={ymOf(12)}
+        />
 
         <div className="flex rounded-lg bg-slate-800 p-0.5 text-[11px] w-fit">
           {([["changes", "金額が変わる月"], ["monthly", "毎月"], ["yearly", "毎年"]] as const).map(([k, label]) => (
@@ -1006,7 +1051,12 @@ export function JointContribution({ members, events, hints, inflationRate, asset
                   <tr key={t} className={`border-b border-slate-800 last:border-0 ${
                     bal < 0 ? "bg-red-500/10" : ev ? "bg-violet-500/10" : ""
                   }`}>
-                    <td className="py-1.5 px-2 text-slate-300">{monthLabel(t)}</td>
+                    <td className="py-1.5 px-2 text-slate-300">
+                      {monthLabel(t)}
+                      {periodAt(t) && (
+                        <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-pink-500/20 text-pink-300">{periodAt(t)!.label || "期間"}</span>
+                      )}
+                    </td>
                     <td className="py-1.5 px-2 text-right text-sky-200">{yen(livingAt(t))}</td>
                     <td className="py-1.5 px-2 text-right text-slate-400">{yen(spendAt(t))}</td>
                     <td className={`py-1.5 px-2 text-right font-semibold ${diff >= 0 ? "text-emerald-400" : "text-amber-400"}`}>
@@ -1018,7 +1068,7 @@ export function JointContribution({ members, events, hints, inflationRate, asset
                       {totalChanged && <span className={`mr-1 text-[10px] ${up ? "text-amber-300" : "text-emerald-300"}`}>{up ? "▲" : "▼"}</span>}
                       {yen(total)}
                     </td>
-                    {split(total).map(sp => (
+                    {split(total, t).map(sp => (
                       <td key={sp.member.id} className="py-1.5 px-2 text-right text-slate-100">{yen(sp.amount)}</td>
                     ))}
                     <td className={`py-1.5 px-2 text-right font-semibold ${
@@ -1171,6 +1221,90 @@ function PlanVsActual({ baseline, history, yen, monthsToNextEvent }: {
           </p>
         </>
       )}
+    </div>
+  )
+}
+
+/**
+ * 期間ごとの取り決め。
+ * 産休・育休のように収入が一時的に変わる期間だけ、分担の割合と積立額を変える。
+ */
+function PeriodEditor({ periods, members, onChange, defaultFrom }: {
+  periods: Params["periods"]
+  members: Member[]
+  onChange: (list: Params["periods"]) => void
+  defaultFrom: string
+}) {
+  const input = "w-full bg-slate-900 text-slate-100 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-right"
+  const addPeriod = () => {
+    const [y, m] = defaultFrom.split("-").map(Number)
+    const to = `${y + 1}-${String(m).padStart(2, "0")}`
+    onChange([...periods, {
+      id: String(Date.now()),
+      label: "産休・育休",
+      from: defaultFrom,
+      to,
+      ratios: Object.fromEntries(members.map((mm, i) => [String(mm.id), i === 0 ? "80" : "20"])),
+      eventAdjust: "",
+    }])
+  }
+  const update = (id: string, patch: Partial<Params["periods"][number]>) =>
+    onChange(periods.map(pr => (pr.id === id ? { ...pr, ...patch } : pr)))
+  const remove = (id: string) => onChange(periods.filter(pr => pr.id !== id))
+
+  return (
+    <div className="bg-slate-800/40 rounded-lg p-2.5 space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-slate-300">期間ごとの取り決め（産休・育休・転職など）</p>
+        <button type="button" onClick={addPeriod} className="text-[11px] text-blue-400 underline">＋ 期間を追加</button>
+      </div>
+      {periods.length === 0 && (
+        <p className="text-[11px] text-slate-500">
+          一時的に収入が変わる期間だけ、分担の割合やイベント用の積立額を変えられます。
+          たとえば産休中は「夫80%・妻20%、イベント積立は月2万円減らす」のように設定します
+        </p>
+      )}
+      {periods.map(pr => {
+        const sum = members.reduce((s2, m) => s2 + (Number(pr.ratios[m.id] ?? 0) || 0), 0)
+        return (
+          <div key={pr.id} className="border border-pink-500/30 rounded-lg p-2 space-y-1.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <input className="bg-slate-900 text-slate-100 border border-slate-700 rounded-lg px-2 py-1 text-xs w-28"
+                value={pr.label} onChange={e => update(pr.id, { label: e.target.value })} placeholder="名前" />
+              <MonthSelect value={pr.from} onChange={v => update(pr.id, { from: v })} yearsBack={0} yearsAhead={10} />
+              <span className="text-[11px] text-slate-400">〜</span>
+              <MonthSelect value={pr.to} onChange={v => update(pr.id, { to: v })} yearsBack={0} yearsAhead={10} />
+              <button type="button" onClick={() => remove(pr.id)} className="ml-auto text-slate-500 hover:text-red-400 text-base leading-none">×</button>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] text-slate-400">この期間の割合</span>
+              {members.map(m => (
+                <span key={m.id} className="flex items-center gap-1">
+                  <span className="text-[11px] text-slate-300">{m.name}</span>
+                  <span className="w-14">
+                    <input className={input} inputMode="numeric" value={pr.ratios[m.id] ?? ""}
+                      onChange={e => update(pr.id, { ratios: { ...pr.ratios, [m.id]: e.target.value.replace(/[^0-9]/g, "") } })} />
+                  </span>
+                  <span className="text-[11px] text-slate-500">%</span>
+                </span>
+              ))}
+              {sum !== 100 && sum > 0 && <span className="text-[10px] text-amber-400">合計{sum}%（比率として按分します）</span>}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] text-slate-400">イベント用の積立を毎月</span>
+              <span className="w-24">
+                <input className={input} inputMode="numeric" placeholder="0"
+                  value={pr.eventAdjust}
+                  onChange={e => {
+                    const v = e.target.value.replace(/[^0-9-]/g, "")
+                    update(pr.id, { eventAdjust: v })
+                  }} />
+              </span>
+              <span className="text-[11px] text-slate-400">円（減らすならマイナス）</span>
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
