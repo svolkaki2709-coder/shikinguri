@@ -240,22 +240,89 @@ export function JointContribution({ members, events, hints, inflationRate, saved
   const currentSplit = split(current)
   const gap = needed - current
 
-  // ── 3. 半年ごとの増額プラン ───────────────────────────────
+  // ── 3. 少しずつ増やす計画 ─────────────────────────────────
+  // 「月額が必要額に届くまで何ヶ月か」だけを見ても意味がない。
+  // 届くまでの間はずっと足りない額しか入っていないので、その間に来るイベントの
+  // 支払いができるかどうかは、口座の残高を月ごとに追わないと分からない。
+  // そこで、共同口座の残高を毎月シミュレーションする。
+  //   残高 = 前月残高 ＋ 拠出（段階的に増える）− 生活費（物価で上がる）± イベント
   const stepAmount = num(p.stepAmount)
   const stepMonths = Math.max(1, num(p.stepMonths) || 6)
-  const ramp = useMemo(() => {
-    if (gap <= 0 || stepAmount <= 0) return []
-    const rows: { monthsLater: number; total: number; reached: boolean }[] = []
-    let total = current
-    for (let i = 0; i <= 12 && total < needed; i++) {
-      rows.push({ monthsLater: i * stepMonths, total, reached: false })
-      total += stepAmount
-    }
-    rows.push({ monthsLater: rows.length * stepMonths, total, reached: total >= needed })
-    return rows
-  }, [gap, stepAmount, stepMonths, current, needed])
+  const horizon = eventYears * 12
+  const startBalance = hints?.savings ?? 0
 
-  const monthsToReach = gap > 0 && stepAmount > 0 ? Math.ceil(gap / stepAmount) * stepMonths : 0
+  // 月ごとのイベント収支（今からの月数 → 金額。支出はマイナス）
+  const eventByMonth = useMemo(() => {
+    const m = new Map<number, { amount: number; names: string[] }>()
+    for (const e of events) {
+      for (let i = 0; i < Math.max(1, e.repeat_years); i++) {
+        const y = e.year + i
+        const mo = e.month ?? DEFAULT_MONTH
+        const t = (y - thisYear) * 12 + (mo - thisMonth)
+        if (t < 0 || t >= horizon) continue
+        const v = atYear(e.amount, y, e.inflate)
+        const cur = m.get(t) ?? { amount: 0, names: [] }
+        cur.amount += e.kind === "expense" ? -v : v
+        cur.names.push(e.name)
+        m.set(t, cur)
+      }
+    }
+    return m
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events, horizon, thisYear, thisMonth, infl])
+
+  /** 開始額 start から stepMonths ごとに step ずつ増やしたときの残高推移 */
+  function simulate(start: number, step: number) {
+    let balance = startBalance
+    let minBalance = balance
+    let minAt = 0
+    let firstShort: number | null = null
+    const rows: { t: number; contribution: number; balance: number; events: string[] }[] = []
+    for (let t = 0; t < horizon; t++) {
+      const contribution = start + step * Math.floor(t / stepMonths)
+      const livingNow = living * Math.pow(1 + infl, t / 12)
+      const ev = eventByMonth.get(t)
+      balance += contribution - livingNow + (ev?.amount ?? 0)
+      if (balance < minBalance) { minBalance = balance; minAt = t }
+      if (balance < 0 && firstShort === null) firstShort = t
+      if (t % stepMonths === 0 || ev) rows.push({ t, contribution, balance, events: ev?.names ?? [] })
+    }
+    return { minBalance, minAt, firstShort, rows }
+  }
+
+  const sim = useMemo(
+    () => simulate(current, stepAmount),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [current, stepAmount, stepMonths, living, infl, eventByMonth, startBalance, horizon],
+  )
+
+  /** 残高が一度も0を下回らない最小の値を二分探索で求める */
+  function minimalToAvoidShort(solve: (x: number) => number): number {
+    let lo = 0, hi = 2_000_000
+    if (solve(hi) < 0) return hi
+    for (let i = 0; i < 30; i++) {
+      const mid = (lo + hi) / 2
+      if (solve(mid) >= 0) hi = mid; else lo = mid
+    }
+    return Math.ceil(hi / 1000) * 1000
+  }
+  // 今の開始額のまま、1回の増額をいくらにすれば間に合うか
+  const requiredStep = useMemo(
+    () => (sim.firstShort === null ? 0 : minimalToAvoidShort(x => simulate(current, x).minBalance)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sim.firstShort, current, stepMonths, living, infl, eventByMonth, startBalance, horizon],
+  )
+  // 増額しない場合、最初からいくら入れれば間に合うか
+  const requiredFlat = useMemo(
+    () => (sim.firstShort === null ? 0 : minimalToAvoidShort(x => simulate(x, 0).minBalance)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sim.firstShort, stepMonths, living, infl, eventByMonth, startBalance, horizon],
+  )
+
+  const monthLabel = (t: number) => {
+    const total = (thisYear * 12 + (thisMonth - 1)) + t
+    return `${Math.floor(total / 12)}年${(total % 12) + 1}月`
+  }
 
   async function save() {
     const res = await fetch("/api/lifeplan/tools", {
@@ -562,58 +629,74 @@ export function JointContribution({ members, events, hints, inflationRate, saved
           </Field>
         </div>
 
-        {gap <= 0 ? (
+        {sim.firstShort === null ? (
           <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
-            <p className="text-sm text-green-300 font-semibold">今の拠出額で必要額に届いています</p>
+            <p className="text-sm text-green-300 font-semibold">この計画なら資金はショートしません</p>
             <p className="text-xs text-slate-400 mt-1">
-              余剰 {yen(-gap)}。この分を投資に回すか、防衛資金を厚くするかを決めておくと迷いません
+              {eventYears}年間で残高が一番少なくなるのは {monthLabel(sim.minAt)}（{yen(sim.minBalance)}）です。
+              {sim.minBalance < bufferTarget
+                ? ` 生活防衛資金の目安 ${yen(bufferTarget)} を下回る時期があるので、余裕は大きくありません`
+                : " 生活防衛資金の目安も保てています"}
             </p>
           </div>
         ) : (
-          <>
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
-              <p className="text-sm text-amber-300 font-semibold">あと {yen(gap)} 不足しています</p>
-              <p className="text-xs text-slate-400 mt-1">
-                {stepAmount > 0
-                  ? `${stepMonths}ヶ月ごとに ${yen(stepAmount)} ずつ増やすと、約${monthsToReach}ヶ月（${(monthsToReach / 12).toFixed(1)}年）で必要額に届きます`
-                  : "増額の金額を入れると、必要額に届くまでの期間を計算します"}
-              </p>
-            </div>
-
-            {ramp.length > 0 && (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs whitespace-nowrap">
-                  <thead>
-                    <tr className="text-slate-500 border-b border-slate-800">
-                      <th className="text-left py-1.5 px-2 font-medium">時期</th>
-                      <th className="text-right py-1.5 px-2 font-medium">世帯合計</th>
-                      {members.map(m => (
-                        <th key={m.id} className="text-right py-1.5 px-2 font-medium">{m.name}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ramp.map((r, i) => {
-                      const parts = split(r.total)
-                      return (
-                        <tr key={i} className={`border-b border-slate-800 last:border-0 ${r.reached ? "bg-green-500/10" : ""}`}>
-                          <td className="py-1.5 px-2 text-slate-300">
-                            {r.monthsLater === 0 ? "今" : `${r.monthsLater}ヶ月後`}
-                            {r.reached && <span className="text-green-400 ml-1.5">達成</span>}
-                          </td>
-                          <td className="py-1.5 px-2 text-right font-semibold text-slate-100">{yen(r.total)}</td>
-                          {parts.map(s => (
-                            <td key={s.member.id} className="py-1.5 px-2 text-right text-slate-400">{yen(s.amount)}</td>
-                          ))}
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </>
+          <div className="bg-red-500/10 border border-red-500/40 rounded-lg p-3 space-y-1.5">
+            <p className="text-sm text-red-300 font-semibold">
+              {monthLabel(sim.firstShort)}に資金がショートします
+            </p>
+            <p className="text-xs text-slate-400">
+              一番足りなくなるのは {monthLabel(sim.minAt)} で、{yen(-sim.minBalance)} 不足します。
+              月額が必要額に届く前にイベントの支払いが来るためです
+            </p>
+            <p className="text-xs text-slate-300">
+              間に合わせるには、どちらかにしてください
+            </p>
+            <ul className="text-xs text-slate-300 list-disc pl-5 space-y-0.5">
+              <li>{stepMonths}ヶ月ごとの増額を <span className="font-semibold text-amber-200">{yen(requiredStep)}</span> にする（今の開始額 {yen(current)} のまま）</li>
+              <li>増額せず、最初から <span className="font-semibold text-amber-200">毎月 {yen(requiredFlat)}</span> にする</li>
+            </ul>
+          </div>
         )}
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs whitespace-nowrap">
+            <thead>
+              <tr className="text-slate-500 border-b border-slate-800">
+                <th className="text-left py-1.5 px-2 font-medium">時期</th>
+                <th className="text-right py-1.5 px-2 font-medium">拠出（世帯）</th>
+                {members.map(m => (
+                  <th key={m.id} className="text-right py-1.5 px-2 font-medium">{m.name}</th>
+                ))}
+                <th className="text-right py-1.5 px-2 font-medium">月末の残高</th>
+                <th className="text-left py-1.5 px-2 font-medium">イベント</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sim.rows.map((r, i) => {
+                const parts = split(r.contribution)
+                const short = r.balance < 0
+                return (
+                  <tr key={i} className={`border-b border-slate-800 last:border-0 ${short ? "bg-red-500/10" : ""}`}>
+                    <td className="py-1.5 px-2 text-slate-300">{monthLabel(r.t)}</td>
+                    <td className="py-1.5 px-2 text-right font-semibold text-slate-100">{yen(r.contribution)}</td>
+                    {parts.map(sp => (
+                      <td key={sp.member.id} className="py-1.5 px-2 text-right text-slate-400">{yen(sp.amount)}</td>
+                    ))}
+                    <td className={`py-1.5 px-2 text-right font-semibold ${short ? "text-red-400" : "text-slate-200"}`}>
+                      {r.balance < 0 ? `−${yen(-r.balance)}` : yen(r.balance)}
+                    </td>
+                    <td className="py-1.5 px-2 text-slate-500 truncate max-w-[180px]">{r.events.join("・")}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-[11px] text-slate-500 leading-relaxed">
+          共同口座の残高を月ごとに追っています。スタートは今の共同貯蓄 {yen(startBalance)}、
+          毎月「拠出 − 生活費（物価上昇{inflationRate}%込み）± イベント」で増減します。
+          残高がマイナスになる月が1度でもあれば、その時点で支払いができません
+        </p>
       </div>
 
       <SaveButton label="この分担プランを保存する" onSave={save} />
