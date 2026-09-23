@@ -36,7 +36,9 @@ interface Params {
   includeBuffer: boolean            // 生活防衛資金を計算に含めるか
   depositDay: string                // 毎月、共同口座にお金を入れる日（給料日あたり）
   sameAccount: boolean              // 生活費と貯蓄を同じ口座で管理しているか
-  reviewMonth: string               // 生活費の拠出額を見直す月（年1回、物価上昇分を上乗せ）
+  reviewMonth: string               // （廃止）旧：生活費の見直し月
+  livingMode: "inflation" | "fixed" // 見直しのときの生活費の上げ方（物価上昇ぶん／決めた額）
+  livingStep: string                // livingMode=fixed のとき、見直しごとに上げる額
   eventCurrent: string              // 段階的に増やす場合の、今月のイベント積立額
   /** 保存した時点の「月末残高の見込み」。実績と比べて計画からのズレを見る */
   baseline?: { savedAt: string; values: Record<string, number> }
@@ -62,6 +64,8 @@ const DEFAULTS: Params = {
   depositDay: "25",
   sameAccount: true,
   reviewMonth: "4",
+  livingMode: "inflation",
+  livingStep: "5000",
   eventCurrent: "",
   eventYears: "10",
   bufferMonths: "6",
@@ -104,6 +108,7 @@ export function JointContribution({ members, events, hints, inflationRate, asset
       current: money(base.current),
       earmarked: money(base.earmarked),
       eventCurrent: money(base.eventCurrent ?? ""),
+      livingStep: money(base.livingStep ?? "5000"),
       earmarks: Object.fromEntries(Object.entries(base.earmarks ?? {}).map(([k, v]) => [k, money(String(v))])),
       stepAmount: money(base.stepAmount),
       livingCost: money(base.livingCost),
@@ -408,9 +413,13 @@ export function JointContribution({ members, events, hints, inflationRate, asset
   // 生活費の拠出額。出し合う額は毎月少しずつ変えたりせず、
   // イベント用の増額と同じタイミング（最初に見直す月から、決めた間隔ごと）でまとめて見直す。
   // 見直しの時点までに進んだ物価上昇ぶんを上乗せし、1,000円単位に切り上げる。
+  const livingStepAmount = num(p.livingStep)
   const livingAt = (t: number) => {
     const n = stepsAt(t)
     if (n === 0) return living
+    // 決めた額ずつ上げる場合
+    if (p.livingMode === "fixed") return living + livingStepAmount * n
+    // 物価上昇ぶんを上げる場合
     const monthsAtReview = firstStepT + (n - 1) * stepMonths
     return Math.ceil((living * Math.pow(1 + infl, monthsAtReview / 12)) / 1000) * 1000
   }
@@ -614,10 +623,48 @@ export function JointContribution({ members, events, hints, inflationRate, asset
               </div>
               <span className="text-[11px] text-slate-400">ヶ月ごと</span>
             </div>
+            <div className="flex items-center gap-2 flex-wrap pt-1">
+              <span className="text-[11px] text-slate-400">生活費の上げ方</span>
+              <div className="flex rounded-lg bg-slate-800 p-0.5 text-[11px]">
+                {([["inflation", "物価上昇ぶん"], ["fixed", "決めた額ずつ"]] as const).map(([k, label]) => (
+                  <button key={k} type="button" onClick={() => set("livingMode", k)}
+                    className={`px-2 py-1 rounded-md transition-colors ${
+                      (p.livingMode ?? "inflation") === k ? "bg-blue-600 text-white" : "text-slate-400"
+                    }`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {p.livingMode === "fixed" && (
+                <>
+                  <span className="text-[11px] text-slate-400">見直しごとに</span>
+                  <div className="w-24">
+                    <input className={input} inputMode="numeric" value={p.livingStep}
+                      onChange={e => set("livingStep", money(e.target.value))} />
+                  </div>
+                  <span className="text-[11px] text-slate-400">円ずつ上げる</span>
+                </>
+              )}
+            </div>
             <p className="text-[11px] text-slate-500">
-              この月に、生活費は物価上昇ぶんを上乗せし、イベント用は「少しずつ増やす」の増額を行います。
-              昇給月や賞与月に合わせると続けやすくなります
+              この月に、生活費は{p.livingMode === "fixed" ? `${yen(livingStepAmount)}ずつ` : "物価上昇ぶんを"}上乗せし、
+              イベント用は「少しずつ増やす」の増額を行います。昇給月や賞与月に合わせると続けやすくなります
             </p>
+            {p.livingMode === "fixed" && (() => {
+              // 決めた額が物価上昇に追いつくかを5年後で比べる
+              const t5 = 60
+              const behind = spendAt(t5) - livingAt(t5)
+              return behind > 0 ? (
+                <p className="text-[11px] text-amber-400">
+                  5年後（{monthLabel(t5)}）には実際の支出が出し合う額を毎月約{yen(behind)}上回る見込みです。
+                  増額が物価上昇に追いついていません
+                </p>
+              ) : (
+                <p className="text-[11px] text-emerald-400">
+                  5年後も出し合う額が実際の支出を上回る見込みです（毎月約{yen(-behind)}の余り）
+                </p>
+              )
+            })()}
           </div>
 
           <label className="flex items-center gap-2 text-xs text-slate-300">
@@ -644,7 +691,7 @@ export function JointContribution({ members, events, hints, inflationRate, asset
           <span className="text-lg font-bold text-sky-300">{yen(livingPartNow)}</span>
         </div>
         <p className="text-[11px] text-slate-500">
-          生活費は{monthLabel(firstStepT)}から{stepMonths}ヶ月ごとに、それまでの物価上昇（年{inflationRate}%）ぶんを上乗せして見直す前提です。
+          生活費は{monthLabel(firstStepT)}から{stepMonths}ヶ月ごとに、{p.livingMode === "fixed" ? `${yen(livingStepAmount)}ずつ` : `それまでの物価上昇（年${inflationRate}%）ぶんを`}上乗せして見直す前提です。
           1年後は{yen(livingAt(12))}、5年後は{yen(livingAt(60))}になります。
           一方で実際の支出は毎月少しずつ上がるので、見直し前の月は出し合う額より多く出ていきます
           （この1年の差の累計 {drift12 >= 0 ? "+" : "−"}{yen(Math.abs(drift12))}
