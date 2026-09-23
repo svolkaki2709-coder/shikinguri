@@ -371,6 +371,31 @@ export function JointContribution({ members, events, hints, inflationRate, asset
     [p.eventMode, eventCurrent, rampStep, eventSim],
   )
   const eventPartAt = (t: number) => planSim.byT[t]?.contribution ?? 0
+
+  /**
+   * イベント用のお金を「通帳」のように時系列で並べる。
+   * スタートの残高 → 積み立てで増える → イベントで出ていく（入ってくる）→ 残り、の順に追う。
+   */
+  const passbook = useMemo(() => {
+    type Row = { t: number | null; names: string[]; saved: number; income: number; paid: number; balance: number; low: number }
+    const rows: Row[] = [{ t: null, names: ["取り置き＋余剰の貯蓄"], saved: 0, income: 0, paid: 0, balance: eventStartBalance, low: eventStartBalance }]
+    const eventTs = [...eventByMonth.keys()].sort((a, b) => a - b)
+    let bal = eventStartBalance
+    let from = 0
+    for (const t of eventTs) {
+      // その月の支払いより前に入っている積み立て（その月の分は入金日が後なので次の行に回る）
+      let saved = 0
+      for (let k = from; k < t; k++) saved += planSim.byT[k]?.contribution ?? 0
+      const ev = eventByMonth.get(t)!
+      bal += saved
+      bal -= ev.out
+      const low = bal           // 支払った直後が一番少ない
+      bal += ev.in
+      rows.push({ t, names: ev.names, saved, income: ev.in, paid: ev.out, balance: bal, low })
+      from = t
+    }
+    return rows
+  }, [eventByMonth, planSim, eventStartBalance])
   const eventPartNow = eventPartAt(0)
 
   // ════════════════════════════════════════════════════════
@@ -671,48 +696,6 @@ export function JointContribution({ members, events, hints, inflationRate, asset
             )}
           </div>
 
-          {eventPlan.length > 0 && (
-            <div className="bg-slate-800/50 rounded-lg p-2.5 overflow-x-auto">
-              <p className="text-[11px] text-slate-400 mb-1.5">
-                各イベントに間に合うか（取り置き {yen(earmarkedTotal)} を先に充当）
-              </p>
-              <table className="w-full text-[11px] whitespace-nowrap">
-                <thead>
-                  <tr className="text-slate-500">
-                    <th className="text-left font-medium py-0.5">時期</th>
-                    <th className="text-left font-medium py-0.5">イベント</th>
-                    <th className="text-right font-medium py-0.5">収支</th>
-                    <th className="text-right font-medium py-0.5">必要累計</th>
-                    <th className="text-right font-medium py-0.5">取り置き充当</th>
-                    <th className="text-right font-medium py-0.5">残り</th>
-                    <th className="text-right font-medium py-0.5">必要な月額</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {eventPlan.map((r, i) => (
-                    <tr key={`${r.year}-${r.month}-${r.name}-${i}`}
-                      className={r === binding ? "text-amber-300 font-semibold" : "text-slate-400"}>
-                      <td className="py-0.5">{r.year}年{r.month}月</td>
-                      <td className="py-0.5 truncate max-w-[140px]">{r.name}</td>
-                      <td className={`text-right py-0.5 ${r.net < 0 ? "text-green-400" : ""}`}>
-                        {r.net >= 0 ? `−${yen(r.net)}` : `+${yen(-r.net)}`}
-                      </td>
-                      <td className="text-right py-0.5">{yen(Math.max(0, r.cumulative))}</td>
-                      <td className="text-right py-0.5">{yen(r.allocated)}</td>
-                      <td className="text-right py-0.5">{r.monthsLeft}ヶ月</td>
-                      <td className="text-right py-0.5">{yen(r.monthly)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <p className="text-[10px] text-slate-500 mt-1.5">
-                一番きつい時点（色付き）に合わせておけば、他はすべて間に合います。
-                月が未設定のイベントは、その年の{DEFAULT_MONTH}月に起きるものとして計算しています。
-                金額は物価上昇{inflationRate}%を見込んだその年の価格です
-                （一時金など金額が決まっているものは除く）
-              </p>
-            </div>
-          )}
 
         <div className="flex rounded-xl bg-slate-800 p-1 gap-1">
           {([["flat", "毎月同じ額で積む"], ["ramp", "少しずつ増やす"]] as const).map(([k, label]) => (
@@ -767,6 +750,46 @@ export function JointContribution({ members, events, hints, inflationRate, asset
             ) : (
               <p className="text-xs text-green-300">この増やし方なら、どのイベントの支払いにも間に合います</p>
             )}
+          </div>
+        )}
+
+        {passbook.length > 1 && (
+          <div className="bg-slate-800/50 rounded-lg p-2.5 overflow-x-auto">
+            <p className="text-[11px] text-slate-400 mb-1.5">イベント用のお金の流れ（通帳のイメージ）</p>
+            <table className="w-full text-[11px] whitespace-nowrap">
+              <thead>
+                <tr className="text-slate-500">
+                  <th className="text-left font-medium py-0.5">時期</th>
+                  <th className="text-left font-medium py-0.5">内容</th>
+                  <th className="text-right font-medium py-0.5">積み立て</th>
+                  <th className="text-right font-medium py-0.5">入る</th>
+                  <th className="text-right font-medium py-0.5">出る</th>
+                  <th className="text-right font-medium py-0.5">残高</th>
+                </tr>
+              </thead>
+              <tbody>
+                {passbook.map((r, i) => (
+                  <tr key={i} className={r.low < 0 ? "bg-red-500/10" : ""}>
+                    <td className="py-0.5 text-slate-300">{r.t === null ? "今" : monthLabel(r.t)}</td>
+                    <td className="py-0.5 text-slate-400 truncate max-w-[160px]">{r.names.join("・")}</td>
+                    <td className="py-0.5 text-right text-slate-400">{r.saved > 0 ? `+${yen(r.saved)}` : "—"}</td>
+                    <td className="py-0.5 text-right text-green-400">{r.income > 0 ? `+${yen(r.income)}` : "—"}</td>
+                    <td className="py-0.5 text-right text-rose-300">{r.paid > 0 ? `−${yen(r.paid)}` : "—"}</td>
+                    <td className={`py-0.5 text-right font-semibold ${r.low < 0 ? "text-red-400" : "text-slate-100"}`}>
+                      {r.balance < 0 ? `−${yen(-r.balance)}` : yen(r.balance)}
+                      {r.low < 0 && r.low !== r.balance && (
+                        <span className="block text-[10px] font-normal">支払い時点 −{yen(-r.low)}</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="text-[10px] text-slate-500 mt-1.5">
+              「積み立て」は前の行からその月の入金日の前までに積んだ合計です（その月の入金は次の行に入ります）。
+              支払いは入金より前に来る前提で、残高がマイナスになる行（赤）はその時点で払えません。月が未設定のイベントは{DEFAULT_MONTH}月、
+              金額は物価上昇{inflationRate}%を見込んだその年の価格です（一時金など金額が決まっているものは除く）
+            </p>
           </div>
         )}
 
