@@ -405,18 +405,14 @@ export function JointContribution({ members, events, hints, inflationRate, asset
   // ════════════════════════════════════════════════════════
   // C. 合計：2人で出し合う額（月ごと）
   // ════════════════════════════════════════════════════════
-  // 生活費の拠出額。実際には毎月少しずつ変えたりしないので、
-  // 年に1回の見直し月にだけ物価上昇分を上乗せし、1,000円単位に切り上げる。
-  const reviewMonth = Math.min(12, Math.max(1, num(p.reviewMonth) || 4))
-  const reviewsBy = (t: number) => {
-    let n = 0
-    for (let k = 1; k <= t; k++) if (((thisMonth - 1 + k) % 12) + 1 === reviewMonth) n++
-    return n
-  }
+  // 生活費の拠出額。出し合う額は毎月少しずつ変えたりせず、
+  // イベント用の増額と同じタイミング（最初に見直す月から、決めた間隔ごと）でまとめて見直す。
+  // 見直しの時点までに進んだ物価上昇ぶんを上乗せし、1,000円単位に切り上げる。
   const livingAt = (t: number) => {
-    const n = reviewsBy(t)
+    const n = stepsAt(t)
     if (n === 0) return living
-    return Math.ceil((living * Math.pow(1 + infl, n)) / 1000) * 1000
+    const monthsAtReview = firstStepT + (n - 1) * stepMonths
+    return Math.ceil((living * Math.pow(1 + infl, monthsAtReview / 12)) / 1000) * 1000
   }
   /**
    * 実際に出ていく生活費。出し合う額（予算・手入力など）とは別に、
@@ -460,7 +456,7 @@ export function JointContribution({ members, events, hints, inflationRate, asset
     }
     return [...ts].sort((a, b) => a - b).slice(0, tableView === "monthly" ? 60 : 30)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planSim, horizon, bufferSpread, bufferGap, includeBuffer, eventByMonth, tableView, living, reviewMonth, infl])
+  }, [planSim, horizon, bufferSpread, bufferGap, includeBuffer, eventByMonth, tableView, living, firstStepT, stepMonths, infl])
 
   /**
    * 共同口座の月末残高の見込み。
@@ -604,16 +600,24 @@ export function JointContribution({ members, events, hints, inflationRate, asset
             )}
           </div>
 
-          <div className="flex items-center gap-2 bg-slate-800/40 rounded-lg px-2.5 py-2">
-            <span className="text-xs text-slate-300 flex-1">
-              生活費の見直し月
-              <span className="block text-[11px] text-slate-500">年に1回、物価上昇ぶんを上乗せする月（昇給月に合わせるのがおすすめ）</span>
-            </span>
-            <div className="w-16 shrink-0">
-              <input className={input} inputMode="numeric" value={p.reviewMonth}
-                onChange={e => set("reviewMonth", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} />
+          {/* 出し合う額の見直しタイミング（生活費・イベント共通） */}
+          <div className="bg-slate-800/40 rounded-lg px-2.5 py-2 space-y-1.5">
+            <p className="text-xs text-slate-300">出し合う額を見直すタイミング（生活費・イベント共通）</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] text-slate-400">最初に見直す月</span>
+              <MonthSelect value={p.stepStart || monthKey(firstStepT)}
+                onChange={v => set("stepStart", v)} yearsBack={0} yearsAhead={10} />
+              <span className="text-[11px] text-slate-400">以降</span>
+              <div className="w-14">
+                <input className={input} inputMode="numeric" value={p.stepMonths}
+                  onChange={e => set("stepMonths", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} />
+              </div>
+              <span className="text-[11px] text-slate-400">ヶ月ごと</span>
             </div>
-            <span className="text-xs text-slate-400">月</span>
+            <p className="text-[11px] text-slate-500">
+              この月に、生活費は物価上昇ぶんを上乗せし、イベント用は「少しずつ増やす」の増額を行います。
+              昇給月や賞与月に合わせると続けやすくなります
+            </p>
           </div>
 
           <label className="flex items-center gap-2 text-xs text-slate-300">
@@ -640,7 +644,7 @@ export function JointContribution({ members, events, hints, inflationRate, asset
           <span className="text-lg font-bold text-sky-300">{yen(livingPartNow)}</span>
         </div>
         <p className="text-[11px] text-slate-500">
-          生活費は毎年{reviewMonth}月に物価上昇（年{inflationRate}%）ぶんを上乗せして見直す前提です。
+          生活費は{monthLabel(firstStepT)}から{stepMonths}ヶ月ごとに、それまでの物価上昇（年{inflationRate}%）ぶんを上乗せして見直す前提です。
           1年後は{yen(livingAt(12))}、5年後は{yen(livingAt(60))}になります。
           一方で実際の支出は毎月少しずつ上がるので、見直し前の月は出し合う額より多く出ていきます
           （この1年の差の累計 {drift12 >= 0 ? "+" : "−"}{yen(Math.abs(drift12))}
@@ -736,26 +740,19 @@ export function JointContribution({ members, events, hints, inflationRate, asset
           </p>
         ) : (
           <div className="space-y-2">
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <Field label="今月の積立額">
                 <input className={input} inputMode="numeric" placeholder="0"
                   value={p.eventCurrent} onChange={e => set("eventCurrent", money(e.target.value))} />
               </Field>
-              <Field label="1回の増額">
+              <Field label="見直しごとの増額">
                 <input className={input} inputMode="numeric" value={p.stepAmount}
                   onChange={e => set("stepAmount", money(e.target.value))} />
               </Field>
-              <Field label="増やす間隔（ヶ月）">
-                <input className={input} inputMode="numeric" value={p.stepMonths}
-                  onChange={e => set("stepMonths", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} />
-              </Field>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-slate-400">最初に増やす月</span>
-              <MonthSelect value={p.stepStart || monthKey(firstStepT)}
-                onChange={v => set("stepStart", v)} yearsBack={0} yearsAhead={10} />
-              <span className="text-[11px] text-slate-500">以降は{stepMonths}ヶ月ごと。昇給月や賞与月に合わせると続けやすくなります</span>
-            </div>
+            <p className="text-[11px] text-slate-500">
+              増額のタイミングは、①の「出し合う額を見直すタイミング」（{monthLabel(firstStepT)}から{stepMonths}ヶ月ごと）と同じです
+            </p>
             {eventSim.firstShort !== null ? (
               <div className="bg-red-500/10 border border-red-500/40 rounded-lg p-2.5 text-xs space-y-1">
                 <p className="text-red-300 font-semibold">
