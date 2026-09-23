@@ -64,7 +64,7 @@ const num = (v: string) => {
 export function JointContribution({ members, events, hints, saved, scope, onSaved }: {
   members: Member[]
   events: LifeEvent[]
-  hints: { annualExpense: number; savings: number; budgetExpenseAnnual?: number; assetMonth?: string | null } | null
+  hints: { annualExpense: number; savings: number; budgetExpenseAnnual?: number; assetMonth?: string | null; budgetYear?: number } | null
   saved: Params | null
   scope: string
   onSaved: () => void
@@ -268,7 +268,7 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
             hint={
               p.livingSource === "manual" ? "手入力した金額を使います"
               : p.livingSource === "actual" ? "直近1年の共同支出の平均"
-              : budgetMonthly > 0 ? "予実管理で立てた毎月の予算の合計" : "予算が未設定のため実績の平均を使っています"
+              : budgetMonthly > 0 ? `${hints?.budgetYear ?? new Date().getFullYear()}年の予算を12ヶ月で平均した額` : "予算が未設定のため実績の平均を使っています"
             }
             value={living}
             editable={
@@ -294,7 +294,7 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
           />
           {p.livingSource !== "manual" && budgetMonthly > 0 && actualMonthly > 0 && (
             <p className="text-[11px] text-slate-500 -mt-1">
-              予算 {yen(budgetMonthly)} / 実績 {yen(actualMonthly)}
+              予算 {yen(budgetMonthly)}（{hints?.budgetYear ?? new Date().getFullYear()}年）/ 実績 {yen(actualMonthly)}（直近1年）
               {actualMonthly > budgetMonthly
                 ? "（実績が予算を超えています。実績で見ておくほうが安全です）"
                 : "（予算内で収まっています）"}

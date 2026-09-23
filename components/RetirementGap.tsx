@@ -75,7 +75,7 @@ function requiredMonthly(target: number, r: number, years: number): number {
 export function RetirementGap({ members, settings, hints, payslipHints, saved, scope, onSaved }: {
   members: Member[]
   settings: { return_rate: number; inflation_rate: number }
-  hints: { annualExpense: number; savings: number; investment: number; budgetExpenseAnnual?: number; nisaAnnual?: number } | null
+  hints: { annualExpense: number; savings: number; investment: number; budgetExpenseAnnual?: number; nisaAnnual?: number; budgetYear?: number } | null
   payslipHints: { standardMonthly: number; annualEquivalent: number } | null
   saved: Params | null
   scope: string

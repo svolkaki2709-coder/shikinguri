@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { requireUser, unauthorized } from "@/lib/session"
+import { buildBudgetResolver, annualBudget, type BudgetRecord } from "@/lib/budget"
 
 /**
  * ライフプランの全データを一括で返す。
@@ -76,28 +77,38 @@ export async function GET(req: NextRequest) {
     `,
   ])
 
-  // ── 予算（毎月の基本予算）からの年額 ─────────────────────
-  // 実績が少ない・ぶれる場合でも、予算を立てていればそれが一番現実に近い見込みになる。
-  // month IS NULL の行が「毎月の予算」。特定月だけの予算は将来の平常値ではないので除く。
-  const [budgetRows] = await Promise.all([
-    isJoint
-      ? sql<{ expense: string; income: string }>`
-          SELECT
-            COALESCE(SUM(b.amount) FILTER (WHERE COALESCE(c.group_type,'支出') IN ('支出','税金')), 0)::text AS expense,
-            COALESCE(SUM(b.amount) FILTER (WHERE c.group_type = '収入'), 0)::text AS income
-          FROM budgets b
-          LEFT JOIN categories c ON c.name = b.category AND c.card_type = b.card_type
-          WHERE b.owner_user_id IS NULL AND b.month IS NULL
-        `
-      : sql<{ expense: string; income: string }>`
-          SELECT
-            COALESCE(SUM(b.amount) FILTER (WHERE COALESCE(c.group_type,'支出') IN ('支出','税金')), 0)::text AS expense,
-            COALESCE(SUM(b.amount) FILTER (WHERE c.group_type = '収入'), 0)::text AS income
-          FROM budgets b
-          LEFT JOIN categories c ON c.name = b.category AND c.card_type = b.card_type
-          WHERE b.owner_user_id = ${me.id} AND b.month IS NULL
-        `,
-  ])
+  // ── 予算からの年額 ───────────────────────────────────────
+  // 今年1〜12月の各月に効いている予算を積み上げる。
+  // 「毎月の予算の合計 × 12」だと、隔月（水道代など）やその月だけの予算を取りこぼす。
+  const budgetYear = new Date().getFullYear()
+  const budgetRows = isJoint
+    ? await sql<BudgetRecord & { group_type: string | null }>`
+        SELECT b.category, b.card_type, b.amount, b.month::text AS month,
+               COALESCE(b.is_from_month, FALSE) AS is_from_month, c.group_type
+        FROM budgets b
+        LEFT JOIN categories c ON c.name = b.category AND c.card_type = b.card_type
+        WHERE b.owner_user_id IS NULL
+      `
+    : await sql<BudgetRecord & { group_type: string | null }>`
+        SELECT b.category, b.card_type, b.amount, b.month::text AS month,
+               COALESCE(b.is_from_month, FALSE) AS is_from_month, c.group_type
+        FROM budgets b
+        LEFT JOIN categories c ON c.name = b.category AND c.card_type = b.card_type
+        WHERE b.owner_user_id = ${me.id}
+      `
+
+  const groupOf = new Map<string, string>()
+  for (const b of budgetRows) groupOf.set(`${b.category}__${b.card_type}`, b.group_type ?? "支出")
+
+  const resolver = buildBudgetResolver(budgetRows)
+  const isExpense = (cat: string, ct: string) => {
+    const g = groupOf.get(`${cat}__${ct}`) ?? "支出"
+    return g === "支出" || g === "税金"
+  }
+  const isIncome = (cat: string, ct: string) => (groupOf.get(`${cat}__${ct}`) ?? "支出") === "収入"
+
+  const budgetExpenseAnnual = annualBudget(resolver, budgetYear, isExpense)
+  const budgetIncomeAnnual = annualBudget(resolver, budgetYear, isIncome)
 
   // ── 給与明細から年金の計算材料を作る ──────────────────────
   // 厚生年金保険料（個人負担）＝ 標準報酬月額 × 9.15%（18.3%の労使折半）
@@ -143,9 +154,10 @@ export async function GET(req: NextRequest) {
       investment: Number(assetRows[0]?.investment_balance ?? 0),
       // どの月末の記録か。ライフプラン側で「いつ時点の資産か」を示すのに使う
       assetMonth: (assetRows[0]?.month as string | undefined) ?? null,
-      // 毎月の予算 × 12。ライフプランの支出・収入の初期値として使う
-      budgetExpenseAnnual: Number(budgetRows[0]?.expense ?? 0) * 12,
-      budgetIncomeAnnual: Number(budgetRows[0]?.income ?? 0) * 12,
+      // 今年の予算の年額（隔月・月別の上書きを織り込んだもの）
+      budgetExpenseAnnual,
+      budgetIncomeAnnual,
+      budgetYear,
     },
     scope: owner === null ? "joint" : "self",
   })

@@ -35,7 +35,7 @@ interface LifeEvent {
   id: number; year: number; name: string; category: string; kind: "income" | "expense"
   amount: number; repeat_years: number; inflate: boolean; member_id: number | null; note: string
 }
-interface ActualHints { annualExpense: number; annualIncome: number; savings: number; investment: number; nisaAnnual?: number; assetMonth?: string | null; budgetExpenseAnnual?: number; budgetIncomeAnnual?: number }
+interface ActualHints { annualExpense: number; annualIncome: number; savings: number; investment: number; nisaAnnual?: number; assetMonth?: string | null; budgetExpenseAnnual?: number; budgetIncomeAnnual?: number; budgetYear?: number }
 
 interface CashRow {
   year: number
@@ -1087,7 +1087,7 @@ function StreamsTab({ streams, settings, scope, hints, onChanged, flash, focusAn
       {hints && ((hints.budgetExpenseAnnual ?? 0) > 0 || (hints.budgetIncomeAnnual ?? 0) > 0) && (
         <div className="bg-slate-900 rounded-xl border border-blue-500/30 p-3">
           <p className="text-xs font-semibold text-blue-300 mb-2">
-            {scope === "joint" ? "共同" : "個人"}の予算（毎月の予算 × 12ヶ月）
+            {scope === "joint" ? "共同" : "個人"}の予算（{hints.budgetYear ?? new Date().getFullYear()}年の合計）
           </p>
           <div className="flex gap-2">
             {(hints.budgetIncomeAnnual ?? 0) > 0 && (
@@ -1110,7 +1110,8 @@ function StreamsTab({ streams, settings, scope, hints, onChanged, flash, focusAn
             )}
           </div>
           <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
-            予実管理で立てた毎月の予算をそのまま年額にしたものです。登録後は金額を自由に変えられますし、
+予実管理で立てた{hints.budgetYear ?? new Date().getFullYear()}年の予算を1年分積み上げた金額です
+            （隔月やその月だけの予算も織り込んでいます）。登録後は金額を自由に変えられますし、
             住居費や車の維持費など、予算に入れていない項目は別の行として足せます
           </p>
         </div>
