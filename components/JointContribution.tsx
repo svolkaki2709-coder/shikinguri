@@ -38,6 +38,7 @@ interface Params {
   sameAccount: boolean              // 生活費と貯蓄を同じ口座で管理しているか
   reviewMonth: string               // （廃止）旧：生活費の見直し月
   livingMode: "inflation" | "fixed" // 見直しのときの生活費の上げ方（物価上昇ぶん／決めた額）
+  inflateEvents: boolean            // ライフイベントの金額に物価上昇を見込むか
   livingStep: string                // livingMode=fixed のとき、見直しごとに上げる額
   /**
    * 期間ごとの取り決め（産休・育休・転職など）。
@@ -77,6 +78,7 @@ const DEFAULTS: Params = {
   sameAccount: true,
   reviewMonth: "4",
   livingMode: "inflation",
+  inflateEvents: false,
   periods: [],
   livingStep: "5000",
   eventCurrent: "",
@@ -151,12 +153,15 @@ export function JointContribution({ members, events, hints, inflationRate, asset
   const thisMonth = new Date().getMonth() + 1
   const infl = (inflationRate ?? 0) / 100
   /**
-   * 今の物価で登録された金額を、その年の価格に直す。
-   * 食費や式場代のように物価とともに上がるものは、今の金額のまま積み立てると足りなくなる。
-   * 一時金・給付金のように金額が決まっているもの（inflate=false）はそのまま。
+   * ライフイベントの金額をその年の価格に直すかどうか。
+   * 見積もりや目標額として登録した金額をそのまま使いたいことが多いので、既定では直さない。
+   * 見込む場合も、一時金・給付金のように金額が決まっているもの（inflate=false）はそのまま。
    */
+  const inflateEvents = p.inflateEvents === true
   const atYear = (amount: number, year: number, inflate?: boolean) =>
-    inflate === false ? amount : Math.round(amount * Math.pow(1 + infl, Math.max(0, year - thisYear)))
+    !inflateEvents || inflate === false
+      ? amount
+      : Math.round(amount * Math.pow(1 + infl, Math.max(0, year - thisYear)))
   /** 今から何ヶ月後か（今月・過去は「今すぐ」扱いの1ヶ月） */
   const monthsUntil = (year: number, month: number) =>
     Math.max(1, (year - thisYear) * 12 + (month - thisMonth))
@@ -176,7 +181,7 @@ export function JointContribution({ members, events, hints, inflationRate, asset
       }
     }
     return [...map.values()].sort((a, b) => a.year - b.year || a.month - b.month)
-  }, [events, eventYears, thisYear])
+  }, [events, eventYears, thisYear, inflateEvents])
 
   const earmarkFor = (key: string) => num(p.earmarks?.[key] ?? "")
   const earmarkedFree = num(p.earmarked)
@@ -221,7 +226,7 @@ export function JointContribution({ members, events, hints, inflationRate, asset
       }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [events, eventYears, thisYear, thisMonth, expenseEvents, p.earmarks, p.earmarked])
+  }, [events, eventYears, thisYear, thisMonth, expenseEvents, p.earmarks, p.earmarked, inflateEvents])
 
   const sumEvents = (kind: "income" | "expense") => events.filter(e => e.kind === kind).reduce((sum, e) => {
     let v = 0
@@ -349,7 +354,7 @@ export function JointContribution({ members, events, hints, inflationRate, asset
     }
     return m
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [events, horizon, thisYear, thisMonth, infl])
+  }, [events, horizon, thisYear, thisMonth, infl, inflateEvents])
 
   /** イベント用の残高推移。start から、step を stepMonths ごとに上乗せする */
   function simulateEvent(start: number, step: number) {
@@ -764,6 +769,12 @@ export function JointContribution({ members, events, hints, inflationRate, asset
             {eventYears}年以内の予定（支出 {yen(eventExpense)}{eventIncome > 0 ? ` − 戻り ${yen(eventIncome)}` : ""}）に、
             支払いの時点で間に合うように積み立てます
           </p>
+          <label className="flex items-center gap-2 text-[11px] text-slate-400 mt-1.5">
+            <input type="checkbox" checked={inflateEvents}
+              onChange={e => set("inflateEvents", e.target.checked)} />
+            イベントの金額に物価上昇（年{inflationRate}%）を見込む
+            <span className="text-slate-500">{inflateEvents ? "（その年の価格で計算中）" : "（登録した金額のまま計算中）"}</span>
+          </label>
         </div>
 
           <div className="bg-slate-800/40 rounded-lg px-2.5 py-2 space-y-2">
@@ -907,7 +918,9 @@ export function JointContribution({ members, events, hints, inflationRate, asset
             <p className="text-[10px] text-slate-500 mt-1.5">
               「積み立て」は前の行からその月の入金日の前までに積んだ合計です（その月の入金は次の行に入ります）。
               支払いは入金より前に来る前提で、残高がマイナスになる行（赤）はその時点で払えません。月が未設定のイベントは{DEFAULT_MONTH}月、
-              金額は物価上昇{inflationRate}%を見込んだその年の価格です（一時金など金額が決まっているものは除く）
+              {inflateEvents
+                ? `金額は物価上昇${inflationRate}%を見込んだその年の価格です（一時金など金額が決まっているものは除く）`
+                : "金額は登録した金額のまま（物価上昇は見込んでいません）です"}
             </p>
           </div>
         )}
