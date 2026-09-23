@@ -39,6 +39,7 @@ interface Params {
   reviewMonth: string               // （廃止）旧：生活費の見直し月
   livingMode: "inflation" | "fixed" // 見直しのときの生活費の上げ方（物価上昇ぶん／決めた額）
   inflateEvents: boolean            // ライフイベントの金額に物価上昇を見込むか
+  saveStart: string                 // 積立（防衛資金・イベント用）を始める年月。空なら今月から
   livingStep: string                // livingMode=fixed のとき、見直しごとに上げる額
   /**
    * 期間ごとの取り決め（産休・育休・転職など）。
@@ -79,6 +80,7 @@ const DEFAULTS: Params = {
   reviewMonth: "4",
   livingMode: "inflation",
   inflateEvents: false,
+  saveStart: "",
   periods: [],
   livingStep: "5000",
   eventCurrent: "",
@@ -330,6 +332,13 @@ export function JointContribution({ members, events, hints, inflationRate, asset
     if (!y || !m) return stepMonths
     return Math.max(0, (y - new Date().getFullYear()) * 12 + (m - (new Date().getMonth() + 1)))
   })()
+  // 積立を始める月（今月から何ヶ月後か）。それまでは防衛資金・イベント用の積立はしない
+  const saveStartT = (() => {
+    if (!p.saveStart) return 0
+    const [y, m] = p.saveStart.split("-").map(Number)
+    if (!y || !m) return 0
+    return Math.max(0, (y - thisYear) * 12 + (m - thisMonth))
+  })()
   /** 今月から t ヶ月後の時点で、何回増額済みか */
   const stepsAt = (t: number) => (t < firstStepT ? 0 : 1 + Math.floor((t - firstStepT) / stepMonths))
   const horizon = eventYears * 12
@@ -366,7 +375,7 @@ export function JointContribution({ members, events, hints, inflationRate, asset
     for (let t = 0; t < horizon; t++) {
       // 期間の取り決めで、その間だけ積立を増減する（産休中は減らす、など）
       const adj = num(periodAt(t)?.eventAdjust ?? "")
-      const contribution = Math.max(0, start + step * stepsAt(t) + adj)
+      const contribution = t < saveStartT ? 0 : Math.max(0, start + step * stepsAt(t) + adj)
       const ev = eventByMonth.get(t)
       // 入金は毎月の入金日（25日など）。イベントの支払いがそれより前に来ても
       // 払えるかを見るため、判定は「その月の入金前」の残高で行う（受取も入金後に扱う）
@@ -395,14 +404,14 @@ export function JointContribution({ members, events, hints, inflationRate, asset
   const requiredFlat = useMemo(
     () => minimalToAvoidShort(x => simulateEvent(x, 0).minBalance),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [eventByMonth, eventStartBalance, horizon, p.periods],
+    [eventByMonth, eventStartBalance, horizon, p.periods, saveStartT],
   )
   const eventCurrent = num(p.eventCurrent)
   // 段階的に増やす場合、今の額から始めて1回いくら増やせば間に合うか
   const requiredStep = useMemo(
     () => minimalToAvoidShort(x => simulateEvent(eventCurrent, x).minBalance),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [eventCurrent, stepMonths, firstStepT, eventByMonth, eventStartBalance, horizon, p.periods],
+    [eventCurrent, stepMonths, firstStepT, eventByMonth, eventStartBalance, horizon, p.periods, saveStartT],
   )
 
   // 採用するプラン。段階的の場合は、入力した増額で足りなければ必要な増額に引き上げる
@@ -410,7 +419,7 @@ export function JointContribution({ members, events, hints, inflationRate, asset
   const eventSim = useMemo(
     () => (p.eventMode === "ramp" ? simulateEvent(eventCurrent, stepAmount) : simulateEvent(requiredFlat, 0)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [p.eventMode, eventCurrent, stepAmount, requiredFlat, stepMonths, firstStepT, eventByMonth, eventStartBalance, horizon, p.periods],
+    [p.eventMode, eventCurrent, stepAmount, requiredFlat, stepMonths, firstStepT, eventByMonth, eventStartBalance, horizon, p.periods, saveStartT],
   )
   const planSim = useMemo(
     () => (p.eventMode === "ramp" ? simulateEvent(eventCurrent, rampStep) : eventSim),
@@ -485,7 +494,8 @@ export function JointContribution({ members, events, hints, inflationRate, asset
     for (let t = 0; t < 60; t++) { const d = livingDriftUpTo(t); if (d < worst) { worst = d; at = t } }
     return { amount: worst, at }
   })()
-  const bufferAt = (t: number) => (t < bufferSpread ? bufferMonthly : 0)
+  // 防衛資金も積立開始の月から、決めた月数だけ積む
+  const bufferAt = (t: number) => (t >= saveStartT && t - saveStartT < bufferSpread ? bufferMonthly : 0)
   const totalAt = (t: number) => livingAt(t) + bufferAt(t) + eventPartAt(t)
   const totalNow = totalAt(0)
   const needed = totalNow
@@ -503,7 +513,8 @@ export function JointContribution({ members, events, hints, inflationRate, asset
       if (planSim.byT[t]?.contribution !== planSim.byT[t - 1]?.contribution) ts.add(t)
       if (livingAt(t) !== livingAt(t - 1)) ts.add(t)   // 生活費の見直し月
       if (periodAt(t)?.id !== periodAt(t - 1)?.id) ts.add(t) // 期間の取り決めの始まり・終わり
-      if (includeBuffer && bufferGap > 0 && t === bufferSpread) ts.add(t)
+      if (includeBuffer && bufferGap > 0 && t === saveStartT + bufferSpread) ts.add(t)
+      if (t === saveStartT) ts.add(t)   // 積立を始める月
       if (eventByMonth.has(t)) ts.add(t)
     }
     return [...ts].sort((a, b) => a - b).slice(0, tableView === "monthly" ? 60 : 30)
@@ -654,6 +665,13 @@ export function JointContribution({ members, events, hints, inflationRate, asset
 
           {/* 出し合う額の見直しタイミング（生活費・イベント共通） */}
           <div className="bg-slate-800/40 rounded-lg px-2.5 py-2 space-y-1.5">
+            <div className="flex items-center gap-2 flex-wrap pb-1.5 border-b border-slate-700/60">
+              <span className="text-xs text-slate-300">積立を始める月</span>
+              <MonthSelect value={p.saveStart || ymOf(0)} onChange={v => set("saveStart", v)} yearsBack={0} yearsAhead={10} />
+              <span className="text-[11px] text-slate-500">
+                それまでは生活費だけを出し合い、防衛資金とイベント用の積立は始めません
+              </span>
+            </div>
             <p className="text-xs text-slate-300">出し合う額を見直すタイミング（生活費・イベント共通）</p>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[11px] text-slate-400">最初に見直す月</span>
@@ -731,7 +749,7 @@ export function JointContribution({ members, events, hints, inflationRate, asset
 
         <div className="flex items-center justify-between border-t border-slate-800 pt-2.5">
           <span className="text-sm font-semibold text-slate-200">生活のための分（今月）</span>
-          <span className="text-lg font-bold text-sky-300">{yen(livingPartNow)}</span>
+          <span className="text-lg font-bold text-sky-300">{yen(livingAt(0) + bufferAt(0))}</span>
         </div>
         <p className="text-[11px] text-slate-500">
           生活費は{monthLabel(firstStepT)}から{stepMonths}ヶ月ごとに、{p.livingMode === "fixed" ? `${yen(livingStepAmount)}ずつ` : `それまでの物価上昇（年${inflationRate}%）ぶんを`}上乗せして見直す前提です。
@@ -739,7 +757,7 @@ export function JointContribution({ members, events, hints, inflationRate, asset
           一方で支出の見込みは物価に合わせて毎月少しずつ上げているので、見直し前の月は出し合う額より多くなることがあります
           （この1年の差の累計 {drift12 >= 0 ? "+" : "−"}{yen(Math.abs(drift12))}
           {worstDrift.amount < 0 ? `、最大で${monthLabel(worstDrift.at)}に${yen(-worstDrift.amount)}の持ち出し` : ""}）。
-          {includeBuffer ? `防衛資金の積立は${bufferGap > 0 ? `${monthLabel(bufferSpread - 1)}まで` : "不要"}です` : "防衛資金は計算から外しています"}
+          {includeBuffer ? `防衛資金の積立は${bufferGap > 0 ? `${monthLabel(saveStartT)}から${monthLabel(saveStartT + bufferSpread - 1)}まで` : "不要"}です` : "防衛資金は計算から外しています"}
         </p>
 
         <details className="text-xs">
@@ -948,7 +966,7 @@ export function JointContribution({ members, events, hints, inflationRate, asset
           <span className="text-2xl font-bold text-blue-300">{yen(totalNow)}</span>
         </div>
         <p className="text-xs text-slate-400">
-          生活 {yen(livingPartNow)} ＋ ライフイベント {yen(eventPartNow)}
+          生活 {yen(livingAt(0) + bufferAt(0))} ＋ ライフイベント {yen(eventPartNow)}
         </p>
 
         <div className="flex rounded-xl bg-slate-800 p-1 gap-1">
