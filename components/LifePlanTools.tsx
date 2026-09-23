@@ -7,6 +7,7 @@ import {
   calcMortgage, calcPension, calcInsuranceNeed, calcSurvivorPension, monthlyPayment,
   REMUNERATION_CAP, QUALIFYING_MONTHS, SPOUSE_BONUS_MONTHS, SPOUSE_BONUS_ANNUAL,
 } from "@/lib/fpCalc"
+import { MaternityBenefits } from "@/components/MaternityBenefits"
 import { InvestSimulator } from "@/components/InvestSimulator"
 import { SaveButton } from "@/components/SaveButton"
 
@@ -42,19 +43,20 @@ interface Props {
   currentInvestment?: number
 }
 
-type ToolKey = "mortgage" | "pension" | "insurance" | "invest"
+type ToolKey = "mortgage" | "pension" | "insurance" | "invest" | "maternity"
 
 export function LifePlanTools(props: Props) {
   const [active, setActive] = useState<ToolKey>("mortgage")
 
   return (
     <div className="space-y-3">
-      <div className="flex rounded-xl bg-slate-800 p-1 gap-0.5">
+      <div className="flex rounded-xl bg-slate-800 p-1 gap-0.5 overflow-x-auto">
         {([
           ["mortgage", "🏠 住宅ローン"],
           ["pension", "🏵️ 年金見込額"],
           ["insurance", "🛡️ 必要保障額"],
           ["invest", "📈 積立"],
+          ["maternity", "👶 産休・育休"],
         ] as const).map(([k, label]) => (
           <button key={k} onClick={() => setActive(k)}
             className={`flex-1 whitespace-nowrap py-2 px-1 rounded-lg text-xs font-semibold transition-colors ${
@@ -68,6 +70,34 @@ export function LifePlanTools(props: Props) {
       {active === "mortgage" && <MortgageTool {...props} />}
       {active === "pension" && <PensionTool {...props} />}
       {active === "insurance" && <InsuranceTool {...props} />}
+      {active === "maternity" && (
+        <MaternityBenefits
+          saved={(props.tools.find(t => t.tool === "maternity")?.params ?? null) as never}
+          payslipMonthly={props.payslipHints?.standardMonthly ?? null}
+          scope={props.scope}
+          onSave={async params => {
+            await saveParams("maternity", null, params as unknown as Record<string, string>, props.scope)
+            props.onChanged()
+          }}
+          onRegister={async evs => {
+            for (const e of evs) {
+              if (e.amount <= 0) continue
+              const res = await fetch("/api/lifeplan/events", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  card_type: props.scope, year: e.year, month: e.month, name: e.name,
+                  category: "出産", kind: "income", amount: e.amount, repeat_years: 1,
+                  // 給付金は制度で金額が決まるので物価上昇を掛けない
+                  inflate: false,
+                }),
+              })
+              if (!res.ok) throw new Error("登録に失敗しました")
+            }
+            props.onChanged()
+          }}
+        />
+      )}
       {active === "invest" && (
         <InvestSimulator
           members={props.members} nisaAnnual={props.nisaAnnual}

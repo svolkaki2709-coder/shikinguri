@@ -501,6 +501,10 @@ export function JointContribution({ members, events, hints, inflationRate, saved
           <span className="text-sm font-semibold text-slate-200">毎月の必要額</span>
           <span className="text-lg font-bold text-blue-400">{yen(needed)}</span>
         </div>
+        <p className="text-[11px] text-slate-400">
+          これは<span className="text-slate-200">今月から満額で積み立てる場合</span>の金額です。
+          今すぐは難しければ、下の「少しずつ増やす計画」で、ショートせずに済む増やし方を確認できます
+        </p>
         <p className="text-[11px] text-slate-500">
           生活費は今の物価での金額です。物価が年{inflationRate}%上がるなら、
           1年後は約{yen(Math.round(living * (1 + infl)))}、5年後は約{yen(Math.round(living * Math.pow(1 + infl, 5)))}
