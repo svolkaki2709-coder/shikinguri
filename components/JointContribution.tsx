@@ -900,40 +900,73 @@ export function JointContribution({ members, events, hints, inflationRate, asset
         <div className="overflow-x-auto">
           <table className="w-full text-xs whitespace-nowrap">
             <thead>
+              <tr className="text-[10px] border-b border-slate-800">
+                <th />
+                <th colSpan={3} className="py-1 px-2 text-center font-semibold text-sky-300 bg-sky-500/10">① 生活</th>
+                <th className="py-1 px-2 text-center font-semibold text-emerald-300 bg-emerald-500/10">防衛資金</th>
+                <th className="py-1 px-2 text-center font-semibold text-violet-300 bg-violet-500/10">② イベント</th>
+                <th colSpan={1 + members.length} className="py-1 px-2 text-center font-semibold text-blue-300 bg-blue-500/10">③ 出し合う額</th>
+                <th colSpan={2} className="py-1 px-2 text-center font-semibold text-violet-300 bg-violet-500/10">イベント用のお金</th>
+              </tr>
               <tr className="text-slate-500 border-b border-slate-800">
                 <th className="text-left py-1.5 px-2 font-medium">時期</th>
-                <th className="text-right py-1.5 px-2 font-medium">生活費（出し合う）</th>
-                <th className="text-right py-1.5 px-2 font-medium">生活費（実際の支出）</th>
-                <th className="text-right py-1.5 px-2 font-medium">防衛資金</th>
-                <th className="text-right py-1.5 px-2 font-medium">イベント</th>
-                <th className="text-right py-1.5 px-2 font-medium">合計</th>
+                <th className="text-right py-1.5 px-2 font-medium bg-sky-500/5">出し合う</th>
+                <th className="text-right py-1.5 px-2 font-medium bg-sky-500/5">実際の支出</th>
+                <th className="text-right py-1.5 px-2 font-medium bg-sky-500/5">差</th>
+                <th className="text-right py-1.5 px-2 font-medium bg-emerald-500/5">積立</th>
+                <th className="text-right py-1.5 px-2 font-medium bg-violet-500/5">積立</th>
+                <th className="text-right py-1.5 px-2 font-medium bg-blue-500/5">合計</th>
                 {members.map(m => (
-                  <th key={m.id} className="text-right py-1.5 px-2 font-medium">{m.name}</th>
+                  <th key={m.id} className="text-right py-1.5 px-2 font-medium bg-blue-500/5">{m.name}</th>
                 ))}
-                <th className="text-right py-1.5 px-2 font-medium">イベント用残高</th>
-                <th className="text-left py-1.5 px-2 font-medium">この月のイベント</th>
+                <th className="text-right py-1.5 px-2 font-medium bg-violet-500/5">残高</th>
+                <th className="text-left py-1.5 px-2 font-medium bg-violet-500/5">この月のイベント</th>
               </tr>
             </thead>
             <tbody>
-              {checkpoints.map(t => {
+              {checkpoints.map((t, idx) => {
                 const total = totalAt(t)
                 const bal = planSim.byT[t]?.balance ?? 0
+                const prevBal = t > 0 ? (planSim.byT[t - 1]?.balance ?? eventStartBalance) : eventStartBalance
+                const diff = livingAt(t) - spendAt(t)
+                const ev = eventByMonth.get(t)
+                // 前の行から出し合う額が変わったら目印を付ける
+                const prevT = idx > 0 ? checkpoints[idx - 1] : null
+                const totalChanged = prevT !== null && totalAt(prevT) !== total
+                const up = prevT !== null && total > totalAt(prevT)
                 return (
-                  <tr key={t} className="border-b border-slate-800 last:border-0">
+                  <tr key={t} className={`border-b border-slate-800 last:border-0 ${
+                    bal < 0 ? "bg-red-500/10" : ev ? "bg-violet-500/10" : ""
+                  }`}>
                     <td className="py-1.5 px-2 text-slate-300">{monthLabel(t)}</td>
-                    <td className="py-1.5 px-2 text-right text-slate-400">{yen(livingAt(t))}</td>
-                    <td className={`py-1.5 px-2 text-right ${spendAt(t) > livingAt(t) ? "text-amber-400" : "text-slate-500"}`}>{yen(spendAt(t))}</td>
-                    <td className="py-1.5 px-2 text-right text-slate-400">{bufferAt(t) > 0 ? yen(bufferAt(t)) : "—"}</td>
-                    <td className="py-1.5 px-2 text-right text-slate-400">{yen(eventPartAt(t))}</td>
-                    <td className="py-1.5 px-2 text-right font-semibold text-slate-100">{yen(total)}</td>
+                    <td className="py-1.5 px-2 text-right text-sky-200">{yen(livingAt(t))}</td>
+                    <td className="py-1.5 px-2 text-right text-slate-400">{yen(spendAt(t))}</td>
+                    <td className={`py-1.5 px-2 text-right font-semibold ${diff >= 0 ? "text-emerald-400" : "text-amber-400"}`}>
+                      {diff >= 0 ? "+" : "−"}{yen(Math.abs(diff))}
+                    </td>
+                    <td className="py-1.5 px-2 text-right text-emerald-300">{bufferAt(t) > 0 ? yen(bufferAt(t)) : "—"}</td>
+                    <td className="py-1.5 px-2 text-right text-violet-200">{yen(eventPartAt(t))}</td>
+                    <td className="py-1.5 px-2 text-right font-bold text-blue-200">
+                      {totalChanged && <span className={`mr-1 text-[10px] ${up ? "text-amber-300" : "text-emerald-300"}`}>{up ? "▲" : "▼"}</span>}
+                      {yen(total)}
+                    </td>
                     {split(total).map(sp => (
-                      <td key={sp.member.id} className="py-1.5 px-2 text-right text-slate-300">{yen(sp.amount)}</td>
+                      <td key={sp.member.id} className="py-1.5 px-2 text-right text-slate-100">{yen(sp.amount)}</td>
                     ))}
-                    <td className={`py-1.5 px-2 text-right ${bal < 0 ? "text-red-400" : "text-slate-400"}`}>
+                    <td className={`py-1.5 px-2 text-right font-semibold ${
+                      bal < 0 ? "text-red-400" : bal < prevBal ? "text-rose-300" : "text-slate-300"
+                    }`}>
                       {bal < 0 ? `−${yen(-bal)}` : yen(bal)}
                     </td>
-                    <td className="py-1.5 px-2 text-slate-500 truncate max-w-[160px]">
-                      {(eventByMonth.get(t)?.names ?? []).join("・")}
+                    <td className="py-1.5 px-2 truncate max-w-[180px]">
+                      {ev && (
+                        <span className="text-violet-200">
+                          {ev.names.join("・")}
+                          <span className={`ml-1.5 text-[10px] ${ev.amount < 0 ? "text-rose-300" : "text-emerald-300"}`}>
+                            {ev.amount < 0 ? `−${yen(-ev.amount)}` : `+${yen(ev.amount)}`}
+                          </span>
+                        </span>
+                      )}
                     </td>
                   </tr>
                 )
@@ -945,7 +978,9 @@ export function JointContribution({ members, events, hints, inflationRate, asset
           {tableView === "changes"
             ? "今月と、金額が変わる月（生活費の見直し・イベント積立の増額・防衛資金の積立終了）、イベントのある月を並べています。"
             : tableView === "monthly" ? "毎月の推移です（最大5年分）。" : "1年ごとの推移です。"}
-          生活費は物価上昇{inflationRate}%込み。イベント用残高は、取り置きと積立からイベントの支払いを差し引いた残りです
+          ▲▼は出し合う額が前の行から上がった／下がった月、紫の行はイベントのある月、赤い残高は支払えない月です。
+          生活費の「差」は出し合う額から実際の支出を引いたもの（緑＝余り、黄＝持ち出し）。
+          実際の支出は直近1年の平均に物価上昇{inflationRate}%を毎月上乗せしています
         </p>
       </div>
 
