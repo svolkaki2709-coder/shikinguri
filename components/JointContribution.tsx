@@ -276,6 +276,17 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
             value={eventMonthly}
           />
 
+          <div className="flex items-center gap-2 bg-slate-800/40 rounded-lg px-2.5 py-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm text-slate-300">取り置き（使い道が決まっている分）</p>
+              <p className="text-[11px] text-slate-500">
+                結婚式費用など。生活防衛資金には数えず、先にイベントの支払いへ充てます
+              </p>
+            </div>
+            <input className={`${input} w-32 shrink-0`} inputMode="numeric" placeholder="0"
+              value={p.earmarked} onChange={e => set("earmarked", money(e.target.value))} />
+          </div>
+
           {eventPlan.length > 0 && (
             <div className="bg-slate-800/50 rounded-lg p-2.5 overflow-x-auto">
               <p className="text-[11px] text-slate-400 mb-1.5">
@@ -341,17 +352,6 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
               <input className={input} inputMode="numeric" value={p.bufferSpreadMonths}
                 onChange={e => set("bufferSpreadMonths", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} />
             </Field>
-          </div>
-          <div className="mt-2">
-            <label className="text-[10px] text-slate-500 block mb-0.5">
-              使い道が決まっている取り置き（結婚式費用など）
-            </label>
-            <input className={input} inputMode="numeric" placeholder="0"
-              value={p.earmarked} onChange={e => set("earmarked", money(e.target.value))} />
-            <p className="text-[11px] text-slate-500 mt-1">
-              共同貯蓄のうち、すでに使い道が決まっている分です。生活防衛資金には数えず、
-              先にライフイベントの支払いへ充てます
-            </p>
           </div>
           <p className="text-[11px] text-slate-500 mt-2">
             生活防衛資金は、2人とも働けなくなっても暮らせる期間の生活費です。共働きなら3〜6ヶ月分、
