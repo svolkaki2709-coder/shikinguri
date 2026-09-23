@@ -614,7 +614,7 @@ export function JointContribution({ members, events, hints, inflationRate, asset
           />
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-sm text-slate-300">実際の支出（見込み）</p>
+              <p className="text-sm text-slate-300">支出の見込み</p>
               <p className="text-[11px] text-slate-500">
                 {actualMonthly > 0 ? "直近1年の共同支出の平均。物価上昇を毎月上乗せして比べます" : "実績がまだ無いため、出し合う額と同じとみています"}
               </p>
@@ -624,7 +624,7 @@ export function JointContribution({ members, events, hints, inflationRate, asset
           {spendBase !== living && (
             <p className={`text-[11px] -mt-1 ${spendBase > living ? "text-amber-400" : "text-slate-500"}`}>
               {spendBase > living
-                ? `実際の支出が出し合う額より毎月約${yen(spendBase - living)}多い見込みです。このままだと生活費口座が少しずつ減っていきます`
+                ? `支出の見込みが出し合う額より毎月約${yen(spendBase - living)}多くなります。このままだと生活費口座が少しずつ減っていきます`
                 : `出し合う額のほうが毎月約${yen(living - spendBase)}多く、生活費口座に少しずつ余りが貯まる見込みです`}
             </p>
           )}
@@ -699,12 +699,12 @@ export function JointContribution({ members, events, hints, inflationRate, asset
               const behind = spendAt(t5) - livingAt(t5)
               return behind > 0 ? (
                 <p className="text-[11px] text-amber-400">
-                  5年後（{monthLabel(t5)}）には実際の支出が出し合う額を毎月約{yen(behind)}上回る見込みです。
+                  5年後（{monthLabel(t5)}）には支出の見込みが出し合う額を毎月約{yen(behind)}上回ります。
                   増額が物価上昇に追いついていません
                 </p>
               ) : (
                 <p className="text-[11px] text-emerald-400">
-                  5年後も出し合う額が実際の支出を上回る見込みです（毎月約{yen(-behind)}の余り）
+                  5年後も出し合う額が支出の見込みを上回ります（毎月約{yen(-behind)}の余り）
                 </p>
               )
             })()}
@@ -736,7 +736,7 @@ export function JointContribution({ members, events, hints, inflationRate, asset
         <p className="text-[11px] text-slate-500">
           生活費は{monthLabel(firstStepT)}から{stepMonths}ヶ月ごとに、{p.livingMode === "fixed" ? `${yen(livingStepAmount)}ずつ` : `それまでの物価上昇（年${inflationRate}%）ぶんを`}上乗せして見直す前提です。
           1年後は{yen(livingAt(12))}、5年後は{yen(livingAt(60))}になります。
-          一方で実際の支出は毎月少しずつ上がるので、見直し前の月は出し合う額より多く出ていきます
+          一方で支出の見込みは物価に合わせて毎月少しずつ上げているので、見直し前の月は出し合う額より多くなることがあります
           （この1年の差の累計 {drift12 >= 0 ? "+" : "−"}{yen(Math.abs(drift12))}
           {worstDrift.amount < 0 ? `、最大で${monthLabel(worstDrift.at)}に${yen(-worstDrift.amount)}の持ち出し` : ""}）。
           {includeBuffer ? `防衛資金の積立は${bufferGap > 0 ? `${monthLabel(bufferSpread - 1)}まで` : "不要"}です` : "防衛資金は計算から外しています"}
@@ -1037,7 +1037,7 @@ export function JointContribution({ members, events, hints, inflationRate, asset
               <tr className="text-slate-500 border-b border-slate-800">
                 <th className="text-left py-1.5 px-2 font-medium">時期</th>
                 <th className="text-right py-1.5 px-2 font-medium bg-sky-500/5">出し合う</th>
-                <th className="text-right py-1.5 px-2 font-medium bg-sky-500/5">実際の支出</th>
+                <th className="text-right py-1.5 px-2 font-medium bg-sky-500/5">支出の見込み</th>
                 <th className="text-right py-1.5 px-2 font-medium bg-sky-500/5">差</th>
                 <th className="text-right py-1.5 px-2 font-medium bg-emerald-500/5">積立</th>
                 <th className="text-right py-1.5 px-2 font-medium bg-violet-500/5">積立</th>
@@ -1110,8 +1110,8 @@ export function JointContribution({ members, events, hints, inflationRate, asset
             ? "今月と、金額が変わる月（生活費の見直し・イベント積立の増額・防衛資金の積立終了）、イベントのある月を並べています。"
             : tableView === "monthly" ? "毎月の推移です（最大5年分）。" : "1年ごとの推移です。"}
           ▲▼は出し合う額が前の行から上がった／下がった月、紫の行はイベントのある月、赤い残高は支払えない月です。
-          生活費の「差」は出し合う額から実際の支出を引いたもの（緑＝余り、黄＝持ち出し）。
-          実際の支出は直近1年の平均に物価上昇{inflationRate}%を毎月上乗せしています
+          生活費の「差」は出し合う額から支出の見込みを引いたもの（緑＝余り、黄＝持ち出し）。
+          支出の見込みは、直近1年の共同支出の平均に物価上昇{inflationRate}%を毎月上乗せした仮定の数字です（実績ではありません）
         </p>
       </div>
 
