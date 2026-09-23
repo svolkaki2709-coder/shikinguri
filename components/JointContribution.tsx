@@ -380,17 +380,22 @@ export function JointContribution({ members, events, hints, inflationRate, asset
   const totalNow = totalAt(0)
   const needed = totalNow
 
-  // 表に出す月：今月・増額月・防衛資金が貯まり終わった月・毎年1月
+  // 表に出す月。見たい粒度で切り替えられるようにする
+  //   changes … 金額が変わる月（増額・防衛資金の積立終了）とイベントのある月
+  //   monthly … 毎月
+  //   yearly  … 毎年、今月と同じ月
+  const [tableView, setTableView] = useState<"changes" | "monthly" | "yearly">("changes")
   const checkpoints = useMemo(() => {
     const ts = new Set<number>([0])
     for (let t = 1; t < horizon; t++) {
+      if (tableView === "monthly") { ts.add(t); continue }
+      if (tableView === "yearly") { if (t % 12 === 0) ts.add(t); continue }
       if (planSim.byT[t]?.contribution !== planSim.byT[t - 1]?.contribution) ts.add(t)
-      if (t === bufferSpread) ts.add(t)
-      const monthOfYear = ((thisMonth - 1 + t) % 12) + 1
-      if (monthOfYear === 1) ts.add(t)
+      if (includeBuffer && bufferGap > 0 && t === bufferSpread) ts.add(t)
+      if (eventByMonth.has(t)) ts.add(t)
     }
-    return [...ts].sort((a, b) => a - b).slice(0, 24)
-  }, [planSim, horizon, bufferSpread, thisMonth])
+    return [...ts].sort((a, b) => a - b).slice(0, tableView === "monthly" ? 60 : 30)
+  }, [planSim, horizon, bufferSpread, bufferGap, includeBuffer, eventByMonth, tableView])
 
   /**
    * 共同口座の月末残高の見込み。
@@ -800,6 +805,14 @@ export function JointContribution({ members, events, hints, inflationRate, asset
           ))}
         </div>
 
+        <div className="flex rounded-lg bg-slate-800 p-0.5 text-[11px] w-fit">
+          {([["changes", "金額が変わる月"], ["monthly", "毎月"], ["yearly", "毎年"]] as const).map(([k, label]) => (
+            <button key={k} type="button" onClick={() => setTableView(k)}
+              className={`px-2.5 py-1 rounded-md transition-colors ${tableView === k ? "bg-blue-600 text-white" : "text-slate-400"}`}>
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs whitespace-nowrap">
             <thead>
@@ -813,6 +826,7 @@ export function JointContribution({ members, events, hints, inflationRate, asset
                   <th key={m.id} className="text-right py-1.5 px-2 font-medium">{m.name}</th>
                 ))}
                 <th className="text-right py-1.5 px-2 font-medium">イベント用残高</th>
+                <th className="text-left py-1.5 px-2 font-medium">この月のイベント</th>
               </tr>
             </thead>
             <tbody>
@@ -832,6 +846,9 @@ export function JointContribution({ members, events, hints, inflationRate, asset
                     <td className={`py-1.5 px-2 text-right ${bal < 0 ? "text-red-400" : "text-slate-400"}`}>
                       {bal < 0 ? `−${yen(-bal)}` : yen(bal)}
                     </td>
+                    <td className="py-1.5 px-2 text-slate-500 truncate max-w-[160px]">
+                      {(eventByMonth.get(t)?.names ?? []).join("・")}
+                    </td>
                   </tr>
                 )
               })}
@@ -839,7 +856,9 @@ export function JointContribution({ members, events, hints, inflationRate, asset
           </table>
         </div>
         <p className="text-[11px] text-slate-500 leading-relaxed">
-          今月・増額する月・防衛資金が貯まり終わる月・毎年1月を並べています。
+          {tableView === "changes"
+            ? "今月と、積立額が変わる月（増額・防衛資金の積立終了）、イベントのある月を並べています。"
+            : tableView === "monthly" ? "毎月の推移です（最大5年分）。" : "1年ごとの推移です。"}
           生活費は物価上昇{inflationRate}%込み。イベント用残高は、取り置きと積立からイベントの支払いを差し引いた残りです
         </p>
       </div>
