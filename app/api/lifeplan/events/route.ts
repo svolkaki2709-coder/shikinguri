@@ -21,9 +21,10 @@ export async function POST(req: NextRequest) {
     if (!e.name || e.year == null) continue
     const [row] = await sql`
       INSERT INTO life_events
-        (year, name, category, kind, amount, repeat_years, inflate, member_id, note, owner_user_id)
+        (year, month, name, category, kind, amount, repeat_years, inflate, member_id, note, owner_user_id)
       VALUES (
         ${Number(e.year)},
+        ${e.month ? Number(e.month) : null},
         ${String(e.name).trim()},
         ${e.category ?? "その他"},
         ${e.kind === "income" ? "income" : "expense"},
@@ -51,6 +52,7 @@ export async function PATCH(req: NextRequest) {
   const updated = await sql`
     UPDATE life_events SET
       year         = ${Number(b.year)},
+      month        = ${b.month ? Number(b.month) : null},
       name         = ${String(b.name ?? "").trim()},
       category     = ${b.category ?? "その他"},
       kind         = ${b.kind === "income" ? "income" : "expense"},

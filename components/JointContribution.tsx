@@ -16,7 +16,13 @@ import { toHalfWidth } from "@/lib/num"
  */
 
 interface Member { id: number; name: string }
-interface LifeEvent { year: number; kind: "income" | "expense"; amount: number; repeat_years: number; name: string }
+interface LifeEvent {
+  year: number; month: number | null; kind: "income" | "expense"
+  amount: number; repeat_years: number; name: string
+}
+
+/** 月が未設定のイベントは、年の半ば（6月）に起きるものとして扱う */
+const DEFAULT_MONTH = 6
 interface Params {
   method: "equal" | "income" | "custom"
   incomes: Record<string, string>   // メンバーID → 手取り月収（円）
@@ -102,10 +108,14 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
   // イベントごとに割り当てられるが、用途を決めていない分も置ける。
   // どちらも生活防衛資金には数えず、イベントの支払いに先に充てる。
   const eventKey = (year: number, name: string) => `${year}|${name}`
+  const thisMonth = new Date().getMonth() + 1
+  /** 今から何ヶ月後か（今月・過去は「今すぐ」扱いの1ヶ月） */
+  const monthsUntil = (year: number, month: number) =>
+    Math.max(1, (year - thisYear) * 12 + (month - thisMonth))
 
   // 期間内の支出イベント（同じ年・同じ名前はまとめる）
   const expenseEvents = useMemo(() => {
-    const map = new Map<string, { key: string; year: number; name: string; amount: number }>()
+    const map = new Map<string, { key: string; year: number; month: number; name: string; amount: number }>()
     for (const e of events) {
       if (e.kind !== "expense") continue
       for (let i = 0; i < Math.max(1, e.repeat_years); i++) {
@@ -114,10 +124,10 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
         const k = eventKey(y, e.name)
         const cur = map.get(k)
         if (cur) cur.amount += e.amount
-        else map.set(k, { key: k, year: y, name: e.name, amount: e.amount })
+        else map.set(k, { key: k, year: y, month: e.month ?? DEFAULT_MONTH, name: e.name, amount: e.amount })
       }
     }
-    return [...map.values()].sort((a, b) => a.year - b.year || a.name.localeCompare(b.name))
+    return [...map.values()].sort((a, b) => a.year - b.year || a.month - b.month)
   }, [events, eventYears, thisYear])
 
   const earmarkFor = (key: string) => num(p.earmarks?.[key] ?? "")
@@ -128,31 +138,41 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
   // 単純な月割りだと「10年で割った額」になり、2年後のイベントには間に合わない。
   // 年ごとに「その年までに必要な累計額」を出し、残り月数で割った額のうち
   // 一番厳しいものを必要額とする（直近の大きなイベントが効く）。
+  // 年ではなく「年月」の時系列で見る。
+  // 同じ年でも支払いが先・入金が後なら、その時点では資金が足りない。
+  // 各時点で「それまでに必要な累計額」と「残り月数」を出し、
+  // 一番きつい時点に合わせた金額を必要額とする。
   const eventPlan = useMemo(() => {
-    const byYear = new Map<number, number>()
-    const add = (y: number, v: number) => byYear.set(y, (byYear.get(y) ?? 0) + v)
+    const occurrences: { year: number; month: number; amount: number; name: string; kind: string }[] = []
     for (const e of events) {
       for (let i = 0; i < Math.max(1, e.repeat_years); i++) {
         const y = e.year + i
         if (y < thisYear || y >= thisYear + eventYears) continue
-        add(y, e.kind === "expense" ? e.amount : -e.amount)
+        occurrences.push({
+          year: y, month: e.month ?? DEFAULT_MONTH,
+          amount: e.kind === "expense" ? e.amount : -e.amount,
+          name: e.name, kind: e.kind,
+        })
       }
     }
-    const years = [...byYear.keys()].sort((a, b) => a - b)
+    occurrences.sort((a, b) => a.year - b.year || a.month - b.month)
+
     let cumulative = 0
-    return years.map(y => {
-      cumulative += byYear.get(y) ?? 0
-      // その年の支払いまでの残り月数。今年のイベントは「今すぐ必要」とみなす
-      const monthsLeft = Math.max(1, (y - thisYear) * 12)
-      // その年までのイベントに割り当てた取り置き＋用途未定の分を充当する
+    return occurrences.map(o => {
+      cumulative += o.amount
+      const monthsLeft = monthsUntil(o.year, o.month)
+      // その時点までに支払いへ充てられる取り置き（先の予定に割り当てた分はまだ使えない）
       const allocated = expenseEvents
-        .filter(e => e.year <= y)
+        .filter(e => e.year < o.year || (e.year === o.year && e.month <= o.month))
         .reduce((s2, e) => s2 + earmarkFor(e.key), 0) + earmarkedFree
       const shortfall = Math.max(0, cumulative - allocated)
-      return { year: y, net: byYear.get(y) ?? 0, cumulative, allocated, monthsLeft, monthly: Math.round(shortfall / monthsLeft) }
+      return {
+        year: o.year, month: o.month, name: o.name, kind: o.kind, net: o.amount,
+        cumulative, allocated, monthsLeft, monthly: Math.round(shortfall / monthsLeft),
+      }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [events, eventYears, thisYear, expenseEvents, p.earmarks, p.earmarked])
+  }, [events, eventYears, thisYear, thisMonth, expenseEvents, p.earmarks, p.earmarked])
 
   const eventExpense = useMemo(() => events.filter(e => e.kind === "expense").reduce((sum, e) => {
     let v = 0
@@ -174,6 +194,8 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
   // 一番きついイベント（これに合わせれば、他はすべて間に合う）
   const binding = eventPlan.reduce<typeof eventPlan[number] | null>(
     (worst, r) => (worst === null || r.monthly > worst.monthly ? r : worst), null)
+  /** 支払いが先・入金が後で、一時的に資金が不足する時点 */
+  const shortfallPoints = eventPlan.filter(r => r.cumulative - r.allocated > 0)
   const eventMonthly = binding ? binding.monthly : 0
 
   const bufferTarget = living * (num(p.bufferMonths) || 6)
@@ -303,7 +325,7 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
           <Row
             label="ライフイベントの積立"
             hint={binding
-              ? `${binding.year}年の支払いに間に合わせる金額です（${eventYears}年以内の支出 ${yen(eventExpense)}${eventIncome > 0 ? ` − 戻り ${yen(eventIncome)}` : ""}）`
+              ? `${binding.year}年${binding.month}月の「${binding.name}」に間に合わせる金額です（${eventYears}年以内の支出 ${yen(eventExpense)}${eventIncome > 0 ? ` − 戻り ${yen(eventIncome)}` : ""}）`
               : `${eventYears}年以内に予定されたイベントはありません`}
             value={eventMonthly}
           />
@@ -356,8 +378,9 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
               <table className="w-full text-[11px] whitespace-nowrap">
                 <thead>
                   <tr className="text-slate-500">
-                    <th className="text-left font-medium py-0.5">年</th>
-                    <th className="text-right font-medium py-0.5">その年の収支</th>
+                    <th className="text-left font-medium py-0.5">時期</th>
+                    <th className="text-left font-medium py-0.5">イベント</th>
+                    <th className="text-right font-medium py-0.5">収支</th>
                     <th className="text-right font-medium py-0.5">必要累計</th>
                     <th className="text-right font-medium py-0.5">取り置き充当</th>
                     <th className="text-right font-medium py-0.5">残り</th>
@@ -365,10 +388,14 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
                   </tr>
                 </thead>
                 <tbody>
-                  {eventPlan.map(r => (
-                    <tr key={r.year} className={r === binding ? "text-amber-300 font-semibold" : "text-slate-400"}>
-                      <td className="py-0.5">{r.year}年</td>
-                      <td className="text-right py-0.5">{r.net >= 0 ? `−${yen(r.net)}` : `+${yen(-r.net)}`}</td>
+                  {eventPlan.map((r, i) => (
+                    <tr key={`${r.year}-${r.month}-${r.name}-${i}`}
+                      className={r === binding ? "text-amber-300 font-semibold" : "text-slate-400"}>
+                      <td className="py-0.5">{r.year}年{r.month}月</td>
+                      <td className="py-0.5 truncate max-w-[140px]">{r.name}</td>
+                      <td className={`text-right py-0.5 ${r.net < 0 ? "text-green-400" : ""}`}>
+                        {r.net >= 0 ? `−${yen(r.net)}` : `+${yen(-r.net)}`}
+                      </td>
                       <td className="text-right py-0.5">{yen(Math.max(0, r.cumulative))}</td>
                       <td className="text-right py-0.5">{yen(r.allocated)}</td>
                       <td className="text-right py-0.5">{r.monthsLeft}ヶ月</td>
@@ -378,7 +405,8 @@ export function JointContribution({ members, events, hints, saved, scope, onSave
                 </tbody>
               </table>
               <p className="text-[10px] text-slate-500 mt-1.5">
-                一番きつい年（色付き）に合わせておけば、他の年はすべて間に合います
+                一番きつい時点（色付き）に合わせておけば、他はすべて間に合います。
+                月が未設定のイベントは、その年の{DEFAULT_MONTH}月に起きるものとして計算しています
               </p>
             </div>
           )}

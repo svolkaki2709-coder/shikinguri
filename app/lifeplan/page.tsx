@@ -32,7 +32,7 @@ interface Stream {
   start_year: number | null; end_year: number | null; growth_rate: number | null; note: string
 }
 interface LifeEvent {
-  id: number; year: number; name: string; category: string; kind: "income" | "expense"
+  id: number; year: number; month: number | null; name: string; category: string; kind: "income" | "expense"
   amount: number; repeat_years: number; inflate: boolean; member_id: number | null; note: string
 }
 interface ActualHints { annualExpense: number; annualIncome: number; savings: number; investment: number; nisaAnnual?: number; assetMonth?: string | null; budgetExpenseAnnual?: number; budgetIncomeAnnual?: number; budgetYear?: number }
@@ -137,6 +137,7 @@ function LifePlanContent() {
       setEvents((d.events ?? []).map((e: LifeEvent) => ({
         ...e,
         year: Number(e.year),
+        month: e.month == null ? null : Number(e.month),
         amount: Number(e.amount),
         repeat_years: Number(e.repeat_years),
         member_id: e.member_id == null ? null : Number(e.member_id),
@@ -901,6 +902,7 @@ function EventEditModal({ draft, members, settings, onClose, onSave, focusAndSel
   const [f, setF] = useState({
     id: draft.id,
     year: draft.year ?? settings.start_year,
+    month: draft.month ?? null,
     name: draft.name ?? "",
     category: draft.category ?? "その他",
     kind: draft.kind ?? "expense",
@@ -932,6 +934,17 @@ function EventEditModal({ draft, members, settings, onClose, onSave, focusAndSel
               <input type="number" value={f.year}
                 onChange={e => setF({ ...f, year: Number(e.target.value) })}
                 className={`${INPUT_CLS} w-full`} />
+            </div>
+            <div>
+              <label className="block text-[11px] text-slate-400 mb-1">月</label>
+              <select value={f.month ?? ""}
+                onChange={e => setF({ ...f, month: e.target.value ? Number(e.target.value) : null })}
+                className={`${INPUT_CLS} w-full`}>
+                <option value="">未定</option>
+                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                  <option key={m} value={m}>{m}月</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-[11px] text-slate-400 mb-1">続く年数</label>
@@ -994,7 +1007,7 @@ function EventEditModal({ draft, members, settings, onClose, onSave, focusAndSel
             </button>
             <button
               onClick={() => onSave({
-                id: f.id, year: f.year, name: f.name, category: f.category, kind: f.kind,
+                id: f.id, year: f.year, month: f.month ?? null, name: f.name, category: f.category, kind: f.kind,
                 amount: manToYen(f.amountMan), repeat_years: f.repeat_years,
                 inflate: f.inflate, member_id: f.member_id, note: f.note,
               })}
