@@ -97,6 +97,14 @@ async function applyRuleToExisting(
   `
 }
 
+/** 共同口座か自分の個人口座か（相手の個人口座はルールに紐付けさせない） */
+async function canUseCard(cardId: number, meId: number) {
+  const rows = await sql`
+    SELECT 1 FROM cards WHERE id = ${cardId} AND (owner_user_id IS NULL OR owner_user_id = ${meId}) LIMIT 1
+  `
+  return rows.length > 0
+}
+
 export async function POST(req: NextRequest) {
   const me = await requireUser()
   if (!me) return unauthorized()
@@ -109,6 +117,7 @@ export async function POST(req: NextRequest) {
   const owner = card_type === "joint" ? null : me.id
   // card_id を付けるとその口座専用のルール。付けなければ全口座に効く共通ルール。
   const cardId = card_id ? Number(card_id) : null
+  if (cardId && !(await canUseCard(cardId, me.id))) return forbidden()
 
   // 「同じキーワード × 同じ口座」だけを同一ルールとみなす（口座違いは別レコードとして持つ）
   const existing = owner === null
@@ -143,6 +152,7 @@ export async function PATCH(req: NextRequest) {
   // card_id を送らなかったときは今の割り当てを維持する
   const keepCard = card_id === undefined
   const newCardId = card_id ? Number(card_id) : null
+  if (newCardId && !(await canUseCard(newCardId, me.id))) return forbidden()
   const updated = keepCard
     ? await sql<{ id: number; owner_user_id: number | null; card_id: number | null }>`
         UPDATE store_category_rules

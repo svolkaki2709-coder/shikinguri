@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
-import { requireUser, unauthorized, forbidden } from "@/lib/session"
+import { requireUser, unauthorized, forbidden, MAX_UPLOAD_BYTES } from "@/lib/session"
 import {
   decodeCsvBuffer, parseCSV, normalizeDate,
   parseAmountSigned, parseAmountAbs, detectLayout, directionFromLabel,
@@ -47,6 +47,9 @@ export async function POST(req: NextRequest) {
 
     if (!file || !cardId) {
       return NextResponse.json({ error: "file と card_id は必須です" }, { status: 400 })
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return NextResponse.json({ error: "ファイルが大きすぎます（5MBまで）" }, { status: 413 })
     }
 
     // 取込先口座の権限とスコープを確認
@@ -301,7 +304,8 @@ export async function POST(req: NextRequest) {
     const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e)
     console.error("[import-csv]", msg)
     return NextResponse.json(
-      { error: `サーバーエラー: ${e instanceof Error ? e.message : String(e)}` },
+      // 詳細（スタックトレース・DBのエラー文）はログにだけ残す
+      { error: "取り込み中にサーバーでエラーが発生しました。ファイルの形式を確認して再度お試しください" },
       { status: 500 }
     )
   }

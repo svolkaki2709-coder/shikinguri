@@ -186,7 +186,8 @@ export async function PUT(req: NextRequest) {
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     console.error("[PUT /api/budget] error:", msg)
-    return NextResponse.json({ error: msg }, { status: 500 })
+    // DBのエラー文（テーブル名など）は画面に出さず、ログにだけ残す
+    return NextResponse.json({ error: "サーバーでエラーが発生しました。時間をおいて再度お試しください" }, { status: 500 })
   }
 }
 

@@ -26,6 +26,9 @@ export async function requireUser(): Promise<CurrentUser | null> {
   return { id: Number(uid), email: session!.user.email ?? "" }
 }
 
+/** CSV・PDFのアップロード上限。巨大ファイルでサーバーが落ちないようにする */
+export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+
 export function unauthorized() {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 }

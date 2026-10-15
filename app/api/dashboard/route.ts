@@ -159,6 +159,7 @@ export async function GET(req: NextRequest) {
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : String(e)
     console.error("[dashboard API error]", message)
-    return NextResponse.json({ error: message }, { status: 500 })
+    // DBのエラー文（テーブル名など）は画面に出さず、ログにだけ残す
+    return NextResponse.json({ error: "サーバーでエラーが発生しました。時間をおいて再度お試しください" }, { status: 500 })
   }
 }

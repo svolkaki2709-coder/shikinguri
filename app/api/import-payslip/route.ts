@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireUser, unauthorized } from "@/lib/session"
+import { requireUser, unauthorized, MAX_UPLOAD_BYTES } from "@/lib/session"
 // v1.1.1: lib直接インポートでVercelのfs問題を回避（v1のentry pointがtest fileを読もうとするバグ対策）
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const pdfParse = require("pdf-parse/lib/pdf-parse")
@@ -186,6 +186,9 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData()
     const file = formData.get("file") as File | null
     if (!file) return NextResponse.json({ error: "fileが必要です" }, { status: 400 })
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return NextResponse.json({ error: "ファイルが大きすぎます（5MBまで）" }, { status: 413 })
+    }
 
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
@@ -196,7 +199,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, ...data })
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e)
-    return NextResponse.json({ error: `PDF解析エラー: ${msg}` }, { status: 500 })
+    console.error("[import-payslip]", e instanceof Error ? e.message : String(e))
+    return NextResponse.json({ error: "PDFを読み取れませんでした。給与明細のPDFか確認してください" }, { status: 500 })
   }
 }
