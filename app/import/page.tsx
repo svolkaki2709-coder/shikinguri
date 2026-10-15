@@ -176,45 +176,46 @@ export default function ImportPage() {
   const scopeCount = (s: "self" | "joint") => allCards.filter(c => (c.card_type === "joint" ? "joint" : "self") === s).length
 
   const FormCard = (
-    <div className="space-y-3">
-      {/* 個人／共同の切替 */}
-      <div className="flex gap-2">
-        {([["self", "🙋 個人"], ["joint", "👫 共同"]] as const).map(([s, label]) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => setScope(s)}
-            className={`flex-1 rounded-xl py-2 text-sm font-semibold transition-colors ${
-              scope === s
-                ? "bg-blue-600 text-white"
-                : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-200"
-            }`}
-          >
-            {label}
-            <span className="ml-1.5 text-xs opacity-70">{scopeCount(s)}</span>
-          </button>
-        ))}
-      </div>
-      {/* 説明 */}
-      <div className="bg-blue-500/10 rounded-xl p-3 text-sm text-blue-300 space-y-1">
-        {selectedIsBank ? (
-          <>
-            <p className="font-medium">🏦 銀行の入出金明細CSVを取り込みます</p>
-            <p className="text-xs text-blue-400">
-              出金は支出、入金は収入として登録します。残高列があれば口座残高の推移も記録します。
-              クレジットカードの引き落としなど自分の他口座あての出金は「振替」に分類し、
-              カード明細と二重計上にならないようにします。
-            </p>
-          </>
-        ) : (
-          <>
-            <p className="font-medium">💳 各カード会社のCSVを取り込みます</p>
-            <p className="text-xs text-blue-400">日付・金額・メモ列を自動検出します。カテゴリは「未分類」で取り込まれます。</p>
-          </>
-        )}
-      </div>
-
+    <div>
       <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 space-y-3">
+        {/* 個人／共同の切替＋取込ルール */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex w-40 rounded-lg border border-slate-800 bg-slate-950 p-0.5">
+            {([["self", "🙋 個人"], ["joint", "👫 共同"]] as const).map(([s, label]) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setScope(s)}
+                className={`flex-1 rounded-md py-1 text-xs font-semibold transition-colors ${
+                  scope === s ? "bg-blue-600 text-white" : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                {label}
+                <span className="ml-1 text-[10px] opacity-70">{scopeCount(s)}</span>
+              </button>
+            ))}
+          </div>
+          <details className="ml-auto open:basis-full open:ml-0 text-xs">
+            <summary className="cursor-pointer text-slate-400 hover:text-slate-200 select-none text-right">ℹ️ 取込ルール</summary>
+            <div className="mt-2 bg-slate-800/60 rounded-lg p-2.5 space-y-1.5 text-slate-300">
+              {selectedIsBank ? (
+                <p>
+                  🏦 銀行の入出金明細CSV：出金は支出、入金は収入として登録。残高列があれば口座残高の推移も記録。
+                  クレジットカードの引き落としなど自分の他口座あての出金は「振替」に分類し、カード明細と二重計上にならないようにします。
+                </p>
+              ) : (
+                <p>💳 各カード会社のCSV：日付・金額・メモ列を自動検出。カテゴリは「未分類」で取り込まれます。</p>
+              )}
+              <ul className="text-slate-400 space-y-0.5 list-disc pl-4">
+                <li>日付列：「利用日」「取引日」「date」などを自動検出</li>
+                <li>金額列：「利用金額」「出金」「amount」などを自動検出</li>
+                <li>メモ列：「店名」「摘要」「内容」などを自動検出</li>
+                <li>取り込み後、明細履歴からカテゴリを変更できます</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+
         {/* カード選択・ファイル選択（PCは横並び） */}
         <div className={isPC ? "grid grid-cols-2 gap-3" : "space-y-3"}>
           <div>
@@ -225,7 +226,7 @@ export default function ImportPage() {
                   key={c.id}
                   type="button"
                   onClick={() => setCardId(c.id)}
-                  className="flex-1 min-w-[100px] py-2 rounded-xl text-sm font-medium border-2 transition-all"
+                  className="px-3 py-1.5 rounded-lg text-sm font-medium border-2 transition-all"
                   style={{
                     borderColor: cardId === c.id ? c.color : "#334155",
                     backgroundColor: cardId === c.id ? c.color + "18" : "#1e293b",
@@ -383,29 +384,6 @@ export default function ImportPage() {
           </button>
         )}
       </div>
-
-      {/* ヒント */}
-      <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3">
-        <h3 className="text-sm font-semibold text-slate-300 mb-2">対応フォーマット</h3>
-        <div className={`gap-1.5 text-xs text-slate-300 ${isPC ? "grid grid-cols-2" : "space-y-1.5"}`}>
-          <div className="flex items-start gap-2">
-            <span className="text-blue-400 shrink-0">•</span>
-            <span>日付列：「利用日」「取引日」「date」などを自動検出</span>
-          </div>
-          <div className="flex items-start gap-2">
-            <span className="text-blue-400 shrink-0">•</span>
-            <span>金額列：「利用金額」「出金」「amount」などを自動検出</span>
-          </div>
-          <div className="flex items-start gap-2">
-            <span className="text-blue-400 shrink-0">•</span>
-            <span>メモ列：「店名」「摘要」「内容」などを自動検出</span>
-          </div>
-          <div className="flex items-start gap-2">
-            <span className="text-yellow-400 shrink-0">•</span>
-            <span>取り込み後、明細履歴からカテゴリを変更できます</span>
-          </div>
-        </div>
-      </div>
     </div>
   )
 
@@ -459,20 +437,18 @@ export default function ImportPage() {
             </div>
           )}
           {group.logs.slice(0, 12).map(log => (
-            <div key={log.id} className="flex items-center px-3 py-2 border-b border-slate-800 last:border-0 gap-2">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-baseline gap-2 flex-wrap">
-                  <span className="text-sm font-bold text-slate-100">{billingMonthLabel(log.end_date)}</span>
-                  <span className="text-[11px] text-slate-500">
-                    {fmtDay(log.start_date)} 〜 {fmtDay(log.end_date)}
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-500 truncate">
+            <div key={log.id} className="flex items-center px-3 py-1.5 border-b border-slate-800 last:border-0 gap-2">
+              {/* 1行表示。ファイル名・取込日はtitle */}
+              <div className="flex-1 min-w-0 flex items-baseline gap-2 cursor-help"
+                title={`${log.file_name}\n取込 ${String(log.imported_at).slice(0, 10)}`}>
+                <span className="text-sm font-bold text-slate-100 shrink-0">{billingMonthLabel(log.end_date)}</span>
+                <span className="text-[11px] text-slate-500 shrink-0">
+                  {fmtDay(log.start_date)} 〜 {fmtDay(log.end_date)}
+                </span>
+                <span className="text-[11px] text-slate-500 truncate min-w-0">
                   {log.row_count}件
                   {(log.income_count ?? 0) > 0 && ` / 入金${log.income_count}件`}
-                  {" · "}{log.file_name}
-                  {" · "}取込 {String(log.imported_at).slice(5, 10)}
-                </p>
+                </span>
               </div>
               <button
                 onClick={async () => {
@@ -505,11 +481,7 @@ export default function ImportPage() {
         {isPC ? (
           <div className="grid grid-cols-[420px_1fr] gap-4 items-start">
             {FormCard}
-            {HistoryCard || (
-              <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-6 text-center text-sm text-slate-500">
-                インポート履歴はまだありません
-              </div>
-            )}
+            {HistoryCard || null}
           </div>
         ) : (
           <div className="space-y-3">

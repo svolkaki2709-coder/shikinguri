@@ -104,121 +104,124 @@ export function MaternityBenefits({ saved, payslipMonthly, scope, onSave, onRegi
     }
   }, [p])
 
-  const input = "w-full bg-slate-900 text-slate-100 border border-slate-700 rounded-lg px-2 py-2 text-sm text-right"
+  // 幅は入力内容に合わせて固定（w-fullにしない）
+  const input = "bg-slate-900 text-slate-100 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-right"
   const birthY = parseNum(p.birthYear) || thisYear + 1
   const birthM = Math.min(12, Math.max(1, parseNum(p.birthMonth) || 6))
 
   return (
     <div className="space-y-3">
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
-        <div>
-          <h3 className="text-sm font-bold text-slate-100">産休・育休でもらえるお金</h3>
-          <p className="text-xs text-slate-500 mt-0.5">
-            会社員（健康保険・雇用保険に加入）の場合の目安です。すべて非課税です
-          </p>
-        </div>
+      <div className="grid gap-3 @3xl:grid-cols-2 @3xl:items-start">
+        <div className="@container bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-2">
+          <h3 className="text-sm font-bold text-slate-100"
+            title="会社員（健康保険・雇用保険に加入）の場合の目安です。すべて非課税です">
+            産休・育休でもらえるお金 <span className="text-xs font-normal text-slate-500 cursor-help">ⓘ</span>
+          </h3>
 
-        <div className="grid grid-cols-2 gap-2">
-          <Field label="妻の月給（額面）">
-            <input className={input} inputMode="numeric" placeholder="0"
-              value={p.wifeMonthly} onChange={e => set("wifeMonthly", fmtMoneyInput(e.target.value))} />
-          </Field>
-          <Field label="産休明けからの育休（ヶ月）">
-            <input className={input} inputMode="numeric"
-              value={p.leaveMonths} onChange={e => set("leaveMonths", e.target.value.replace(/[^0-9]/g, ""))} />
-          </Field>
-          <Field label="出産予定の年">
-            <input className={input} inputMode="numeric"
-              value={p.birthYear} onChange={e => set("birthYear", e.target.value.replace(/[^0-9]/g, ""))} />
-          </Field>
-          <Field label="出産予定の月">
-            <input className={input} inputMode="numeric"
-              value={p.birthMonth} onChange={e => set("birthMonth", e.target.value.replace(/[^0-9]/g, ""))} />
-          </Field>
-        </div>
-
-        <label className="flex items-center gap-2 text-sm text-slate-300">
-          <input type="checkbox" checked={p.husbandLeave} onChange={e => set("husbandLeave", e.target.checked)} />
-          夫も産後に育休を取る
-        </label>
-        {p.husbandLeave && (
-          <div className="grid grid-cols-2 gap-2">
-            <Field label="夫の月給（額面）">
-              <input className={input} inputMode="numeric" placeholder="0"
-                value={p.husbandMonthly} onChange={e => set("husbandMonthly", fmtMoneyInput(e.target.value))} />
+          <div className="grid grid-cols-2 @lg:grid-cols-4 gap-x-3 gap-y-2">
+            <Field label="妻の月給（額面）">
+              <input className={`${input} w-28`} inputMode="numeric" placeholder="0"
+                value={p.wifeMonthly} onChange={e => set("wifeMonthly", fmtMoneyInput(e.target.value))} />
             </Field>
-            <Field label="夫の育休（日）">
-              <input className={input} inputMode="numeric"
-                value={p.husbandDays} onChange={e => set("husbandDays", e.target.value.replace(/[^0-9]/g, ""))} />
+            <Field label="産休明けの育休（ヶ月）">
+              <input className={`${input} w-16`} inputMode="numeric"
+                value={p.leaveMonths} onChange={e => set("leaveMonths", e.target.value.replace(/[^0-9]/g, ""))} />
+            </Field>
+            <Field label="出産予定の年">
+              <input className={`${input} w-20`} inputMode="numeric"
+                value={p.birthYear} onChange={e => set("birthYear", e.target.value.replace(/[^0-9]/g, ""))} />
+            </Field>
+            <Field label="出産予定の月">
+              <input className={`${input} w-14`} inputMode="numeric"
+                value={p.birthMonth} onChange={e => set("birthMonth", e.target.value.replace(/[^0-9]/g, ""))} />
             </Field>
           </div>
-        )}
-      </div>
 
-      {/* 結果 */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2">
-        <div className="flex items-baseline justify-between">
-          <h3 className="text-sm font-bold text-slate-100">受け取れる額</h3>
-          <span className="text-xl font-bold text-green-300">{yen(r.cash)}</span>
+          <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
+            <label className="flex items-center gap-2 text-sm text-slate-300 pb-1.5">
+              <input type="checkbox" checked={p.husbandLeave} onChange={e => set("husbandLeave", e.target.checked)} />
+              夫も産後に育休を取る
+            </label>
+            {p.husbandLeave && (
+              <>
+                <Field label="夫の月給（額面）">
+                  <input className={`${input} w-28`} inputMode="numeric" placeholder="0"
+                    value={p.husbandMonthly} onChange={e => set("husbandMonthly", fmtMoneyInput(e.target.value))} />
+                </Field>
+                <Field label="夫の育休（日）">
+                  <input className={`${input} w-16`} inputMode="numeric"
+                    value={p.husbandDays} onChange={e => set("husbandDays", e.target.value.replace(/[^0-9]/g, ""))} />
+                </Field>
+              </>
+            )}
+          </div>
         </div>
-        <Line label="出産育児一時金（健康保険）" value={r.ichijikin} hint="子1人50万円。直接支払制度なら病院が受け取り、窓口負担が減る" />
-        <Line label="出産手当金（健康保険）" value={r.shussanTeate} hint="産前42日＋産後56日の98日分。給与の約2/3" />
-        <Line label={`育児休業給付金（雇用保険・${p.leaveMonths}ヶ月）`} value={r.ikukyu}
-          hint={`最初の180日は賃金の67%、以降50%${r.capped ? "（上限にかかっています）" : ""}`} />
-        {p.husbandLeave && (
-          <Line label={`夫の育児休業給付金（${p.husbandDays}日）`} value={r.husbandIkukyu} hint="産後パパ育休も賃金の67%" />
-        )}
-        {r.bothTake && (
-          <Line label="出生後休業支援給付金（2人分）" value={r.supportWife + r.supportHusband}
-            hint="両親とも14日以上取ったので、各28日分13%上乗せ。手取りで見ると実質10割" good />
-        )}
 
-        <div className="pt-2 mt-1 border-t border-slate-800 space-y-2">
-          <Line label="払わずに済む社会保険料（妻）" value={r.exemptWife}
-            hint="産休・育休中は健康保険料・厚生年金保険料が免除。免除中も年金は納めた扱い" muted />
-          {r.exemptHusband > 0 && (
-            <Line label="払わずに済む社会保険料（夫）" value={r.exemptHusband} hint="月末をまたいで育休を取った場合" muted />
+        {/* 結果 */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 space-y-1">
+          <div className="flex items-baseline justify-between">
+            <h3 className="text-sm font-bold text-slate-100">受け取れる額</h3>
+            <span className="text-xl font-bold text-green-300">{yen(r.cash)}</span>
+          </div>
+          <Line label="出産育児一時金（健康保険）" value={r.ichijikin} hint="子1人50万円。直接支払制度なら病院が受け取り、窓口負担が減る" />
+          <Line label="出産手当金（健康保険）" value={r.shussanTeate} hint="産前42日＋産後56日の98日分。給与の約2/3" />
+          <Line label={`育児休業給付金（雇用保険・${p.leaveMonths}ヶ月）${r.capped ? "※上限" : ""}`} value={r.ikukyu}
+            hint={`最初の180日は賃金の67%、以降50%${r.capped ? "（上限にかかっています）" : ""}`} />
+          {p.husbandLeave && (
+            <Line label={`夫の育児休業給付金（${p.husbandDays}日）`} value={r.husbandIkukyu} hint="産後パパ育休も賃金の67%" />
           )}
-        </div>
+          {r.bothTake && (
+            <Line label="出生後休業支援給付金（2人分）" value={r.supportWife + r.supportHusband}
+              hint="両親とも14日以上取ったので、各28日分13%上乗せ。手取りで見ると実質10割" good />
+          )}
 
-        <div className="bg-slate-800/50 rounded-lg p-2.5 mt-2 text-xs text-slate-400 space-y-1">
-          <p>
-            育休中の妻の受取は、最初の半年が月 <span className="text-slate-200 font-semibold">{yen(r.monthlyFirst)}</span>、
-            以降が月 <span className="text-slate-200 font-semibold">{yen(r.monthlyLater)}</span>
-            （ふだんの手取りの目安 {yen(r.normalTakeHome)}）
-          </p>
-          <p>
-            育休給付金は2ヶ月ごとにまとめて振り込まれ、初回は育休開始から2〜3ヶ月後になります。
-            その間の生活費は手元で用意しておく必要があります
+          <div className="pt-1 border-t border-slate-800 space-y-1">
+            <Line label="払わずに済む社会保険料（妻）" value={r.exemptWife}
+              hint="産休・育休中は健康保険料・厚生年金保険料が免除。免除中も年金は納めた扱い" muted />
+            {r.exemptHusband > 0 && (
+              <Line label="払わずに済む社会保険料（夫）" value={r.exemptHusband} hint="月末をまたいで育休を取った場合" muted />
+            )}
+          </div>
+
+          <p className="pt-1 border-t border-slate-800 text-xs text-slate-400"
+            title="育休給付金は2ヶ月ごとにまとめて振り込まれ、初回は育休開始から2〜3ヶ月後になります。その間の生活費は手元で用意しておく必要があります">
+            妻の受取 半年まで月 <span className="text-slate-200 font-semibold">{yen(r.monthlyFirst)}</span>・
+            以降 月 <span className="text-slate-200 font-semibold">{yen(r.monthlyLater)}</span>
+            （ふだんの手取り {yen(r.normalTakeHome)}） ⓘ
           </p>
         </div>
       </div>
 
       {/* 増やす方法 */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2.5">
-        <h3 className="text-sm font-bold text-slate-100">受け取りを増やす・減らさないためのポイント</h3>
+      <details className="bg-slate-900 border border-slate-800 rounded-xl">
+        <summary className="px-4 py-2 text-sm font-bold text-slate-100 cursor-pointer">
+          受け取りを増やす・減らさないためのポイント
+          {!r.bothTake && r.missedSupport > 0 && (
+            <span className="ml-2 text-[11px] font-normal text-amber-300">夫婦とも14日以上で約{yen(r.missedSupport)}上乗せ</span>
+          )}
+        </summary>
+        <div className="px-4 pb-3 grid gap-2 @3xl:grid-cols-2 @3xl:gap-x-6">
+          <Tip title="夫婦とも14日以上の育休を取る" done={r.bothTake}
+            body={r.bothTake
+              ? "出生後休業支援給付金の対象です。産後8週間以内に取るのが条件なので、日程は早めに会社と決めておきましょう"
+              : `今の設定では対象外です。夫も産後8週間以内に14日以上取ると、2人で約${yen(r.missedSupport)}上乗せされます`} />
+          <Tip title="育休の開始・終了は月末をまたぐように"
+            body="社会保険料は「月末時点で休業しているか」で免除が決まります。月の途中で終わると、その月の保険料がかかることがあります（同じ月の中で14日以上休む場合も免除）" />
+          <Tip title="賞与の月は、1ヶ月を超えて休む"
+            body="賞与にかかる社会保険料は、1ヶ月を超える育休のときに免除されます。夫の育休を賞与月に合わせて1ヶ月超にすると、数万円単位で変わることがあります" />
+          <Tip title="夫の産後パパ育休は2回に分けられる"
+            body="出生後8週間以内に最大4週間を2回まで分割できます。退院直後と里帰りから戻る時期、のように分けると使いやすくなります" />
+          <Tip title="勤務先の独自制度を確認する"
+            body="出産祝金、育休中の給与の一部支給、保育料補助などは会社ごとに違います。就業規則・福利厚生の規程を2人とも確認してください" />
+          <Tip title="自治体の給付と医療費控除"
+            body="妊娠届・出生届で計10万円前後の給付がある自治体が多いほか、妊婦健診や分娩費が年10万円を超えれば医療費控除で税金が戻ります" />
+          <p className="text-[11px] text-slate-500 @3xl:col-span-2">
+            注意：育休中も住民税は前年の所得に対してかかります。給与から天引きできない期間は、自分で納付書で払うことになります
+          </p>
+        </div>
+      </details>
 
-        <Tip title="夫婦とも14日以上の育休を取る" done={r.bothTake}
-          body={r.bothTake
-            ? "出生後休業支援給付金の対象です。産後8週間以内に取るのが条件なので、日程は早めに会社と決めておきましょう"
-            : `今の設定では対象外です。夫も産後8週間以内に14日以上取ると、2人で約${yen(r.missedSupport)}上乗せされます`} />
-        <Tip title="育休の開始・終了は月末をまたぐように"
-          body="社会保険料は「月末時点で休業しているか」で免除が決まります。月の途中で終わると、その月の保険料がかかることがあります（同じ月の中で14日以上休む場合も免除）" />
-        <Tip title="賞与の月は、1ヶ月を超えて休む"
-          body="賞与にかかる社会保険料は、1ヶ月を超える育休のときに免除されます。夫の育休を賞与月に合わせて1ヶ月超にすると、数万円単位で変わることがあります" />
-        <Tip title="夫の産後パパ育休は2回に分けられる"
-          body="出生後8週間以内に最大4週間を2回まで分割できます。退院直後と里帰りから戻る時期、のように分けると使いやすくなります" />
-        <Tip title="勤務先の独自制度を確認する"
-          body="出産祝金、育休中の給与の一部支給、保育料補助などは会社ごとに違います。就業規則・福利厚生の規程を2人とも確認してください" />
-        <Tip title="自治体の給付と医療費控除"
-          body="妊娠届・出生届で計10万円前後の給付がある自治体が多いほか、妊婦健診や分娩費が年10万円を超えれば医療費控除で税金が戻ります" />
-
-        <p className="text-[11px] text-slate-500 pt-1">
-          注意：育休中も住民税は前年の所得に対してかかります。給与から天引きできない期間は、自分で納付書で払うことになります
-        </p>
-      </div>
-
-      <div className="flex gap-2">
+      <div className="flex gap-2 items-center">
         <div className="flex-1">
           <SaveButton label="入力内容を保存" onSave={() => onSave(p)} />
         </div>
@@ -229,11 +232,11 @@ export function MaternityBenefits({ saved, payslipMonthly, scope, onSave, onRegi
               { year: birthY, month: Math.min(12, birthM + 3), name: "育児休業給付金（試算）", amount: r.ikukyu + r.husbandIkukyu + r.supportWife + r.supportHusband },
             ])} />
         </div>
+        <span className="text-[11px] text-slate-500 cursor-help shrink-0"
+          title={`イベントに登録すると、ライフプランのキャッシュフローと2人の分担に入金として反映されます（出産育児一時金はライフイベントに別途登録する前提のため、ここでは登録しません）。${scope === "self" ? "個人のプランに登録されます" : "共同のプランに登録されます"}`}>
+          ⓘ
+        </span>
       </div>
-      <p className="text-[11px] text-slate-500">
-        イベントに登録すると、ライフプランのキャッシュフローと2人の分担に入金として反映されます
-        （出産育児一時金はライフイベントに別途登録する前提のため、ここでは登録しません）。{scope === "self" ? "個人のプランに登録されます" : "共同のプランに登録されます"}
-      </p>
     </div>
   )
 }
@@ -247,13 +250,13 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
+/** 説明はラベルにカーソルを当てると出る（ⓘ） */
 function Line({ label, value, hint, good, muted }: { label: string; value: number; hint?: string; good?: boolean; muted?: boolean }) {
   return (
-    <div className="flex items-start justify-between gap-3">
-      <div className="min-w-0">
-        <p className={`text-sm ${muted ? "text-slate-400" : "text-slate-200"}`}>{label}</p>
-        {hint && <p className="text-[11px] text-slate-500">{hint}</p>}
-      </div>
+    <div className="flex items-baseline justify-between gap-3">
+      <p className={`text-sm min-w-0 ${muted ? "text-slate-400" : "text-slate-200"}`} title={hint}>
+        {label}{hint && <span className="text-[10px] text-slate-500 cursor-help"> ⓘ</span>}
+      </p>
       <span className={`text-sm font-semibold shrink-0 ${good ? "text-green-300" : muted ? "text-slate-400" : "text-slate-100"}`}>
         {yen(value)}
       </span>

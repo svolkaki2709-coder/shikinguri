@@ -49,22 +49,23 @@ export function ActionPlanTab() {
 
   return (
     <div className="space-y-3">
-      <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">
-        <p className="text-xs text-blue-200/90 leading-relaxed">
+      <details className="text-[11px] text-blue-200/90 leading-relaxed">
+        <summary className="cursor-pointer text-blue-300 w-fit">ⓘ このプランの見方</summary>
+        <p className="mt-1">
           NISA・iDeCo・保険は、単体で比べても答えが出ません。
           <span className="font-semibold text-blue-300">埋めるべき順番が決まっている</span>ので、
           上から順に進めるのが最短です。家計簿の実績から、いまどこまで進んでいるかを判定しました。
         </p>
-        <p className="text-[11px] text-blue-200/70 leading-relaxed mt-1.5">
+        <p className="mt-1 text-blue-200/70">
           iDeCoや生命保険は個人、貯蓄は共同…と管理が分かれていても大丈夫です。
           判定は<span className="font-semibold">個人と共同を合算した世帯全体</span>で行い、
           どちら側にあるかは各項目に内訳として表示します。
         </p>
-      </div>
+      </details>
 
       {/* 現状サマリー */}
       {ctx && (
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-2 @3xl:max-w-2xl">
           <Stat label="預貯金" value={ctx.hasAssetData ? fmtMan(ctx.savings) : "未登録"}
             sub={scopeSub(ctx.byScope.self.savings, ctx.byScope.joint.savings)} />
           <Stat label="投資資産" value={ctx.hasAssetData ? fmtMan(ctx.investment) : "未登録"}
@@ -75,11 +76,13 @@ export function ActionPlanTab() {
 
       {/* 次にやること */}
       {next && (
-        <div className="bg-slate-900 rounded-xl border-2 border-blue-500/40 p-4">
-          <p className="text-[11px] text-blue-300 font-semibold mb-1">次にやること</p>
-          <p className="text-base font-bold text-slate-100 mb-1.5">{next.step.title}</p>
-          <p className="text-xs text-slate-400 mb-2">{next.status.detail}</p>
-          <ul className="space-y-1">
+        <div className="bg-slate-900 rounded-xl border-2 border-blue-500/40 px-4 py-3">
+          <p className="mb-1">
+            <span className="text-[11px] text-blue-300 font-semibold mr-2">次にやること</span>
+            <span className="text-sm font-bold text-slate-100">{next.step.title}</span>
+          </p>
+          <p className="text-xs text-slate-400 mb-1.5">{next.status.detail}</p>
+          <ul className="space-y-0.5 @3xl:columns-2 @3xl:gap-6">
             {next.step.how.map((h, i) => (
               <li key={i} className="text-xs text-slate-300 leading-relaxed flex gap-1.5">
                 <span className="text-blue-400 shrink-0">{i + 1}.</span><span>{h}</span>
@@ -101,7 +104,7 @@ export function ActionPlanTab() {
       </div>
 
       {/* ステップ一覧 */}
-      <div className="space-y-2">
+      <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
         {assessed.map(({ step, status }, i) => (
           <StepCard
             key={step.id} index={i + 1} title={step.title} why={step.why}
@@ -115,7 +118,7 @@ export function ActionPlanTab() {
       {/* NISA vs iDeCo */}
       <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
         <button onClick={() => setShowCompare(v => !v)}
-          className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-800/50 transition-colors">
+          className="w-full flex items-center justify-between px-4 py-2 hover:bg-slate-800/50 transition-colors">
           <span className="text-sm font-bold text-slate-100">{NISA_VS_IDECO.title}</span>
           <span className="text-slate-600 text-xs">{showCompare ? "▲" : "▼"}</span>
         </button>
@@ -148,10 +151,9 @@ export function ActionPlanTab() {
         )}
       </div>
 
-      <p className="text-[10px] text-slate-500 leading-relaxed">
-        ※ 実施状況は家計簿のカテゴリ名から判定しています。
-        「iDeCo」「NISA」「保険」「ふるさと納税」を含むカテゴリ名にしておくと、より正確に判定されます。
-        制度の金額・上限は改定されるため、実行前に最新の条件を確認してください。
+      <p className="text-[10px] text-slate-500"
+        title="「iDeCo」「NISA」「保険」「ふるさと納税」を含むカテゴリ名にしておくと、より正確に判定されます。制度の金額・上限は改定されるため、実行前に最新の条件を確認してください。">
+        ※ 実施状況は家計簿のカテゴリ名から判定しています ⓘ
       </p>
     </div>
   )
@@ -167,8 +169,8 @@ function scopeSub(self: number, joint: number): string | undefined {
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="bg-slate-900 rounded-xl border border-slate-800 p-3 text-center">
-      <p className="text-[11px] text-slate-400 mb-0.5">{label}</p>
+    <div className="bg-slate-900 rounded-xl border border-slate-800 px-2 py-1.5 text-center">
+      <p className="text-[11px] text-slate-400">{label}</p>
       <p className="text-sm font-bold text-slate-100">{value}</p>
       {sub && <p className="text-[10px] text-slate-500 mt-0.5">{sub}</p>}
     </div>
@@ -188,27 +190,27 @@ function StepCard({ index, title, why, target, how, caution, status, open, onTog
 }) {
   const st = STATE_STYLE[status.state]
   return (
-    <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
-      <button onClick={onToggle} className="w-full text-left px-4 py-3 hover:bg-slate-800/50 transition-colors">
+    <div className="border-b border-slate-800 last:border-0">
+      <button onClick={onToggle} className="w-full text-left px-4 py-2 hover:bg-slate-800/50 transition-colors">
         <div className="flex items-start gap-2.5">
-          <span className={`w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-[11px] font-bold text-white ${st.dot}`}>
+          <span className={`w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[11px] font-bold text-white ${st.dot}`}>
             {status.state === "done" ? "✓" : index}
           </span>
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+            <div className="flex items-baseline gap-x-1.5 gap-y-0.5 flex-wrap">
               <span className="text-sm font-bold text-slate-100">{title}</span>
-              <span className={`text-[10px] px-1.5 py-0.5 rounded border font-semibold ${st.cls}`}>
+              <span className={`text-[10px] px-1.5 rounded border font-semibold ${st.cls}`}>
                 {st.label}
               </span>
+              <span className="text-[11px] text-slate-400">{status.detail}</span>
             </div>
-            <p className="text-[11px] text-slate-400">{status.detail}</p>
           </div>
-          <span className="text-slate-600 text-xs shrink-0 mt-1">{open ? "▲" : "▼"}</span>
+          <span className="text-slate-600 text-[10px] shrink-0 mt-1">{open ? "▲" : "▼"}</span>
         </div>
       </button>
 
       {open && (
-        <div className="px-4 pb-4 space-y-3 border-t border-slate-800 pt-3">
+        <div className="px-4 pb-3 pl-11 space-y-2">
           <div>
             <p className="text-[10px] font-semibold text-slate-500 mb-1">なぜこの順番か</p>
             <p className="text-xs text-slate-300 leading-relaxed">{why}</p>

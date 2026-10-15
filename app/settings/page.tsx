@@ -692,161 +692,24 @@ function SettingsContent() {
         {tab === "recurring" && (
           <div className={isPC ? "grid grid-cols-2 gap-4 items-start" : "space-y-3"}>
 
-            {/* 登録フォーム */}
-            <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-4 space-y-3">
-              <h2 className="text-sm font-semibold text-slate-300">定期を追加</h2>
-
-              {/* 支出 / 入金 */}
-              <div className="flex rounded-xl bg-slate-800 p-1 gap-1">
-                <button type="button" onClick={() => setREntryType("expense")}
-                  className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${rEntryType === "expense" ? "bg-blue-600 text-white shadow-sm" : "text-slate-400"}`}>
-                  💸 支出
-                </button>
-                <button type="button" onClick={() => setREntryType("income")}
-                  className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${rEntryType === "income" ? "bg-green-600 text-white shadow-sm" : "text-slate-400"}`}>
-                  💰 入金
-                </button>
-              </div>
-
-              {/* 個人 / 共同 */}
-              <div className="flex rounded-xl bg-slate-800 p-1 gap-1">
-                <button type="button" onClick={() => setRUsageType("self")}
-                  className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${rUsageType === "self" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-400"}`}>
-                  個人
-                </button>
-                <button type="button" onClick={() => setRUsageType("joint")}
-                  className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${rUsageType === "joint" ? "bg-amber-500 text-white shadow-sm" : "text-slate-400"}`}>
-                  共同
-                </button>
-              </div>
-
-              {/* 支払方法 */}
-              <div>
-                <label className="text-xs text-slate-400 mb-1 block">支払方法</label>
-                {rUsageCards.length === 0 ? (
-                  <p className="text-xs text-amber-400 bg-amber-500/10 rounded-lg px-3 py-2">
-                    {rUsageType === "joint" ? "共同" : "個人"}の支払方法がありません。
-                    「カテゴリ」タブの口座・支払方法から追加してください。
-                  </p>
-                ) : (
-                  <select value={rCardId ?? ""} onChange={e => setRCardId(Number(e.target.value))}
-                    className="w-full border rounded-lg px-3 py-2 text-sm bg-slate-900 text-slate-100">
-                    {rUsageCards.map(c => (
-                      <option key={c.id} value={c.id}>
-                        {c.kind === "bank" ? "🏦" : c.kind === "cash" ? "💵" : "💳"} {c.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              {/* 引き落とし日 */}
-              <div>
-                <label className="text-xs text-slate-400 mb-1 block">引き落とし日</label>
-                <select value={rDay} onChange={e => setRDay(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 text-sm bg-slate-900 text-slate-100">
-                  {Array.from({ length: 28 }, (_, i) => i + 1).map(d => (
-                    <option key={d} value={d}>{d}日</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* カテゴリ */}
-              <div>
-                <label className="text-xs text-slate-400 mb-1 block">カテゴリ</label>
-                {rEntryType === "income" ? (
-                  <div className="flex gap-2">
-                    {(rUsageType === "self" ? ["給与", "副収入", "その他"] : ["振込", "その他"]).map(c => (
-                      <button key={c} type="button" onClick={() => setRCategory(c)}
-                        className={`flex-1 py-2 rounded-lg text-sm border-2 transition-colors font-medium ${
-                          rCategory === c ? "border-green-500 bg-green-500/10 text-green-300" : "border-slate-800 text-slate-400"
-                        }`}>
-                        {c}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <select value={rCategory} onChange={e => setRCategory(e.target.value)}
-                    className="w-full border rounded-lg px-3 py-2 text-sm bg-slate-900 text-slate-100">
-                    {recurringCategoryOptions(rUsageType, false).map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                )}
-              </div>
-
-              {/* 金額 */}
-              <div>
-                <label className="text-xs text-slate-400 mb-1 block">金額（円）</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">¥</span>
-                  <input type="text" inputMode="numeric"
-                    value={rAmount}
-                    onChange={e => {
-                      const raw = toHalfWidth(e.target.value).replace(/,/g, "")
-                      if (raw === "" || /^\d+$/.test(raw)) setRAmount(raw === "" ? "" : Number(raw).toLocaleString("ja-JP"))
-                    }}
-                    placeholder="0"
-                    className="w-full border rounded-lg pl-7 pr-3 py-2 text-sm text-slate-100" />
+            {/* 登録フォーム（個人/共同の切替はここに一本化。下の一覧も同じスコープで絞り込まれる） */}
+            <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-sm font-semibold text-slate-300 mr-auto">定期を追加</h2>
+                <div className="flex rounded-lg overflow-hidden border border-slate-700 text-[11px]">
+                  <button type="button" onClick={() => setREntryType("expense")}
+                    className={`px-2.5 py-1 font-semibold transition-colors ${rEntryType === "expense" ? "bg-blue-600 text-white" : "bg-slate-900 text-slate-400"}`}>
+                    💸 支出
+                  </button>
+                  <button type="button" onClick={() => setREntryType("income")}
+                    className={`px-2.5 py-1 font-semibold transition-colors ${rEntryType === "income" ? "bg-green-600 text-white" : "bg-slate-900 text-slate-400"}`}>
+                    💰 入金
+                  </button>
                 </div>
-              </div>
-
-              {/* 期間 */}
-              <div>
-                <label className="text-xs text-slate-400 mb-1 block">いつからいつまで</label>
-                <div className="flex rounded-xl bg-slate-800 p-1 gap-1 mb-2">
-                  {([["forever", "ずっと毎月"], ["range", "期間を決める"], ["once", "この月だけ"]] as const).map(([k, label]) => (
-                    <button key={k} type="button" onClick={() => setRPeriod(k)}
-                      className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                        rPeriod === k ? "bg-blue-600 text-white shadow-sm" : "text-slate-400"
-                      }`}>
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                {rPeriod !== "forever" && (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <MonthSelect value={rStartMonth} onChange={setRStartMonth} />
-                    {rPeriod === "range" && (
-                      <>
-                        <span className="text-slate-500 text-sm">〜</span>
-                        <MonthSelect value={rEndMonth} onChange={setREndMonth} placeholder="未定" />
-                      </>
-                    )}
-                  </div>
-                )}
-                <p className="text-[11px] text-slate-500 mt-1">
-                  {rPeriod === "forever"
-                    ? "終わりを決めずに毎月発生します"
-                    : rPeriod === "once"
-                    ? "その月だけの予定として1回だけ発生します（車検・旅行など）"
-                    : rEndMonth
-                    ? "期間内の月だけ発生します。終了月を過ぎたら自動で出てこなくなります"
-                    : "終了月を空のままにすると、開始月以降ずっと続きます"}
-                </p>
-              </div>
-
-              {/* メモ */}
-              <div>
-                <label className="text-xs text-slate-400 mb-1 block">メモ（任意）</label>
-                <input type="text" value={rMemo} onChange={e => setRMemo(e.target.value)}
-                  placeholder="例：Netflix サブスク"
-                  className="w-full border rounded-lg px-3 py-2 text-sm text-slate-100" />
-              </div>
-
-              <button onClick={handleAddRecurring} disabled={rSaving || !rCategory || !rAmount || !rCardId}
-                className="w-full bg-blue-600 text-white rounded-lg py-2.5 text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors">
-                {rSaving ? "追加中..." : "定期を追加"}
-              </button>
-            </div>
-
-            {/* 登録済み一覧 */}
-            <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 overflow-hidden">
-              <div className="px-4 py-3 bg-slate-800 border-b flex items-center justify-between gap-2">
-                <h2 className="text-sm font-semibold text-slate-300">登録済み定期</h2>
-                {/* 左のフォームと同じスコープだけを表示する（個人と共同が混ざると見分けづらい） */}
                 <div className="flex rounded-lg overflow-hidden border border-slate-700 text-[11px]">
                   {([["self", "個人"], ["joint", "共同"]] as const).map(([k, label]) => (
                     <button key={k} type="button" onClick={() => setRUsageType(k)}
-                      className={`px-2.5 py-1 transition-colors ${
+                      className={`px-2.5 py-1 font-semibold transition-colors ${
                         rUsageType === k
                           ? k === "self" ? "bg-indigo-600 text-white" : "bg-amber-500 text-white"
                           : "bg-slate-900 text-slate-400"
@@ -856,22 +719,122 @@ function SettingsContent() {
                   ))}
                 </div>
               </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2">
+                {/* 支払方法 | 引き落とし日 */}
+                <div className="flex gap-2 min-w-0">
+                  {rUsageCards.length === 0 ? (
+                    <p className="flex-1 text-[11px] text-amber-400 bg-amber-500/10 rounded-lg px-2 py-1.5"
+                      title="「カテゴリ」タブの口座・支払方法から追加してください">
+                      {rUsageType === "joint" ? "共同" : "個人"}の支払方法がありません ⓘ
+                    </p>
+                  ) : (
+                    <select value={rCardId ?? ""} onChange={e => setRCardId(Number(e.target.value))} title="支払方法"
+                      className="flex-1 min-w-0 border rounded-lg px-2 py-1.5 text-sm bg-slate-900 text-slate-100">
+                      {rUsageCards.map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.kind === "bank" ? "🏦" : c.kind === "cash" ? "💵" : "💳"} {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <select value={rDay} onChange={e => setRDay(e.target.value)} title="引き落とし日"
+                    className="w-20 shrink-0 border rounded-lg px-2 py-1.5 text-sm bg-slate-900 text-slate-100">
+                    {Array.from({ length: 28 }, (_, i) => i + 1).map(d => (
+                      <option key={d} value={d}>{d}日</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* カテゴリ | 金額 */}
+                <div className="flex gap-2 min-w-0">
+                  <select value={rCategory} onChange={e => setRCategory(e.target.value)} title="カテゴリ"
+                    className="flex-1 min-w-0 border rounded-lg px-2 py-1.5 text-sm bg-slate-900 text-slate-100">
+                    {(rEntryType === "income"
+                      ? (rUsageType === "self" ? ["給与", "副収入", "その他"] : ["振込", "その他"])
+                      : recurringCategoryOptions(rUsageType, false)
+                    ).map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <div className="relative w-32 shrink-0">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">¥</span>
+                    <input type="text" inputMode="numeric"
+                      value={rAmount}
+                      onChange={e => {
+                        const raw = toHalfWidth(e.target.value).replace(/,/g, "")
+                        if (raw === "" || /^\d+$/.test(raw)) setRAmount(raw === "" ? "" : Number(raw).toLocaleString("ja-JP"))
+                      }}
+                      placeholder="金額" title="金額（円）"
+                      className="w-full border rounded-lg pl-6 pr-2 py-1.5 text-sm text-right bg-slate-900 text-slate-100" />
+                  </div>
+                </div>
+
+                {/* 期間 */}
+                <div className="flex items-center gap-2 flex-wrap min-w-0">
+                  <div className="flex rounded-lg overflow-hidden border border-slate-700 text-[11px] shrink-0"
+                    title={rPeriod === "forever"
+                      ? "終わりを決めずに毎月発生します"
+                      : rPeriod === "once"
+                      ? "その月だけの予定として1回だけ発生します（車検・旅行など）"
+                      : rEndMonth
+                      ? "期間内の月だけ発生します。終了月を過ぎたら自動で出てこなくなります"
+                      : "終了月を空のままにすると、開始月以降ずっと続きます"}>
+                    {([["forever", "ずっと毎月"], ["range", "期間"], ["once", "この月だけ"]] as const).map(([k, label]) => (
+                      <button key={k} type="button" onClick={() => setRPeriod(k)}
+                        className={`px-2 py-1.5 font-semibold transition-colors ${
+                          rPeriod === k ? "bg-blue-600 text-white" : "bg-slate-900 text-slate-400"
+                        }`}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {rPeriod !== "forever" && (
+                    <span className="inline-flex items-center gap-1 flex-wrap">
+                      <MonthSelect value={rStartMonth} onChange={setRStartMonth} />
+                      {rPeriod === "range" && (
+                        <>
+                          <span className="text-slate-500 text-xs">〜</span>
+                          <MonthSelect value={rEndMonth} onChange={setREndMonth} placeholder="未定" />
+                        </>
+                      )}
+                    </span>
+                  )}
+                </div>
+
+                {/* メモ | 追加 */}
+                <div className="flex gap-2 min-w-0">
+                  <input type="text" value={rMemo} onChange={e => setRMemo(e.target.value)}
+                    placeholder="メモ（任意）例：Netflix"
+                    className="flex-1 min-w-0 border rounded-lg px-2 py-1.5 text-sm bg-slate-900 text-slate-100" />
+                  <button onClick={handleAddRecurring} disabled={rSaving || !rCategory || !rAmount || !rCardId}
+                    className="shrink-0 bg-blue-600 text-white rounded-lg px-4 py-1.5 text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                    {rSaving ? "追加中..." : "追加"}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 登録済み一覧（上のフォームで選んだ個人/共同だけを表示） */}
+            <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 overflow-hidden">
+              <div className="px-3 py-2 bg-slate-800 border-b flex items-center gap-2">
+                <h2 className="text-sm font-semibold text-slate-300">登録済み定期</h2>
+                <span className={`text-[11px] font-semibold ${rUsageType === "joint" ? "text-amber-300" : "text-indigo-300"}`}>
+                  {rUsageType === "joint" ? "共同" : "個人"} {recurring.filter(r => (r.card_type === "joint" ? "joint" : "self") === rUsageType).length}件
+                </span>
+              </div>
               {recurring.filter(r => (r.card_type === "joint" ? "joint" : "self") === rUsageType).length === 0 ? (
-                <p className="text-center text-xs text-slate-500 py-6">
+                <p className="text-xs text-slate-500 px-3 py-2">
                   {rUsageType === "joint" ? "共同" : "個人"}の定期は登録されていません
                 </p>
               ) : (
                 recurring.filter(r => (r.card_type === "joint" ? "joint" : "self") === rUsageType).map(r => {
                   const isIncome = r.entry_type === "income"
-                  const usageLabel = r.card_type === "joint" ? "共同" : "個人"
-                  const usageColor = r.card_type === "joint" ? "#f59e0b" : "#6366f1"
                   const isEditing = editingRecurringId === r.id && editRec !== null
                   if (isEditing && editRec) {
                     const inputCls = "w-full border border-slate-700 rounded px-2 py-1.5 text-xs bg-slate-900 text-slate-100"
                     const thisMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`
                     return (
-                      <div key={r.id} className="px-4 py-3 border-b last:border-0 bg-blue-500/5 space-y-2">
-                        <div className="grid grid-cols-2 gap-2">
+                      <div key={r.id} className="px-3 py-2 border-b last:border-0 bg-blue-500/5 space-y-2">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                           <div>
                             <label className="text-[10px] text-slate-500 block mb-0.5">カテゴリ</label>
                             <select value={editRec.category} onChange={e => setEditRec({ ...editRec, category: e.target.value })}
@@ -941,37 +904,25 @@ function SettingsContent() {
                     )
                   }
                   return (
-                    <div key={r.id} className="flex items-center px-4 py-2.5 border-b last:border-0">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
-                          <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${isIncome ? "bg-green-500/15 text-green-300" : "bg-blue-500/15 text-blue-300"}`}>
-                            {isIncome ? "入金" : "支出"}
-                          </span>
-                          <span className="text-xs px-1.5 py-0.5 rounded text-white font-medium"
-                            style={{ backgroundColor: usageColor }}>
-                            {usageLabel}
-                          </span>
-                          <button
-                            onClick={() => startEditRecurring(r)}
-                            className="text-sm font-medium text-slate-100 hover:text-blue-400 hover:underline"
-                            title="クリックして内容を変更">
-                            {r.category}
-                          </button>
-                        </div>
-                        <p className="text-xs text-slate-400">
-                          {r.day_of_month}日
-                          {r.card_name && ` · ${r.card_name}`}
-                          {r.memo && ` / ${r.memo}`}
-                        </p>
-                        <p className="text-[11px] text-slate-500">{periodLabel(r)}</p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-sm font-semibold text-slate-300">{toJPY(r.amount)}</span>
-                        <button onClick={() => startEditRecurring(r)}
-                          className="text-[11px] text-slate-500 hover:text-blue-400 border border-slate-700 rounded px-2 py-1">編集</button>
-                        <button onClick={() => handleDeleteRecurring(r.id)}
-                          className="text-slate-600 hover:text-red-400 text-xl leading-none w-6">×</button>
-                      </div>
+                    <div key={r.id} className="flex items-center gap-2 px-3 py-1.5 border-b last:border-0 text-xs">
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${isIncome ? "bg-green-500/15 text-green-300" : "bg-blue-500/15 text-blue-300"}`}>
+                        {isIncome ? "入金" : "支出"}
+                      </span>
+                      <button
+                        onClick={() => startEditRecurring(r)}
+                        className="text-sm font-medium text-slate-100 hover:text-blue-400 hover:underline shrink-0 max-w-[9rem] truncate"
+                        title="クリックして内容を変更">
+                        {r.category}
+                      </button>
+                      <span className="flex-1 min-w-0 truncate text-slate-400">
+                        {r.day_of_month}日
+                        {r.card_name && ` · ${r.card_name}`}
+                        {r.memo && ` · ${r.memo}`}
+                        {(r.start_month || r.end_month) && <span className="text-slate-500">{` · ${periodLabel(r)}`}</span>}
+                      </span>
+                      <span className="text-sm font-semibold text-slate-300 shrink-0">{toJPY(r.amount)}</span>
+                      <button onClick={() => handleDeleteRecurring(r.id)}
+                        className="text-slate-600 hover:text-red-400 text-lg leading-none w-5 shrink-0">×</button>
                     </div>
                   )
                 })
@@ -984,54 +935,51 @@ function SettingsContent() {
         {tab === "plan" && (
           <div className={isPC ? "grid grid-cols-2 gap-4 items-start" : "space-y-3"}>
             {/* 入力フォーム */}
-            <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-slate-300">貯蓄・投資計画</h2>
+            <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-sm font-semibold text-slate-300 mr-auto"
+                  title="目標はあなた個人のものです。収支サマリーの収入・予算は参考として個人＋共同の合計を表示しています。">
+                  貯蓄・投資計画 <span className="text-[11px] text-slate-500 cursor-help">ⓘ</span>
+                </h2>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-300 font-semibold shrink-0">👤 個人の目標</span>
-              </div>
-              <p className="text-[11px] text-slate-500 -mt-2">
-                目標はあなた個人のものです。下の収入・予算は参考として個人＋共同の合計を表示しています。
-              </p>
-              <div>
-                <label className="text-xs text-slate-300 mb-1 block">月</label>
-                <div className="flex items-center gap-1 border rounded-lg px-2 py-1">
+                <div className="flex items-center gap-1 border rounded-lg px-1.5 py-0.5 shrink-0">
                   <button onClick={() => setPlanMonth(m => { const [y,mo] = m.split("-").map(Number); const d = new Date(y, mo-2, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` })}
                     className="text-slate-400 hover:text-blue-400 px-1 font-bold text-base">‹</button>
                   <input type="month" value={planMonth} onChange={e => setPlanMonth(e.target.value)}
-                    className="flex-1 text-center text-sm font-semibold text-slate-100 border-0 outline-none bg-transparent min-w-0" />
+                    className="w-32 text-center text-sm font-semibold text-slate-100 border-0 outline-none bg-transparent" />
                   <button onClick={() => setPlanMonth(m => { const [y,mo] = m.split("-").map(Number); const d = new Date(y, mo, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` })}
                     className="text-slate-400 hover:text-blue-400 px-1 font-bold text-base">›</button>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
                 <div>
-                  <label className="text-xs text-slate-300 mb-1 block">🏦 貯金目標（円）</label>
+                  <label className="text-[11px] text-slate-400 mb-0.5 block">🏦 貯金目標</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">¥</span>
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">¥</span>
                     <input type="text" inputMode="numeric" value={planSavingsTarget} onChange={e => setPlanSavingsTarget(fmtMoneyInput(e.target.value))}
-                      placeholder="0" className="w-full border rounded-lg pl-6 pr-3 py-2 text-sm text-slate-100" />
+                      placeholder="0" className="w-full border rounded-lg pl-6 pr-2 py-1.5 text-sm text-right bg-slate-900 text-slate-100" />
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs text-slate-300 mb-1 block">📈 NISA積立目標（円）</label>
+                  <label className="text-[11px] text-slate-400 mb-0.5 block">📈 NISA積立目標</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">¥</span>
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">¥</span>
                     <input type="text" inputMode="numeric" value={planNisaTarget} onChange={e => setPlanNisaTarget(fmtMoneyInput(e.target.value))}
-                      placeholder="0" className="w-full border rounded-lg pl-6 pr-3 py-2 text-sm text-slate-100" />
+                      placeholder="0" className="w-full border rounded-lg pl-6 pr-2 py-1.5 text-sm text-right bg-slate-900 text-slate-100" />
                   </div>
                 </div>
+                <button onClick={handleSavePlan} disabled={planSaving}
+                  className="bg-blue-600 text-white rounded-lg px-4 py-1.5 text-sm font-semibold disabled:opacity-50">
+                  {planSaving ? "保存中..." : "保存"}
+                </button>
               </div>
               {planMsg && <p className="text-xs text-green-400">✅ {planMsg}</p>}
-              <button onClick={handleSavePlan} disabled={planSaving}
-                className="w-full bg-blue-600 text-white rounded-lg py-2.5 text-sm font-semibold disabled:opacity-50">
-                {planSaving ? "保存中..." : "計画を保存"}
-              </button>
             </div>
 
             {/* 収支サマリー */}
-            <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 space-y-3">
+            <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 space-y-2">
               <h2 className="text-sm font-semibold text-slate-300">{planMonth} 収支サマリー</h2>
-              <div className="space-y-1.5 text-sm">
+              <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
                   <span className="text-slate-400">収入</span>
                   <span className="font-medium text-green-400">+{toJPY(planIncomeTotal)}</span>
@@ -1056,18 +1004,18 @@ function SettingsContent() {
                     <span className="text-xs text-purple-400">-{toJPY(Number(planNisaTarget))}</span>
                   </div>
                 )}
+                {(() => {
+                  const freeBalance = planIncomeTotal - planSelfBudget - planJointBudget - (Number(planSavingsTarget) || 0) - (Number(planNisaTarget) || 0)
+                  return (
+                    <div className="flex justify-between items-baseline border-t border-slate-700 pt-1.5 mt-1 font-bold">
+                      <span className="text-slate-300">余力資金（計画ベース）</span>
+                      <span className={`text-base ${freeBalance >= 0 ? "text-blue-400" : "text-red-400"}`}>
+                        {freeBalance >= 0 ? "+" : ""}{toJPY(freeBalance)}
+                      </span>
+                    </div>
+                  )
+                })()}
               </div>
-              {(() => {
-                const freeBalance = planIncomeTotal - planSelfBudget - planJointBudget - (Number(planSavingsTarget) || 0) - (Number(planNisaTarget) || 0)
-                return (
-                  <div className={`rounded-xl p-3 text-center ${freeBalance >= 0 ? "bg-blue-500/10" : "bg-red-500/10"}`}>
-                    <p className="text-xs text-slate-400 mb-0.5">余力資金（計画ベース）</p>
-                    <p className={`text-xl font-bold ${freeBalance >= 0 ? "text-blue-400" : "text-red-400"}`}>
-                      {freeBalance >= 0 ? "+" : ""}{toJPY(freeBalance)}
-                    </p>
-                  </div>
-                )
-              })()}
               {/* 貯金・NISA実績 */}
               {(planActual.savingsActual > 0 || planActual.nisaActual > 0) && (
                 <div className="border-t pt-2 space-y-2">
@@ -1252,82 +1200,72 @@ function SettingsContent() {
 
           // 共通: 振り分けルールブロック
           const RulesBlock = () => (
-            <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 space-y-2">
-              <h2 className="text-xs font-semibold text-slate-300">自動振り分けルール</h2>
-              <p className="text-xs text-slate-500">CSVインポート時、メモのキーワードからカテゴリを自動設定</p>
-              <div className={`border rounded-lg p-2 space-y-2 ${editingRule ? "border-blue-400 bg-blue-500/10" : "border-slate-800"}`}>
-                <p className="text-xs font-medium text-slate-400">{editingRule ? "ルールを編集" : "ルールを追加"}</p>
-                <div className="flex gap-2">
-                  <input
-                    id="rule-keyword-input"
-                    type="text"
-                    value={newRuleKeyword}
-                    onChange={e => setNewRuleKeyword(e.target.value)}
-                    placeholder="キーワード（店舗名など）"
-                    className="flex-1 border rounded px-2 py-1.5 text-xs text-slate-100 min-w-0"
-                  />
-                  <select
-                    value={newRuleCategory}
-                    onChange={e => setNewRuleCategory(e.target.value)}
-                    className="border rounded px-2 py-1.5 text-xs text-slate-100 bg-slate-900"
-                  >
-                    <option value="">カテゴリ選択</option>
-                    {categoryRows
-                      .filter(r => catViewType === "joint" ? r.card_type === "joint" : r.card_type !== "joint")
-                      .map(r => <option key={r.name} value={r.name}>{r.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <select
-                    value={newRuleCardId}
-                    onChange={e => setNewRuleCardId(e.target.value)}
-                    title="同じ店名でもカードによって分けたいときに指定します"
-                    className="w-full border rounded px-2 py-1.5 text-xs text-slate-100 bg-slate-900"
-                  >
-                    <option value="">すべての口座に適用（共通ルール）</option>
-                    {cards.filter(c => c.card_type === catViewType).map(c => (
-                      <option key={c.id} value={c.id}>{c.name} のときだけ</option>
-                    ))}
-                  </select>
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    口座を指定すると、同じキーワードでもその口座だけ別のカテゴリにできます。
-                    共通ルールと両方ある場合は、口座を指定したほうが優先されます
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  {editingRule && (
-                    <button onClick={() => { setEditingRule(null); setNewRuleKeyword(""); setNewRuleCategory(""); setNewRuleCardId("") }}
-                      className="flex-1 border border-slate-700 text-slate-400 rounded py-1.5 text-xs">
-                      キャンセル
-                    </button>
-                  )}
-                  <button
-                    onClick={handleSaveRule}
-                    disabled={ruleSaving || !newRuleKeyword.trim() || !newRuleCategory}
-                    className="flex-1 bg-blue-600 text-white rounded py-1.5 text-xs font-semibold disabled:opacity-50"
-                  >
-                    {ruleSaving ? "保存中..." : editingRule ? "更新" : "追加"}
-                  </button>
-                </div>
+            <div className={`bg-slate-900 rounded-xl shadow-sm border p-3 space-y-2 ${editingRule ? "border-blue-400" : "border-slate-800"}`}>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xs font-semibold text-slate-300 shrink-0" title="CSVインポート時、メモのキーワードからカテゴリを自動設定">
+                  自動振り分けルール <span className="text-slate-500 cursor-help">ⓘ</span>
+                </h2>
+                <span className="text-[11px] text-slate-500 shrink-0">{storeRules.length}件</span>
+                <input
+                  type="text"
+                  value={ruleSearch}
+                  onChange={e => { setRuleSearch(e.target.value); fetchStoreRules(e.target.value) }}
+                  placeholder="検索..."
+                  className="ml-auto w-32 sm:w-40 min-w-0 border rounded px-2 py-1 text-xs bg-slate-900 text-slate-100"
+                />
               </div>
-              <input
-                type="text"
-                value={ruleSearch}
-                onChange={e => { setRuleSearch(e.target.value); fetchStoreRules(e.target.value) }}
-                placeholder="検索..."
-                className="w-full border rounded px-2 py-1.5 text-xs text-slate-100"
-              />
-              <div className="border rounded-lg overflow-hidden max-h-80 overflow-y-auto">
-                {storeRules.length === 0 ? (
-                  <p className="text-center py-4 text-xs text-slate-500">ルールがありません</p>
-                ) : (
-                  storeRules.map(r => (
-                    <div key={r.id} className="flex items-center gap-2 px-2 py-1.5 border-b last:border-0 hover:bg-slate-800">
-                      <span className="flex-1 min-w-0">
-                        <span className="block text-xs text-slate-100 truncate">{r.keyword}</span>
-                        {r.card_name && (
-                          <span className="block text-[10px] text-amber-400 truncate">{r.card_name} のときだけ</span>
-                        )}
+              {/* キーワード｜カテゴリ｜口座｜追加 を1行に */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <input
+                  id="rule-keyword-input"
+                  type="text"
+                  value={newRuleKeyword}
+                  onChange={e => setNewRuleKeyword(e.target.value)}
+                  placeholder={editingRule ? "キーワード（編集中）" : "キーワード（店舗名など）"}
+                  className="flex-1 min-w-[8rem] border rounded px-2 py-1.5 text-xs bg-slate-900 text-slate-100"
+                />
+                <select
+                  value={newRuleCategory}
+                  onChange={e => setNewRuleCategory(e.target.value)}
+                  className="w-28 border rounded px-1.5 py-1.5 text-xs text-slate-100 bg-slate-900"
+                >
+                  <option value="">カテゴリ</option>
+                  {categoryRows
+                    .filter(r => catViewType === "joint" ? r.card_type === "joint" : r.card_type !== "joint")
+                    .map(r => <option key={r.name} value={r.name}>{r.name}</option>)}
+                </select>
+                <select
+                  value={newRuleCardId}
+                  onChange={e => setNewRuleCardId(e.target.value)}
+                  title="口座を指定すると、同じキーワードでもその口座だけ別のカテゴリにできます。共通ルールと両方ある場合は、口座を指定したほうが優先されます"
+                  className="w-32 border rounded px-1.5 py-1.5 text-xs text-slate-100 bg-slate-900"
+                >
+                  <option value="">全口座共通</option>
+                  {cards.filter(c => c.card_type === catViewType).map(c => (
+                    <option key={c.id} value={c.id}>{c.name} のときだけ</option>
+                  ))}
+                </select>
+                {editingRule && (
+                  <button onClick={() => { setEditingRule(null); setNewRuleKeyword(""); setNewRuleCategory(""); setNewRuleCardId("") }}
+                    className="border border-slate-700 text-slate-400 rounded px-2 py-1.5 text-xs">
+                    キャンセル
+                  </button>
+                )}
+                <button
+                  onClick={handleSaveRule}
+                  disabled={ruleSaving || !newRuleKeyword.trim() || !newRuleCategory}
+                  className="bg-blue-600 text-white rounded px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+                >
+                  {ruleSaving ? "保存中..." : editingRule ? "更新" : "追加"}
+                </button>
+              </div>
+              {storeRules.length > 0 && (
+                <div className="max-h-80 overflow-y-auto divide-y divide-slate-800 border-t border-slate-800">
+                  {storeRules.map(r => (
+                    <div key={r.id} className="flex items-center gap-2 px-1 py-1 hover:bg-slate-800">
+                      <span className="flex-1 min-w-0 truncate text-xs text-slate-100">
+                        {r.keyword}
+                        {r.card_name && <span className="ml-1.5 text-[10px] text-amber-400">{r.card_name} のときだけ</span>}
                       </span>
                       <span className="text-xs text-slate-500">→</span>
                       <span className="text-xs font-medium text-blue-400 w-20 truncate text-right">{r.category}</span>
@@ -1338,10 +1276,9 @@ function SettingsContent() {
                       </button>
                       <button onClick={() => handleDeleteRule(r.id)} className="text-slate-600 hover:text-red-400 text-lg leading-none w-5">×</button>
                     </div>
-                  ))
-                )}
-              </div>
-              <p className="text-xs text-slate-500 text-right">{storeRules.length}件</p>
+                  ))}
+                </div>
+              )}
             </div>
           )
 
@@ -1349,12 +1286,8 @@ function SettingsContent() {
           const filtered = uncategorizedMemos.filter(m =>
             catViewType === "joint" ? m.card_type === "joint" : m.card_type !== "joint"
           )
-          const UncategorizedBlock = () => filtered.length === 0 ? (
-            <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3">
-              <h2 className="text-xs font-semibold text-slate-300 mb-2">未分類の明細</h2>
-              <p className="text-xs text-slate-500 text-center py-4">未分類の明細はありません ✅</p>
-            </div>
-          ) : (
+          // 0件のときはカードを出さず、スコープバーに「未分類 0件」バッジだけ出す
+          const UncategorizedBlock = () => filtered.length === 0 ? null : (
             <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 overflow-hidden">
               <div className="px-3 py-2 bg-orange-500/10 border-b border-orange-500/20 flex items-center justify-between">
                 <h2 className="text-xs font-semibold text-orange-300">⚠ 未分類の明細（{filtered.length}件）</h2>
@@ -1385,37 +1318,31 @@ function SettingsContent() {
           const CardBlock = () => (
             <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 space-y-2">
               <h2 className="text-xs font-semibold text-slate-300">口座・支払方法</h2>
-              {/* 新規追加フォーム */}
-              <div className="flex rounded-lg bg-slate-800 p-0.5 gap-0.5">
-                {ACCOUNT_KINDS.map(k => (
-                  <button key={k.key} type="button" onClick={() => setNewCardKind(k.key)}
-                    className={`flex-1 py-1 rounded-md text-[10px] font-semibold transition-colors ${
-                      newCardKind === k.key ? "bg-slate-900 text-blue-400 shadow-sm" : "text-slate-500"
-                    }`}>
-                    {k.icon} {k.label}
-                  </button>
-                ))}
-              </div>
-              <div className="flex gap-2">
+              {/* 新規追加：種別｜名前｜追加 */}
+              <div className="flex gap-1.5">
+                <select value={newCardKind} onChange={e => setNewCardKind(e.target.value)} title="種別"
+                  className="shrink-0 text-xs border rounded-lg px-1.5 py-1.5 bg-slate-900 text-slate-100">
+                  {ACCOUNT_KINDS.map(k => <option key={k.key} value={k.key}>{k.icon} {k.label}</option>)}
+                </select>
                 <input
                   type="text"
                   value={newCardName}
                   onChange={e => setNewCardName(e.target.value)}
                   onKeyDown={e => { if (e.key === "Enter") handleAddCard() }}
                   placeholder={newCardKind === "bank" ? "例：三菱UFJ銀行 普通" : "新しい口座・支払方法名"}
-                  className="flex-1 text-xs border rounded-lg px-3 py-1.5 text-slate-100 outline-none focus:ring-1 focus:ring-blue-400"
+                  className="flex-1 min-w-0 text-xs border rounded-lg px-2 py-1.5 bg-slate-900 text-slate-100 outline-none focus:ring-1 focus:ring-blue-400"
                 />
                 <button
                   onClick={handleAddCard}
                   disabled={cardSaving || !newCardName.trim()}
-                  className="text-xs bg-blue-600 text-white rounded-lg px-3 py-1.5 font-medium disabled:opacity-40"
+                  className="shrink-0 text-xs bg-blue-600 text-white rounded-lg px-3 py-1.5 font-medium disabled:opacity-40"
                 >
                   追加
                 </button>
               </div>
-              <div className="border rounded-lg overflow-hidden">
+              <div className="divide-y divide-slate-800 border-t border-slate-800">
                 {cards.filter(c => c.card_type === catViewType).map(c => (
-                  <div key={c.id} className="flex items-center gap-2 px-3 py-2 border-b last:border-0">
+                  <div key={c.id} className="flex items-center gap-2 px-1 py-1.5">
                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
                     {editingCardId === c.id ? (
                       <input
@@ -1466,24 +1393,20 @@ function SettingsContent() {
           // このタブ内（口座・カテゴリ・ルール・未分類）は常に同じスコープを見せる。
           // 以前は口座だけ別トグルを持っていて、他のブロックと表示が食い違うことがあった。
           const ScopeBanner = (
-            <div className={`rounded-xl p-3 border-2 flex items-center justify-between transition-colors ${
+            <div className={`rounded-lg px-3 py-1.5 border flex items-center gap-2 flex-wrap transition-colors ${
               catViewType === "joint" ? "bg-amber-500/10 border-amber-500/40" : "bg-indigo-500/10 border-indigo-500/40"
             }`}>
-              <div className="flex items-center gap-2">
-                <span className={`text-lg ${catViewType === "joint" ? "" : ""}`}>{catViewType === "joint" ? "👥" : "👤"}</span>
-                <div>
-                  <p className={`text-sm font-bold ${catViewType === "joint" ? "text-amber-300" : "text-indigo-300"}`}>
-                    {catViewType === "joint" ? "共同" : "個人"}のデータを表示中
-                  </p>
-                  <p className="text-[11px] text-slate-500">
-                    この下の口座・カテゴリ・振り分けルール・未分類明細は、すべて{catViewType === "joint" ? "共同（相手にも見える）" : "個人（自分だけに見える）"}のものです
-                  </p>
-                </div>
-              </div>
-              <div className="flex rounded-lg bg-slate-800 p-0.5 shrink-0">
+              <p className={`text-sm font-bold ${catViewType === "joint" ? "text-amber-300" : "text-indigo-300"}`}
+                title={`この下の口座・カテゴリ・振り分けルール・未分類明細は、すべて${catViewType === "joint" ? "共同（相手にも見える）" : "個人（自分だけに見える）"}のものです`}>
+                {catViewType === "joint" ? "👥 共同" : "👤 個人"}のデータを表示中 <span className="text-[11px] font-normal text-slate-500 cursor-help">ⓘ</span>
+              </p>
+              {filtered.length === 0 && (
+                <span className="text-[11px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-300">未分類 0件 ✅</span>
+              )}
+              <div className="flex rounded-lg bg-slate-800 p-0.5 shrink-0 ml-auto">
                 {([["self", "個人"] as const, ["joint", "共同"] as const]).map(([k, label]) => (
                   <button key={k} type="button" onClick={() => setCatViewType(k)}
-                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
+                    className={`px-3 py-1 rounded-md text-xs font-bold transition-colors ${
                       catViewType === k
                         ? k === "self" ? "bg-slate-900 text-indigo-400 shadow-sm" : "bg-slate-900 text-amber-400 shadow-sm"
                         : "text-slate-500"
@@ -1496,14 +1419,15 @@ function SettingsContent() {
           )
 
           return isPC ? (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {ScopeBanner}
               <div className="grid grid-cols-3 gap-4 items-start">
                 <div className="space-y-4">
                   {CardBlock()}
                   {CategoryBlock()}
                 </div>
-                {RulesBlock()}
+                {/* 未分類が無いときはルール欄を2列ぶん使う */}
+                <div className={filtered.length === 0 ? "col-span-2" : ""}>{RulesBlock()}</div>
                 {UncategorizedBlock()}
               </div>
             </div>

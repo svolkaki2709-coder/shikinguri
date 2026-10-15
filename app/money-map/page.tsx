@@ -150,10 +150,6 @@ export default function MoneyMapPage() {
     <div className={isPC ? "" : "pb-20"}>
       <PageHeader title="口座マップ" />
       <main className={isPC ? "max-w-6xl mx-auto px-6 py-4 space-y-3" : "max-w-md mx-auto px-4 py-2 space-y-3"}>
-        <p className="text-xs text-slate-400">
-          個人と共同の口座を並べ、給与の振込・口座間の振替・カードの引き落としといったお金の流れを線で表します。
-          相手の個人口座は表示されません
-        </p>
         {msg && <p className="text-xs text-green-400">{msg}</p>}
 
         {loading ? (
@@ -161,20 +157,13 @@ export default function MoneyMapPage() {
         ) : (
           <>
             {unlinkedCardsExist && (
-              <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 flex items-center gap-3">
-                <p className="text-xs text-blue-200 flex-1">
-                  家計簿に登録済みの口座・カードをまとめて取り込めます。貯蓄用口座や証券口座などは、そのあと下から追加してください
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg px-3 py-1.5 flex items-center gap-3">
+                <p className="text-xs text-blue-200 flex-1"
+                  title="家計簿に登録済みの口座・カードをまとめて取り込めます。貯蓄用口座や証券口座などは、そのあと下から追加してください">
+                  家計簿の口座・カードをまとめて取り込めます <span className="text-blue-300/70 cursor-help">ⓘ</span>
                 </p>
                 <button onClick={importCards}
-                  className="text-xs bg-blue-600 text-white rounded-lg px-3 py-2 font-semibold shrink-0">取り込む</button>
-              </div>
-            )}
-
-            {!unlinkedCardsExist && (
-              <div className="flex justify-end">
-                <button onClick={importCards} className="text-[11px] text-slate-400 hover:text-blue-400 underline">
-                  家計簿に追加した口座を取り込む（取り込み済みは飛ばします）
-                </button>
+                  className="text-xs bg-blue-600 text-white rounded-lg px-3 py-1 font-semibold shrink-0">取り込む</button>
               </div>
             )}
 
@@ -260,7 +249,10 @@ export default function MoneyMapPage() {
               </svg>
             </div>
 
-            <div className="flex flex-wrap gap-3 text-[11px] text-slate-400 px-1">
+            {/* 凡例（説明はⓘのtitleへ。右端に取り込みリンク） */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400 px-1">
+              <span className="text-slate-500 cursor-help"
+                title={"個人と共同の口座を並べ、給与の振込・口座間の振替・カードの引き落としといったお金の流れを線で表します。相手の個人口座は表示されません\n点線の枠＝流れがつながっていない口座。口座をタップすると、その口座の流れだけを強調します"}>ⓘ</span>
               {Object.entries(FLOW_LABEL).map(([k, v]) => (
                 <span key={k} className="flex items-center gap-1">
                   <svg width="22" height="6"><line x1="0" y1="3" x2="22" y2="3" stroke={v.color} strokeWidth="2" strokeDasharray={v.dash} /></svg>
@@ -269,12 +261,18 @@ export default function MoneyMapPage() {
               ))}
               <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded border border-indigo-400" /> 個人</span>
               <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded border border-amber-400" /> 共同</span>
-              <span className="text-slate-500">点線の枠＝流れがつながっていない口座。口座をタップすると、その口座の流れだけを強調します</span>
+              <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded border border-dashed border-slate-500" /> 流れなし</span>
+              {!unlinkedCardsExist && (
+                <button onClick={importCards} title="家計簿に追加した口座を取り込む（取り込み済みは飛ばします）"
+                  className="ml-auto text-slate-400 hover:text-blue-400 underline">
+                  家計簿の口座を取り込む
+                </button>
+              )}
             </div>
 
             {/* 整理のヒント */}
             {hints.length > 0 && (
-              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 space-y-1.5">
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2 space-y-1">
                 <p className="text-xs font-semibold text-amber-300">整理のヒント</p>
                 {hints.map((h, i) => <p key={i} className="text-xs text-slate-300">・{h}</p>)}
               </div>
@@ -292,7 +290,7 @@ export default function MoneyMapPage() {
   )
 }
 
-const INPUT = "w-full bg-slate-900 text-slate-100 border border-slate-700 rounded-lg px-2 py-2 text-sm"
+const INPUT = "w-full min-w-0 bg-slate-900 text-slate-100 border border-slate-700 rounded-lg px-2 py-1.5 text-sm"
 
 function AccountEditor({ accounts, selected, onSelect, onChanged, flash }: {
   accounts: Account[]; selected: Account | null
@@ -329,32 +327,42 @@ function AccountEditor({ accounts, selected, onSelect, onChanged, flash }: {
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-2">
-      <h2 className="text-sm font-semibold text-slate-200">{f.id ? "口座を編集" : "口座を追加"}</h2>
-      <input className={INPUT} placeholder="名前（例：住信SBI 目的別口座）" value={f.name} onChange={e => setF({ ...f, name: e.target.value })} />
-      <div className="grid grid-cols-2 gap-2">
-        <select className={INPUT} value={f.kind} onChange={e => setF({ ...f, kind: e.target.value })}>
+      <div className="flex items-center gap-2">
+        <h2 className="text-sm font-semibold text-slate-200" title="図の口座をタップすると、ここで編集できます">
+          {f.id ? "口座を編集" : "口座を追加"} <span className="text-[11px] font-normal text-slate-500 cursor-help">ⓘ</span>
+        </h2>
+        <span className="text-[11px] text-slate-500">{accounts.length}件登録済み</span>
+      </div>
+      {/* 名前｜種別｜個人/共同 */}
+      <div className="grid grid-cols-[1fr_7rem_4.5rem] gap-1.5">
+        <input className={INPUT} placeholder="名前（例：住信SBI 目的別口座）" value={f.name} onChange={e => setF({ ...f, name: e.target.value })} />
+        <select className={INPUT} value={f.kind} onChange={e => setF({ ...f, kind: e.target.value })} title="種別">
           {Object.entries(KIND_LABEL).map(([k, v]) => <option key={k} value={k}>{v.icon} {v.label}</option>)}
         </select>
-        <select className={INPUT} value={f.scope} onChange={e => setF({ ...f, scope: e.target.value })} disabled={!!f.id}>
+        <select className={INPUT} value={f.scope} onChange={e => setF({ ...f, scope: e.target.value })} disabled={!!f.id} title="個人／共同">
           <option value="self">個人</option>
           <option value="joint">共同</option>
         </select>
-        <input className={INPUT} placeholder="金融機関（例：楽天銀行）" value={f.institution} onChange={e => setF({ ...f, institution: e.target.value })} />
-        <input className={INPUT} placeholder="用途（例：生活費・貯蓄）" value={f.purpose} onChange={e => setF({ ...f, purpose: e.target.value })} />
       </div>
-      <div className="flex gap-2">
-        <button onClick={save} disabled={!f.name.trim()}
-          className="flex-1 bg-blue-600 text-white rounded-lg py-2 text-sm font-semibold disabled:opacity-40">
-          {f.id ? "更新" : "追加"}
-        </button>
-        {f.id && (
-          <>
-            <button onClick={() => { setF(empty); onSelect(null) }} className="px-3 border border-slate-700 text-slate-400 rounded-lg text-sm">取消</button>
-            <button onClick={remove} className="px-3 border border-red-900 text-red-400 rounded-lg text-sm">削除</button>
-          </>
-        )}
+      {/* 金融機関｜用途｜追加 */}
+      <div className="flex flex-wrap sm:flex-nowrap gap-1.5">
+        <div className="grid grid-cols-2 gap-1.5 flex-1 min-w-[12rem]">
+          <input className={INPUT} placeholder="金融機関（例：楽天銀行）" value={f.institution} onChange={e => setF({ ...f, institution: e.target.value })} />
+          <input className={INPUT} placeholder="用途（例：生活費・貯蓄）" value={f.purpose} onChange={e => setF({ ...f, purpose: e.target.value })} />
+        </div>
+        <div className="flex gap-1.5 shrink-0">
+          <button onClick={save} disabled={!f.name.trim()}
+            className="bg-blue-600 text-white rounded-lg px-4 py-1.5 text-sm font-semibold disabled:opacity-40">
+            {f.id ? "更新" : "追加"}
+          </button>
+          {f.id && (
+            <>
+              <button onClick={() => { setF(empty); onSelect(null) }} className="px-3 border border-slate-700 text-slate-400 rounded-lg text-sm">取消</button>
+              <button onClick={remove} className="px-3 border border-red-900 text-red-400 rounded-lg text-sm">削除</button>
+            </>
+          )}
+        </div>
       </div>
-      <p className="text-[11px] text-slate-500">図の口座をタップすると、ここで編集できます。{accounts.length}件登録済み</p>
     </div>
   )
 }
@@ -392,8 +400,13 @@ function FlowEditor({ accounts, flows, selected, onChanged, flash }: {
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-2">
-      <h2 className="text-sm font-semibold text-slate-200">お金の流れを追加</h2>
-      <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
+      <div className="flex items-center gap-2">
+        <h2 className="text-sm font-semibold text-slate-200" title="カードの引き落としは「銀行口座 → カード」の向きで登録します（お金が出ていく向き）">
+          お金の流れを追加 <span className="text-[11px] font-normal text-slate-500 cursor-help">ⓘ</span>
+        </h2>
+        <span className="text-[11px] text-slate-500">{visible.length}件{selected ? "（選択中の口座）" : ""}</span>
+      </div>
+      <div className="grid grid-cols-[1fr_auto_1fr] gap-1.5 items-center">
         <select className={INPUT} value={f.from_id} onChange={e => setF({ ...f, from_id: e.target.value })}>
           <option value="">出る側</option>
           {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -404,7 +417,7 @@ function FlowEditor({ accounts, flows, selected, onChanged, flash }: {
           {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select>
       </div>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-1.5">
         <select className={INPUT} value={f.kind} onChange={e => setF({ ...f, kind: e.target.value })}>
           {Object.entries(FLOW_LABEL).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
         </select>
@@ -413,17 +426,16 @@ function FlowEditor({ accounts, flows, selected, onChanged, flash }: {
         <input className={`${INPUT} text-right`} inputMode="numeric" placeholder="毎月◯日"
           value={f.day_of_month} onChange={e => setF({ ...f, day_of_month: e.target.value.replace(/[^0-9]/g, "") })} />
       </div>
-      <input className={INPUT} placeholder="メモ（例：生活費の振替）" value={f.memo} onChange={e => setF({ ...f, memo: e.target.value })} />
-      <button onClick={add} disabled={!f.from_id || !f.to_id || f.from_id === f.to_id}
-        className="w-full bg-blue-600 text-white rounded-lg py-2 text-sm font-semibold disabled:opacity-40">追加</button>
-      <p className="text-[11px] text-slate-500">
-        カードの引き落としは「銀行口座 → カード」の向きで登録します（お金が出ていく向き）
-      </p>
+      {/* メモ｜追加 */}
+      <div className="flex gap-1.5">
+        <input className={`${INPUT} flex-1`} placeholder="メモ（例：生活費の振替）" value={f.memo} onChange={e => setF({ ...f, memo: e.target.value })} />
+        <button onClick={add} disabled={!f.from_id || !f.to_id || f.from_id === f.to_id}
+          className="shrink-0 bg-blue-600 text-white rounded-lg px-4 py-1.5 text-sm font-semibold disabled:opacity-40">追加</button>
+      </div>
 
-      <div className="pt-2 border-t border-slate-800 space-y-1 max-h-72 overflow-y-auto">
-        {visible.length === 0 ? (
-          <p className="text-xs text-slate-500">まだ流れがありません</p>
-        ) : visible.map(x => {
+      {visible.length > 0 && (
+        <div className="pt-1.5 border-t border-slate-800 space-y-1 max-h-72 overflow-y-auto">
+          {visible.map(x => {
           const st = FLOW_LABEL[x.kind] ?? FLOW_LABEL.transfer
           return (
             <div key={x.id} className="flex items-center gap-2 text-xs">
@@ -437,8 +449,9 @@ function FlowEditor({ accounts, flows, selected, onChanged, flash }: {
               <button onClick={() => remove(x.id)} className="text-slate-600 hover:text-red-400 text-base leading-none">×</button>
             </div>
           )
-        })}
-      </div>
+          })}
+        </div>
+      )}
     </div>
   )
 }

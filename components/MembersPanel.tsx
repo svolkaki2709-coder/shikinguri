@@ -143,44 +143,40 @@ ${before!.email}
 
   return (
     <div className={isPC ? "grid grid-cols-2 gap-4 items-start" : "space-y-3"}>
-      {/* 説明 */}
-      <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-4 space-y-3">
-        <h2 className="text-sm font-bold text-slate-100">世帯メンバー</h2>
-        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 text-xs text-blue-300 space-y-1.5">
-          <p className="font-semibold">招待した相手に見えるもの</p>
-          <p>✅ <span className="font-semibold">共同</span>の明細・入金・予算・口座・資産</p>
-          <p>🚫 あなたの<span className="font-semibold">個人</span>データは一切見えません（明細・収入・予算・資産・給与明細のすべて）</p>
-          <p className="text-blue-400/80 pt-1">相手も自分の「個人」を持てます。互いの個人データは見えません。</p>
+      {/* 招待 */}
+      <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 space-y-2">
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-bold text-slate-100">世帯メンバー</h2>
+          <details className="text-xs text-blue-300 group">
+            <summary className="cursor-pointer list-none text-[11px] text-blue-400 hover:text-blue-300">ⓘ 相手に見えるもの</summary>
+            <div className="mt-1.5 bg-blue-500/10 border border-blue-500/30 rounded-lg p-2 space-y-1">
+              <p>✅ <span className="font-semibold">共同</span>の明細・入金・予算・口座・資産</p>
+              <p>🚫 あなたの<span className="font-semibold">個人</span>データは一切見えません（明細・収入・予算・資産・給与明細のすべて）</p>
+              <p className="text-blue-400/80">相手も自分の「個人」を持てます。互いの個人データは見えません。</p>
+            </div>
+          </details>
         </div>
 
         {isOwner ? (
-          <div className="space-y-2 pt-1">
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Googleアカウントのメールアドレス</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                placeholder="partner@gmail.com" autoComplete="off"
-                className="w-full border border-slate-700 rounded-lg px-3 py-2 text-sm bg-slate-900 text-slate-100 outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">表示名（任意）</label>
-              <input type="text" value={name} onChange={e => setName(e.target.value)}
-                placeholder="例：あかり"
-                className="w-full border border-slate-700 rounded-lg px-3 py-2 text-sm bg-slate-900 text-slate-100 outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_10rem_auto] gap-2"
+            title="招待メールは送られません。相手がこのアドレスのGoogleアカウントでログインすれば、そのまま利用開始できます。">
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+              placeholder="Googleアカウントのメール（partner@gmail.com）" autoComplete="off" aria-label="Googleアカウントのメールアドレス"
+              className="min-w-0 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm bg-slate-900 text-slate-100 outline-none focus:ring-2 focus:ring-blue-500" />
+            <input type="text" value={name} onChange={e => setName(e.target.value)}
+              placeholder="表示名（任意）" aria-label="表示名（任意）"
+              className="min-w-0 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm bg-slate-900 text-slate-100 outline-none focus:ring-2 focus:ring-blue-500" />
             <button onClick={handleAdd} disabled={saving || !email.trim()}
-              className="w-full bg-blue-600 text-white rounded-lg py-2.5 text-sm font-semibold hover:bg-blue-700 disabled:opacity-40 transition-colors">
-              {saving ? "追加中..." : "メンバーを招待する"}
+              className="bg-blue-600 text-white rounded-lg px-4 py-1.5 text-sm font-semibold hover:bg-blue-700 disabled:opacity-40 transition-colors whitespace-nowrap">
+              {saving ? "追加中..." : "招待"}
             </button>
-            <p className="text-[11px] text-slate-500">
-              招待メールは送られません。相手がこのアドレスのGoogleアカウントでログインすれば、そのまま利用開始できます。
-            </p>
           </div>
         ) : (
           <p className="text-xs text-slate-500">メンバーの追加・削除は世帯の管理者のみ行えます。</p>
         )}
 
         {msg && (
-          <div className={`text-xs rounded-lg px-3 py-2 ${msg.type === "ok" ? "bg-green-500/10 text-green-300" : "bg-red-500/10 text-red-300"}`}>
+          <div className={`text-xs rounded-lg px-2.5 py-1.5 ${msg.type === "ok" ? "bg-green-500/10 text-green-300" : "bg-red-500/10 text-red-300"}`}>
             {msg.text}
           </div>
         )}
@@ -188,18 +184,13 @@ ${before!.email}
 
       {/* 自分の個人スペース */}
       {personal && !personal.ready && (
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 space-y-2">
-          <p className="text-sm font-bold text-amber-300">個人スペースの初期設定</p>
-          <p className="text-xs text-amber-200/80">
-            あなたの「個人」タブには
-            {personal.categories === 0 && "カテゴリ"}
-            {personal.categories === 0 && personal.accounts === 0 && "も"}
-            {personal.accounts === 0 && "支払方法"}
-            がまだありません。このままでは個人の支出を記録できないため、
-            よく使うカテゴリと「現金orPayPay」を作成します。
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2 flex items-center gap-2 flex-wrap">
+          <p className="text-sm font-bold text-amber-300 flex-1 min-w-0"
+            title={`あなたの「個人」タブには${personal.categories === 0 ? "カテゴリ" : ""}${personal.categories === 0 && personal.accounts === 0 ? "も" : ""}${personal.accounts === 0 ? "支払方法" : ""}がまだありません。このままでは個人の支出を記録できないため、よく使うカテゴリと「現金orPayPay」を作成します。`}>
+            個人スペースの初期設定が未完了 <span className="text-[11px] font-normal text-amber-200/70 cursor-help">ⓘ</span>
           </p>
           <button onClick={handleSeedPersonal} disabled={seeding}
-            className="bg-amber-500 text-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-amber-600 disabled:opacity-40 transition-colors">
+            className="bg-amber-500 text-white rounded-lg px-3 py-1.5 text-xs font-semibold hover:bg-amber-600 disabled:opacity-40 transition-colors shrink-0">
             {seeding ? "作成中..." : "個人用の初期セットを作成"}
           </button>
         </div>
@@ -207,43 +198,32 @@ ${before!.email}
 
       {/* 一覧 */}
       <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 overflow-hidden">
-        <div className="px-4 py-2.5 bg-slate-800 border-b border-slate-800">
+        <div className="px-3 py-1.5 bg-slate-800 border-b border-slate-800 flex items-center gap-2">
           <h3 className="text-xs font-semibold text-slate-300">登録済みメンバー</h3>
+          {!loading && <span className="text-[11px] text-slate-500">{members.length}人</span>}
         </div>
-        {loading && <p className="text-center text-xs text-slate-500 py-6">読み込み中...</p>}
+        {loading && <p className="text-xs text-slate-500 px-3 py-2">読み込み中...</p>}
         {!loading && members.map(m => (
-          <div key={m.id} className="flex items-center gap-2 px-4 py-3 border-b border-slate-800 last:border-0">
+          <div key={m.id} className="flex items-center gap-2 px-3 py-2 border-b border-slate-800 last:border-0">
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-sm font-medium text-slate-100 truncate">{m.display_name || m.email}</span>
-                {m.role === "owner" && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-semibold">管理者</span>
-                )}
-                {m.id === meId && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 font-semibold">あなた</span>
-                )}
-                {!m.is_active && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 font-semibold">停止中</span>
-                )}
-              </div>
               {editing?.id === m.id ? (
-                <div className="space-y-1.5 mt-1.5">
+                <div className="grid grid-cols-1 sm:grid-cols-[8rem_1fr_auto] gap-1.5">
                   <input
                     value={editing.name}
                     onChange={e => setEditing({ ...editing, name: e.target.value })}
                     placeholder="表示名"
-                    className="w-full bg-slate-900 text-slate-100 border border-slate-700 rounded-lg px-2 py-1.5 text-sm"
+                    className="min-w-0 bg-slate-900 text-slate-100 border border-slate-700 rounded-lg px-2 py-1.5 text-sm"
                   />
                   <input
                     value={editing.email}
                     onChange={e => setEditing({ ...editing, email: e.target.value })}
                     placeholder="ログイン用のGoogleアカウント"
                     inputMode="email"
-                    className="w-full bg-slate-900 text-slate-100 border border-slate-700 rounded-lg px-2 py-1.5 text-sm"
+                    className="min-w-0 bg-slate-900 text-slate-100 border border-slate-700 rounded-lg px-2 py-1.5 text-sm"
                   />
                   <div className="flex gap-1.5">
                     <button onClick={handleSaveMember}
-                      className="flex-1 bg-blue-600 text-white rounded-lg py-1.5 text-xs font-semibold hover:bg-blue-700 transition-colors">
+                      className="flex-1 bg-blue-600 text-white rounded-lg px-3 py-1.5 text-xs font-semibold hover:bg-blue-700 transition-colors">
                       保存
                     </button>
                     <button onClick={() => setEditing(null)}
@@ -253,7 +233,19 @@ ${before!.email}
                   </div>
                 </div>
               ) : (
-                <p className="text-[11px] text-slate-500 truncate">{m.email}</p>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-sm font-medium text-slate-100 truncate shrink-0 max-w-[50%]">{m.display_name || m.email}</span>
+                  {m.role === "owner" && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-semibold shrink-0">管理者</span>
+                  )}
+                  {m.id === meId && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 font-semibold shrink-0">あなた</span>
+                  )}
+                  {!m.is_active && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 font-semibold shrink-0">停止中</span>
+                  )}
+                  {m.display_name && <span className="text-[11px] text-slate-500 truncate min-w-0">{m.email}</span>}
+                </div>
               )}
             </div>
             {editing?.id !== m.id && (isOwner || m.id === meId) && (
@@ -279,7 +271,7 @@ ${before!.email}
           </div>
         ))}
         {!loading && members.length === 0 && (
-          <p className="text-center text-xs text-slate-500 py-6">メンバーがいません</p>
+          <p className="text-xs text-slate-500 px-3 py-2">メンバーがいません</p>
         )}
       </div>
     </div>

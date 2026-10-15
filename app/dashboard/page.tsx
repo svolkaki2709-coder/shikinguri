@@ -209,50 +209,41 @@ export default function DashboardPage() {
     if (budgetTotal <= 0) return null
     const over = budgetRemaining < 0
     return (
-      <div className={`rounded-xl shadow-sm p-4 ${over ? "bg-red-500/10 border border-red-500/30" : "bg-slate-900 border border-slate-800"}`}>
+      <div className={`rounded-xl shadow-sm p-3 ${over ? "bg-red-500/10 border border-red-500/30" : "bg-slate-900 border border-slate-800"}`}>
         <div className="flex items-baseline justify-between mb-1">
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-400" title="生活費（支出グループ）のみ。税・社会保険や投資・貯蓄は含みません">
             {month.replace("-", "年")}月の予算差引
-            <span className="ml-1 text-slate-500">（{viewType === "self" ? "個人" : "共同"}）</span>
+            <span className="ml-1 text-slate-500">（{viewType === "self" ? "個人" : "共同"}）ⓘ</span>
           </p>
           <Link href={`/budget?month=${month}&ct=${viewType}`} className="text-[11px] text-blue-400 hover:underline">予実へ ›</Link>
         </div>
         <div className="flex items-baseline gap-2">
-          <p className={`text-3xl font-bold ${over ? "text-red-400" : "text-green-400"}`}>
+          <p className={`text-2xl font-bold ${over ? "text-red-400" : "text-green-400"}`}>
             {over ? "−" : "+"}{toJPY(Math.abs(budgetRemaining))}
           </p>
           <span className={`text-sm font-semibold ${over ? "text-red-400" : "text-green-400"}`}>
             {over ? "超過" : "予算内"}
           </span>
         </div>
-        <div className="mt-3">
-          <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
-            <div
-              className={`h-2.5 rounded-full transition-all ${over ? "bg-red-400" : "bg-green-500"}`}
-              style={{ width: `${Math.min(budgetUsagePct, 100)}%` }}
-            />
-          </div>
+        <div className="mt-1.5 w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+          <div
+            className={`h-1.5 rounded-full transition-all ${over ? "bg-red-400" : "bg-green-500"}`}
+            style={{ width: `${Math.min(budgetUsagePct, 100)}%` }}
+          />
         </div>
-        <p className="mt-1.5 text-[11px] text-slate-400">
+        <p className="mt-1 text-[11px] text-slate-400">
           実績 {toJPY(budgetActual)} / 予算 {toJPY(budgetTotal)}
           <span className="ml-1">（{Math.round(budgetUsagePct)}%）</span>
-        </p>
-        <p className="text-[10px] text-slate-500 mt-0.5">
-          生活費（支出グループ）のみ。税・社会保険や投資・貯蓄は含みません
         </p>
 
         {/* 予算を超えたカテゴリ */}
         {overCategories.length > 0 && (
-          <div className="mt-3 pt-2.5 border-t border-slate-800 space-y-1.5">
-            <p className="text-[11px] font-semibold text-slate-500">予算を超えたカテゴリ</p>
+          <div className="mt-2 pt-1.5 border-t border-slate-800 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px]">
+            <span className="text-slate-500">予算超過</span>
             {overCategories.map(b => (
-              <div key={b.category} className="flex items-center justify-between text-xs">
-                <span className="text-slate-400 truncate">🔴 {b.category}</span>
-                <span className="font-semibold shrink-0 ml-2 text-red-400">
-                  +{toJPY(b.actual - b.budget)}
-                  <span className="text-slate-500 ml-1">（{Math.round((b.actual / b.budget) * 100)}%）</span>
-                </span>
-              </div>
+              <span key={b.category} className="text-slate-400" title={`予算比 ${Math.round((b.actual / b.budget) * 100)}%`}>
+                🔴 {b.category} <span className="font-semibold text-red-400">+{toJPY(b.actual - b.budget)}</span>
+              </span>
             ))}
           </div>
         )}
@@ -268,13 +259,10 @@ export default function DashboardPage() {
         <Link href={`/history`} className="text-[11px] text-blue-400 hover:underline">すべて見る ›</Link>
       </div>
       {recentTx.length === 0 ? (
-        <div className="text-center py-4">
-          <p className="text-xs text-slate-500 mb-2">この月の明細はまだありません</p>
-          <button onClick={() => openQuickInput("expense")}
-            className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
-            ＋ 記録する
-          </button>
-        </div>
+        <button onClick={() => openQuickInput("expense")}
+          className="text-xs bg-blue-600 text-white px-3 py-1 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
+          ＋ 記録する
+        </button>
       ) : (
         <div className="divide-y divide-gray-50">
           {recentTx.map(t => {
@@ -283,10 +271,10 @@ export default function DashboardPage() {
               <div key={`${t.source}-${t.id}`} className="flex items-center justify-between py-1.5">
                 <div className="min-w-0 flex items-center gap-2">
                   <span className="text-[10px] text-slate-500 shrink-0 w-9">{t.date.slice(5).replace("-", "/")}</span>
-                  <div className="min-w-0">
-                    <p className="text-xs text-slate-300 truncate">{t.category}{t.memo ? <span className="text-slate-500"> · {t.memo}</span> : null}</p>
-                    {t.card_name && <p className="text-[10px] text-slate-500 truncate">{t.card_name}</p>}
-                  </div>
+                  <p className="min-w-0 text-xs text-slate-300 truncate">
+                    {t.category}{t.memo ? <span className="text-slate-500"> · {t.memo}</span> : null}
+                    {t.card_name && <span className="text-[10px] text-slate-500"> · {t.card_name}</span>}
+                  </p>
                 </div>
                 <span className={`text-xs font-semibold shrink-0 ml-2 ${isIncome ? "text-green-400" : "text-slate-100"}`}>
                   {isIncome ? "+" : ""}{toJPY(Number(t.amount))}
@@ -301,18 +289,6 @@ export default function DashboardPage() {
 
   const MonthlyContent = () => (
     <>
-      <div className="flex rounded-lg bg-slate-800 p-0.5 mb-3">
-        {[
-          { key: "self" as const, label: "個人", color: "text-indigo-400" },
-          { key: "joint" as const, label: "共同", color: "text-amber-400" },
-        ].map(v => (
-          <button key={v.key} onClick={() => setViewType(v.key)}
-            className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-colors ${viewType === v.key ? `bg-slate-900 shadow-sm ${v.color}` : "text-slate-400"}`}>
-            {v.label}
-          </button>
-        ))}
-      </div>
-
       {/* 定期支出リマインド */}
       {pendingRecurringCount > 0 && (
         <Link href="/input" className="block bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2.5 hover:bg-amber-500/15 transition-colors">
@@ -325,7 +301,6 @@ export default function DashboardPage() {
       <BudgetHeroCard />
 
       <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3">
-        <p className="text-xs text-slate-400 mb-2">{month} — {viewType === "self" ? "個人" : "共同"}</p>
         <div className={`grid ${viewDeduction > 0 ? "grid-cols-4" : "grid-cols-3"} gap-2 text-center`}>
           <div>
             <p className="text-xs text-slate-400">{viewType === "self" ? "収入" : "入金"}</p>
@@ -365,23 +340,19 @@ export default function DashboardPage() {
             <p className="text-xs text-slate-400">今月 資産に回せた額</p>
             <span className={`text-xs font-semibold ${
               savingRate >= 20 ? "text-green-400" : savingRate >= 10 ? "text-blue-400" : "text-amber-400"
-            }`}>
-              貯蓄率 {savingRate.toFixed(1)}%
+            }`} title={`手取り ${toJPY(viewNetIncome)} に対する割合です。共働きで子がいない時期は20〜30%を確保できると、この先の支出増に耐えられます`}>
+              貯蓄率 {savingRate.toFixed(1)}% ⓘ
             </span>
           </div>
           <p className={`text-2xl font-bold ${toAssets >= 0 ? "text-teal-400" : "text-red-400"}`}>
             {toAssets >= 0 ? "" : "−"}{toJPY(Math.abs(toAssets))}
           </p>
-          <div className="mt-2 flex gap-3 text-[11px] text-slate-400">
+          <div className="mt-1 flex flex-wrap gap-x-3 text-[11px] text-slate-400">
             <span>積立（投資・貯蓄） <span className="text-purple-300 font-semibold">{toJPY(investSaveTotal)}</span></span>
             <span>使わずに残った分 <span className={`font-semibold ${viewBalance >= 0 ? "text-blue-300" : "text-red-300"}`}>
               {viewBalance >= 0 ? "" : "−"}{toJPY(Math.abs(viewBalance))}
             </span></span>
           </div>
-          <p className="text-[10px] text-slate-500 mt-1.5">
-            手取り {toJPY(viewNetIncome)} に対する割合です。共働きで子がいない時期は20〜30%を確保できると、
-            この先の支出増に耐えられます
-          </p>
         </div>
       )}
 
@@ -487,14 +458,37 @@ export default function DashboardPage() {
     <div className={mode === "mobile" ? "pb-20" : ""}>
       <PageHeader title="ダッシュボード" />
       <div className={isPC ? "px-6 py-4" : "max-w-md mx-auto px-4 py-2"}>
-        {/* 月選択 */}
-        <div className={`flex items-center gap-2 bg-slate-900 rounded-xl shadow-sm border border-slate-800 px-3 py-2 ${isPC ? "mb-4" : "mb-3"}`}>
-          <button onClick={() => setMonth(prevMonth(month))}
-            className="text-slate-400 hover:text-blue-400 px-2 py-1 rounded hover:bg-slate-800 text-lg font-bold">‹</button>
-          <input type="month" value={month} onChange={e => setMonth(e.target.value)}
-            className="flex-1 text-center text-sm font-semibold text-slate-100 border-0 outline-none bg-transparent" />
-          <button onClick={() => setMonth(nextMonth(month))}
-            className="text-slate-400 hover:text-blue-400 px-2 py-1 rounded hover:bg-slate-800 text-lg font-bold">›</button>
+        {/* ツールバー：月選択 | 月次/資産 | 個人/共同 */}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 mb-3">
+          <div className="flex items-center">
+            <button onClick={() => setMonth(prevMonth(month))}
+              className="text-slate-400 hover:text-blue-400 px-1.5 rounded hover:bg-slate-800 text-lg font-bold">‹</button>
+            <input type="month" value={month} onChange={e => setMonth(e.target.value)} aria-label="月"
+              className="w-32 text-center text-sm font-semibold text-slate-100 border-0 outline-none bg-transparent" />
+            <button onClick={() => setMonth(nextMonth(month))}
+              className="text-slate-400 hover:text-blue-400 px-1.5 rounded hover:bg-slate-800 text-lg font-bold">›</button>
+          </div>
+          <div className="flex rounded-lg bg-slate-800 p-0.5">
+            {tabs.map(t => (
+              <button key={t.key} onClick={() => setTab(t.key)}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${tab === t.key ? "bg-slate-900 shadow-sm text-blue-400" : "text-slate-400"}`}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+          {tab === "monthly" && (
+            <div className="flex rounded-lg bg-slate-800 p-0.5">
+              {[
+                { key: "self" as const, label: "個人", color: "text-indigo-400" },
+                { key: "joint" as const, label: "共同", color: "text-amber-400" },
+              ].map(v => (
+                <button key={v.key} onClick={() => setViewType(v.key)}
+                  className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${viewType === v.key ? `bg-slate-900 shadow-sm ${v.color}` : "text-slate-400"}`}>
+                  {v.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {apiError && (
@@ -502,16 +496,6 @@ export default function DashboardPage() {
             エラー: {apiError}
           </div>
         )}
-
-        {/* タブ */}
-        <div className={`flex rounded-xl bg-slate-800 p-1 ${isPC ? "mb-4 max-w-xs" : "mb-3"}`}>
-          {tabs.map(t => (
-            <button key={t.key} onClick={() => setTab(t.key)}
-              className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === t.key ? "bg-slate-900 shadow-sm text-blue-400" : "text-slate-400"}`}>
-              {t.label}
-            </button>
-          ))}
-        </div>
 
         {loading && <div className="text-center py-6 text-slate-400 text-sm">読み込み中...</div>}
 
@@ -542,15 +526,9 @@ export default function DashboardPage() {
                 <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3">
                   <p className="text-xs text-slate-400 mb-1">最新資産（{assets[assets.length - 1]?.month}）</p>
                   <p className="text-2xl font-bold text-blue-400">{toJPY(assets[assets.length - 1]?.total ?? 0)}</p>
-                  <div className="mt-3 grid grid-cols-2 gap-2 text-center">
-                    <div className="bg-green-500/10 rounded-lg p-2">
-                      <p className="text-xs text-slate-400">貯金</p>
-                      <p className="text-sm font-bold text-green-400">{toJPY(assets[assets.length - 1]?.savings ?? 0)}</p>
-                    </div>
-                    <div className="bg-purple-500/10 rounded-lg p-2">
-                      <p className="text-xs text-slate-400">投資</p>
-                      <p className="text-sm font-bold text-purple-400">{toJPY(assets[assets.length - 1]?.investment ?? 0)}</p>
-                    </div>
+                  <div className="mt-1 flex gap-4 text-xs text-slate-400">
+                    <span>貯金 <span className="text-sm font-bold text-green-400">{toJPY(assets[assets.length - 1]?.savings ?? 0)}</span></span>
+                    <span>投資 <span className="text-sm font-bold text-purple-400">{toJPY(assets[assets.length - 1]?.investment ?? 0)}</span></span>
                   </div>
                 </div>
                 <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3">
@@ -569,7 +547,7 @@ export default function DashboardPage() {
                 </div>
               </>
             ) : (
-              <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-8 text-center text-slate-400 text-sm col-span-2">
+              <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 px-3 py-2 text-slate-400 text-xs col-span-2">
                 資産データがありません。「資産」ページから入力してください。
               </div>
             )}

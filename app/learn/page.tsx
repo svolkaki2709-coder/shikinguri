@@ -89,12 +89,12 @@ export default function LearnPage() {
   return (
     <div className={isPC ? "" : "pb-20"}>
       <PageHeader title="制度ガイド" />
-      <main className={isPC ? "max-w-4xl mx-auto px-6 py-4 space-y-4" : "max-w-md mx-auto px-4 py-2 space-y-3"}>
+      <main className={`@container ${isPC ? "max-w-4xl mx-auto px-6 py-4 space-y-3" : "max-w-md mx-auto px-4 py-2 space-y-3"}`}>
 
         <div className="flex rounded-xl bg-slate-800 p-1 gap-0.5">
           {([["actions", "🎯 やること"], ["tax", "💰 税金"], ["browse", "📚 調べる"]] as const).map(([k, label]) => (
             <button key={k} onClick={() => setTab(k)}
-              className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${
+              className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                 tab === k ? "bg-slate-900 shadow-sm text-blue-400" : "text-slate-400"
               }`}>
               {label}
@@ -106,37 +106,29 @@ export default function LearnPage() {
         {tab === "tax" && <TaxSimulator />}
 
         {tab === "browse" && (<>
-        <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">
-          <p className="text-xs text-blue-200/90 leading-relaxed">
-            年金・社会保険・給付金・控除は、
-            <span className="font-semibold text-blue-300">知っている人だけが得をする</span>作りになっています。
-            ここでは登録済みの家族構成・年齢・収入から、
-            いま関係しそうな制度を上に並べています。気になったものを開いて、条件と申請先を確認してください。
-          </p>
-        </div>
-
         {loading ? (
           <p className="text-center text-slate-500 text-sm py-10">読み込み中...</p>
         ) : (
           <>
             {/* あなたに関係しそうな制度 */}
             {scored.length > 0 && (
-              <section className="space-y-3">
-                <h2 className="text-sm font-bold text-slate-100">この世帯に関係しそうな制度</h2>
+              <section className="space-y-2">
+                <h2 className="text-sm font-bold text-slate-100"
+                  title="年金・社会保険・給付金・控除は、知っている人だけが得をする作りになっています。登録済みの家族構成・年齢・収入から、いま関係しそうな制度を上に並べています。気になったものを開いて、条件と申請先を確認してください。">
+                  この世帯に関係しそうな制度 <span className="text-xs font-normal text-slate-500 cursor-help">ⓘ</span>
+                </h2>
                 {ctx && ctx.people.length === 0 && (
-                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
-                    <p className="text-[11px] text-amber-200/90 leading-relaxed">
-                      ライフプランの「前提条件」タブで家族の生年を登録すると、
-                      子どもの年齢に応じた制度（児童手当・就学支援金など）まで絞り込めるようになります。
-                    </p>
-                  </div>
+                  <p className="text-[11px] text-amber-300"
+                    title="ライフプランの「前提条件」タブで家族の生年を登録すると、子どもの年齢に応じた制度（児童手当・就学支援金など）まで絞り込めるようになります。">
+                    ⚠ 家族の生年が未登録のため、子どもの年齢に応じた絞り込みができません ⓘ
+                  </p>
                 )}
                 {(["now", "soon", "someday"] as RelevanceLevel[]).map(level => {
                   const list = grouped[level]
                   if (!list || list.length === 0) return null
                   return (
-                    <div key={level} className="space-y-2">
-                      <div className="flex items-center gap-2">
+                    <div key={level} className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
+                      <div className="flex items-center gap-2 px-4 py-1.5 bg-slate-800/60">
                         <span className={`text-[11px] px-2 py-0.5 rounded border font-semibold ${LEVEL_LABEL[level].cls}`}>
                           {LEVEL_LABEL[level].label}
                         </span>
@@ -156,25 +148,25 @@ export default function LearnPage() {
             )}
 
             {/* 全制度をカテゴリ別に */}
-            <section className="space-y-3 pt-2">
-              <h2 className="text-sm font-bold text-slate-100">すべての制度</h2>
-              <div className="flex gap-1.5 flex-wrap">
+            <section className="space-y-2 pt-1">
+              <div className="flex gap-1.5 flex-wrap items-center">
+                <h2 className="text-sm font-bold text-slate-100 mr-1">すべての制度</h2>
                 <button onClick={() => setCatFilter("all")}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                  className={`px-2 py-0.5 rounded-lg text-xs font-semibold transition-colors ${
                     catFilter === "all" ? "bg-blue-600 text-white" : "bg-slate-800 text-slate-400 hover:text-slate-200"
                   }`}>
                   すべて
                 </button>
                 {CATEGORIES.map(c => (
                   <button key={c} onClick={() => setCatFilter(c)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                    className={`px-2 py-0.5 rounded-lg text-xs font-semibold transition-colors ${
                       catFilter === c ? "bg-blue-600 text-white" : "bg-slate-800 text-slate-400 hover:text-slate-200"
                     }`}>
                     {c}
                   </button>
                 ))}
               </div>
-              <div className="space-y-2">
+              <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
                 {filtered.map(b => {
                   const rel = relOf(b.id)
                   return (
@@ -189,10 +181,9 @@ export default function LearnPage() {
               </div>
             </section>
 
-            <p className="text-[10px] text-slate-500 leading-relaxed pt-2">
-              ※ 金額・所得制限は毎年のように改定されます。ここの数字は制度の全体像をつかむための目安として使い、
-              実際に申請する前には必ず記載の窓口で最新の条件を確認してください。
-              自治体独自の制度（子ども医療費助成など）は住んでいる市区町村によって内容が大きく異なります。
+            <p className="text-[10px] text-slate-500"
+              title="ここの数字は制度の全体像をつかむための目安として使い、実際に申請する前には必ず記載の窓口で最新の条件を確認してください。自治体独自の制度（子ども医療費助成など）は住んでいる市区町村によって内容が大きく異なります。">
+              ※ 金額・所得制限は毎年のように改定されます ⓘ
             </p>
           </>
         )}
@@ -212,11 +203,12 @@ function BenefitCard({ b, reason, level, open, onToggle, showCategory }: {
   showCategory?: boolean
 }) {
   return (
-    <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
-      <button onClick={onToggle} className="w-full text-left px-4 py-3 hover:bg-slate-800/50 transition-colors">
+    <div className="border-b border-slate-800 last:border-0">
+      <button onClick={onToggle} title={b.summary}
+        className="w-full text-left px-4 py-2 hover:bg-slate-800/50 transition-colors">
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               {showCategory && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">{b.category}</span>
               )}
@@ -227,17 +219,17 @@ function BenefitCard({ b, reason, level, open, onToggle, showCategory }: {
               )}
               <span className="text-sm font-bold text-slate-100">{b.title}</span>
             </div>
-            <p className="text-[11px] text-slate-400 leading-relaxed">{b.summary}</p>
-            {reason && (
-              <p className="text-[11px] text-blue-300/80 mt-1">→ {reason}</p>
-            )}
           </div>
           <span className="text-slate-600 text-xs shrink-0 mt-1">{open ? "▲" : "▼"}</span>
         </div>
       </button>
 
       {open && (
-        <div className="px-4 pb-4 space-y-3 border-t border-slate-800 pt-3">
+        <div className="px-4 pb-3 space-y-2">
+          <p className="text-[11px] text-slate-400 leading-relaxed">{b.summary}</p>
+          {reason && (
+            <p className="text-[11px] text-blue-300/80">→ {reason}</p>
+          )}
           <Section title="いくら">
             <p className="text-xs text-slate-200 leading-relaxed">{b.amount}</p>
           </Section>

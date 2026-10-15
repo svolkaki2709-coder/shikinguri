@@ -272,35 +272,24 @@ function LifePlanContent() {
     flash("ライフプランを作成しました")
   }
 
-  const ScopeBanner = (
-    <div className={`rounded-xl p-3 border-2 flex items-center justify-between gap-3 ${
+  // 個人／共同の切替はタブ列の左端に小さく置く（説明はtitle）
+  const ScopeToggle = (
+    <div className={`flex rounded-xl p-0.5 border-2 shrink-0 ${
       scope === "joint" ? "bg-amber-500/10 border-amber-500/40" : "bg-indigo-500/10 border-indigo-500/40"
-    }`}>
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="text-lg shrink-0">{scope === "joint" ? "👥" : "👤"}</span>
-        <div className="min-w-0">
-          <p className={`text-sm font-bold ${scope === "joint" ? "text-amber-300" : "text-indigo-300"}`}>
-            {scope === "joint" ? "共同" : "個人"}のライフプラン
-          </p>
-          <p className="text-[11px] text-slate-500">
-            {scope === "joint"
-              ? "世帯全体の資金計画。相手にも見えます"
-              : "自分だけのライフプラン。相手には見えません"}
-          </p>
-        </div>
-      </div>
-      <div className="flex rounded-lg bg-slate-800 p-0.5 shrink-0">
-        {([["self", "個人"], ["joint", "共同"]] as const).map(([k, label]) => (
-          <button key={k} type="button" onClick={() => setScope(k)}
-            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
-              scope === k
-                ? k === "self" ? "bg-slate-900 text-indigo-400 shadow-sm" : "bg-slate-900 text-amber-400 shadow-sm"
-                : "text-slate-500"
-            }`}>
-            {label}
-          </button>
-        ))}
-      </div>
+    }`}
+      title={scope === "joint"
+        ? "共同のライフプラン：世帯全体の資金計画。相手にも見えます"
+        : "個人のライフプラン：自分だけのライフプラン。相手には見えません"}>
+      {([["self", "👤 個人"], ["joint", "👥 共同"]] as const).map(([k, label]) => (
+        <button key={k} type="button" onClick={() => setScope(k)}
+          className={`px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${
+            scope === k
+              ? k === "self" ? "bg-slate-900 text-indigo-300 shadow-sm" : "bg-slate-900 text-amber-300 shadow-sm"
+              : "text-slate-500"
+          }`}>
+          {label}
+        </button>
+      ))}
     </div>
   )
 
@@ -308,7 +297,7 @@ function LifePlanContent() {
     <div className={isPC ? "" : "pb-20"}>
       <PageHeader title="ライフプラン" />
       <main className={isPC ? "max-w-6xl mx-auto px-6 py-4 space-y-3" : "max-w-md mx-auto px-4 py-2 space-y-3"}>
-        {ScopeBanner}
+        {(loading || !settings) && <div className="flex">{ScopeToggle}</div>}
 
         {msg && (
           <div className="bg-green-500/10 text-green-300 text-xs rounded-lg px-3 py-2">✅ {msg}</div>
@@ -320,8 +309,10 @@ function LifePlanContent() {
           <OnboardingCard hints={hints} onStart={initSettings} scope={scope} />
         ) : (
           <>
-            {/* タブ */}
-            <div className="flex rounded-xl bg-slate-800 p-1 gap-0.5 overflow-x-auto">
+            {/* 個人／共同 ＋ タブ */}
+            <div className="flex items-center gap-2">
+            {ScopeToggle}
+            <div className="flex-1 min-w-0 flex rounded-xl bg-slate-800 p-1 gap-0.5 overflow-x-auto">
               {([
                 ["cashflow", "📊 キャッシュフロー"],
                 ["events", "🎯 ライフイベント"],
@@ -333,20 +324,21 @@ function LifePlanContent() {
                 ["settings", "⚙️ 前提条件"],
               ] as const).map(([k, label]) => (
                 <button key={k} onClick={() => setTab(k)}
-                  className={`flex-1 whitespace-nowrap py-2 px-2 rounded-lg text-xs font-semibold transition-colors ${
+                  className={`flex-1 whitespace-nowrap py-1.5 px-2 rounded-lg text-xs font-semibold transition-colors ${
                     tab === k ? "bg-slate-900 shadow-sm text-blue-400" : "text-slate-400"
                   }`}>
                   {label}
                 </button>
               ))}
             </div>
+            </div>
 
             {tab === "cashflow" && (
-              <CashFlowTab
+              <div className="@container"><CashFlowTab
                 rows={cashFlow} chartData={chartData} shortfall={shortfall} trough={trough}
                 members={ageMembers} settings={settings} isPC={isPC}
                 startAssets={startAssets} assetSource={assetSource}
-              />
+              /></div>
             )}
             {tab === "events" && (
               <EventsTab
@@ -360,8 +352,9 @@ function LifePlanContent() {
                 onChanged={load} flash={flash} focusAndSelect={focusAndSelect}
               />
             )}
+            {/* モーダルを持たないタブは幅で段組みを切り替える（@container） */}
             {tab === "share" && (
-              <JointContribution
+              <div className="@container"><JointContribution
                 members={ageMembers}
                 events={events}
                 hints={hints}
@@ -370,10 +363,10 @@ function LifePlanContent() {
                 scope={scope}
                 saved={(tools.find(t => t.tool === "contribution")?.params ?? null) as never}
                 onSaved={load}
-              />
+              /></div>
             )}
             {tab === "retire" && (
-              <RetirementGap
+              <div className="@container"><RetirementGap
                 members={ageMembers}
                 settings={settings}
                 hints={hints}
@@ -381,16 +374,16 @@ function LifePlanContent() {
                 scope={scope}
                 saved={(tools.find(t => t.tool === "retirement")?.params ?? null) as never}
                 onSaved={load}
-              />
+              /></div>
             )}
             {tab === "tools" && (
-              <LifePlanTools
+              <div className="@container"><LifePlanTools
                 settings={settings} members={ageMembers} streams={streams} events={events}
                 tools={tools} scope={scope} onChanged={load} flash={flash}
                 payslipHints={payslipHints}
                 nisaAnnual={hints?.nisaAnnual ?? 0}
                 currentInvestment={settings.initial_investment}
-              />
+              /></div>
             )}
             {tab === "settings" && (
               <SettingsTab
@@ -480,37 +473,31 @@ function CashFlowTab({ rows, chartData, shortfall, trough, members, settings, is
 
   return (
     <div className="space-y-3">
-      {/* 診断結果 */}
+      {/* 診断結果＋サマリー（広い画面では1行に並べる） */}
+      <div className={`grid gap-2 ${isPC ? "grid-cols-4 @4xl:grid-cols-6" : "grid-cols-2"}`}>
       {shortfall ? (
-        <div className="bg-red-500/10 border-2 border-red-500/40 rounded-xl p-4">
-          <p className="text-sm font-bold text-red-300 mb-1">
-            ⚠️ {shortfall.year}年に資金がショートします
+        <div className={`bg-red-500/10 border-2 border-red-500/40 rounded-xl px-3 py-2 ${isPC ? "col-span-4 @4xl:col-span-2" : "col-span-2"}`}
+          title={`この年の資産残高が ${fmtMan(shortfall.balance)}万円 とマイナスになります。収入を増やす・支出を見直す・イベントの時期をずらす・運用利回りを上げる、のいずれかで解消できないか「前提条件」タブで数字を変えて試してみてください。`}>
+          <p className="text-sm font-bold text-red-300">
+            ⚠️ {shortfall.year}年に資金がショートします <span className="text-[11px] font-normal text-red-200/60 cursor-help">ⓘ</span>
           </p>
-          <p className="text-xs text-red-200/80 leading-relaxed">
-            この年の資産残高が <span className="font-bold">{fmtMan(shortfall.balance)}万円</span> とマイナスになります。
+          <p className="text-[11px] text-red-200/80">
+            残高 <span className="font-bold">{fmtMan(shortfall.balance)}万円</span>
             {members.length > 0 && (
               <>（{shortfall.ages.map(a => `${a.member.name} ${a.age}歳`).join(" / ")}）</>
             )}
-            <br />
-            収入を増やす・支出を見直す・イベントの時期をずらす・運用利回りを上げる、のいずれかで解消できないか
-            「前提条件」タブで数字を変えて試してみてください。
           </p>
         </div>
       ) : (
-        <div className="bg-green-500/10 border-2 border-green-500/40 rounded-xl p-4">
-          <p className="text-sm font-bold text-green-300 mb-1">
-            ✅ {settings.start_year + settings.years - 1}年まで資金は持ちます
+        <div className={`bg-green-500/10 border-2 border-green-500/40 rounded-xl px-3 py-2 ${isPC ? "col-span-4 @4xl:col-span-2" : "col-span-2"}`}
+          title={`期間中の最低残高は${trough ? `${trough.year}年の${fmtMan(trough.balance)}万円` : "—"}、最終年の残高は${fmtMan(last.balance)}万円です。最低残高が生活費の半年分（目安）を下回る場合は余裕が少ない状態なので、注意して見てください。`}>
+          <p className="text-sm font-bold text-green-300">
+            ✅ {settings.start_year + settings.years - 1}年まで資金は持ちます <span className="text-[11px] font-normal text-green-200/60 cursor-help">ⓘ</span>
           </p>
-          <p className="text-xs text-green-200/80 leading-relaxed">
-            期間中の最低残高は {trough && <span className="font-bold">{trough.year}年の{fmtMan(trough.balance)}万円</span>}、
-            最終年の残高は <span className="font-bold">{fmtMan(last.balance)}万円</span> です。
-            最低残高が生活費の半年分（目安）を下回る場合は余裕が少ない状態なので、注意して見てください。
-          </p>
+          <p className="text-[11px] text-green-200/80">最低残高が生活費の半年分を下回らないか確認</p>
         </div>
       )}
 
-      {/* サマリーカード */}
-      <div className={`grid ${isPC ? "grid-cols-4" : "grid-cols-2"} gap-2`}>
         <SummaryCard label="現在の資産" value={`${fmtMan(startAssets)}万円`} sub={assetSource} />
         <SummaryCard label="最低残高" value={trough ? `${fmtMan(trough.balance)}万円` : "—"}
           sub={trough ? `${trough.year}年` : ""} danger={!!trough && trough.balance < 0} />
@@ -521,8 +508,11 @@ function CashFlowTab({ rows, chartData, shortfall, trough, members, settings, is
 
       {/* グラフ */}
       <div className="bg-slate-900 rounded-xl border border-slate-800 p-3">
-        <h3 className="text-xs font-semibold text-slate-400 mb-2">資産残高の推移（万円）</h3>
-        <ResponsiveContainer width="100%" height={260}>
+        <h3 className="text-xs font-semibold text-slate-400 mb-1"
+          title="青い線が資産残高。赤いゼロラインを下回る年があれば、その手前で対策が必要です">
+          資産残高の推移（万円）<span className="ml-2 font-normal text-slate-500">青線＝資産残高・赤線＝ゼロ</span>
+        </h3>
+        <ResponsiveContainer width="100%" height={240}>
           <ComposedChart data={chartData} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
             <XAxis dataKey="year" tick={{ fontSize: 10, fill: "#64748b" }} interval="preserveStartEnd" />
@@ -539,16 +529,11 @@ function CashFlowTab({ rows, chartData, shortfall, trough, members, settings, is
             <Line type="monotone" dataKey="資産残高" stroke="#3b82f6" strokeWidth={2.5} dot={false} />
           </ComposedChart>
         </ResponsiveContainer>
-        <p className="text-[10px] text-slate-500 mt-1.5">
-          青い線が資産残高。赤いゼロラインを下回る年があれば、その手前で対策が必要です
-        </p>
       </div>
 
       {/* 表 */}
       <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
-        <div className="px-4 py-2.5 bg-slate-800 border-b border-slate-800">
-          <h3 className="text-xs font-semibold text-slate-300">キャッシュフロー表（万円）</h3>
-        </div>
+        <h3 className="px-4 py-2 bg-slate-800 text-xs font-semibold text-slate-300">キャッシュフロー表（万円）</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-xs whitespace-nowrap">
             <thead>
@@ -610,12 +595,12 @@ function SummaryCard({ label, value, sub, danger }: {
   label: string; value: string; sub?: string; danger?: boolean
 }) {
   return (
-    <div className={`rounded-xl border p-3 text-center ${
+    <div className={`rounded-xl border px-2 py-1.5 text-center ${
       danger ? "bg-red-500/10 border-red-500/30" : "bg-slate-900 border-slate-800"
     }`}>
-      <p className="text-[11px] text-slate-400 mb-1">{label}</p>
+      <p className="text-[11px] text-slate-400">{label}</p>
       <p className={`text-sm font-bold ${danger ? "text-red-400" : "text-slate-100"}`}>{value}</p>
-      {sub && <p className="text-[10px] text-slate-500 mt-0.5">{sub}</p>}
+      {sub && <p className="text-[10px] text-slate-500">{sub}</p>}
     </div>
   )
 }
@@ -660,45 +645,32 @@ function EventsTab({ events, members, settings, scope, onChanged, flash, focusAn
 
   return (
     <div className="space-y-3">
-      <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">
-        <p className="text-xs text-blue-200/90 leading-relaxed">
-          <span className="font-semibold text-blue-300">ライフイベント</span>は、特定の年に発生するまとまった収入・支出です。
-          金額は<span className="font-semibold">今の物価での金額</span>で入れてください（将来価値には自動で換算されます）。
-          テンプレートから選べば、一般的な費用の目安が入ります。
-        </p>
-      </div>
-
-      <div className="flex gap-2">
-        <button onClick={() => setShowTemplates(true)}
-          className="flex-1 bg-blue-600 text-white rounded-lg py-2.5 text-sm font-semibold hover:bg-blue-700 transition-colors">
-          📋 テンプレートから選ぶ
-        </button>
-        <button onClick={() => setEditing({ year: settings.start_year, kind: "expense", category: "その他", repeat_years: 1, inflate: true, amount: 0, name: "" })}
-          className="flex-1 bg-slate-800 text-slate-200 rounded-lg py-2.5 text-sm font-semibold hover:bg-slate-700 transition-colors">
-          ＋ 自分で入力
-        </button>
-      </div>
-
-      {totalByCategory.length > 0 && (
-        <div className="bg-slate-900 rounded-xl border border-slate-800 p-3">
-          <p className="text-xs font-semibold text-slate-400 mb-2">カテゴリ別の総額（今の物価ベース）</p>
-          <div className="flex gap-1.5 flex-wrap">
-            {totalByCategory.map(([cat, total]) => (
-              <span key={cat} className={`text-xs px-2 py-1 rounded ${CATEGORY_COLORS[cat] ?? CATEGORY_COLORS.その他}`}>
-                {cat} {fmtMan(total)}万円
-              </span>
-            ))}
+      <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
+        <div className="px-4 py-1.5 bg-slate-800 border-b border-slate-800 flex items-center gap-x-2 gap-y-1 flex-wrap">
+          <h3 className="text-xs font-semibold text-slate-300 cursor-help"
+            title="ライフイベントは、特定の年に発生するまとまった収入・支出です。金額は今の物価での金額で入れてください（将来価値には自動で換算されます）。テンプレートから選べば、一般的な費用の目安が入ります。">
+            登録済みイベント ⓘ
+          </h3>
+          <span className="text-[11px] text-slate-500">{events.length}件</span>
+          {totalByCategory.map(([cat, total]) => (
+            <span key={cat} title="カテゴリ別の総額（今の物価ベース）"
+              className={`text-[10px] px-1.5 py-0.5 rounded ${CATEGORY_COLORS[cat] ?? CATEGORY_COLORS.その他}`}>
+              {cat} {fmtMan(total)}万円
+            </span>
+          ))}
+          <div className="ml-auto flex gap-1.5">
+            <button onClick={() => setShowTemplates(true)}
+              className="bg-blue-600 text-white rounded-md px-2.5 py-1 text-xs font-semibold hover:bg-blue-700 transition-colors">
+              📋 テンプレート
+            </button>
+            <button onClick={() => setEditing({ year: settings.start_year, kind: "expense", category: "その他", repeat_years: 1, inflate: true, amount: 0, name: "" })}
+              className="bg-slate-700 text-slate-200 rounded-md px-2.5 py-1 text-xs font-semibold hover:bg-slate-600 transition-colors">
+              ＋ 自分で入力
+            </button>
           </div>
         </div>
-      )}
-
-      <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
-        <div className="px-4 py-2.5 bg-slate-800 border-b border-slate-800 flex justify-between items-center">
-          <h3 className="text-xs font-semibold text-slate-300">登録済みイベント</h3>
-          <span className="text-[11px] text-slate-500">{events.length}件</span>
-        </div>
         {events.length === 0 ? (
-          <p className="text-center text-xs text-slate-500 py-8">
+          <p className="text-xs text-slate-500 px-4 py-2">
             まだありません。テンプレートから追加してみてください
           </p>
         ) : (
@@ -1062,10 +1034,10 @@ function StreamsTab({ streams, settings, scope, hints, onChanged, flash, focusAn
 
   function renderList(list: Stream[], kind: "income" | "expense") {
     return list.length === 0 ? (
-      <p className="text-center text-xs text-slate-500 py-6">未登録です</p>
+      <p className="text-xs text-slate-500 px-4 py-2">未登録です</p>
     ) : (
       list.map(s => (
-        <div key={s.id} className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-800 last:border-0">
+        <div key={s.id} className="flex items-center gap-2 px-4 py-1.5 border-b border-slate-800 last:border-0">
           <div className="min-w-0 flex-1">
             <p className="text-sm text-slate-100 font-medium truncate">{s.name}</p>
             <p className="text-[11px] text-slate-500">
@@ -1091,112 +1063,93 @@ function StreamsTab({ streams, settings, scope, hints, onChanged, flash, focusAn
     )
   }
 
+  const balance = incomeTotal - expenseTotal
+  const budgetNote = hints
+    ? `予実管理で立てた${hints.budgetYear ?? new Date().getFullYear()}年の予算を1年分積み上げた金額です（隔月やその月だけの予算も織り込んでいます）。登録後は金額を自由に変えられますし、住居費や車の維持費など、予算に入れていない項目は別の行として足せます`
+    : ""
+  const actualNote = "直近1年の実績です。支出には投資・貯蓄カテゴリを含めていません。積立は「支出」ではなく資産の移動なので、キャッシュフロー上は運用利回りとして扱います"
+  const hasBudget = !!hints && ((hints.budgetExpenseAnnual ?? 0) > 0 || (hints.budgetIncomeAnnual ?? 0) > 0)
+  const hasActual = !!hints && (hints.annualExpense > 0 || hints.annualIncome > 0)
+  const chip = "text-[11px] px-2 py-0.5 rounded border transition-colors"
+
   return (
     <div className="space-y-3">
-      <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">
-        <p className="text-xs text-blue-200/90 leading-relaxed">
-          毎年継続的に発生する収入・支出を登録します。
-          <span className="font-semibold text-blue-300">期間を区切れる</span>のがポイントで、
-          「給与は65歳まで」「年金は65歳から」「住宅ローンは2045年まで」のように設定すると、
-          収入が減る時期・支出が終わる時期が自動でキャッシュフローに反映されます。
-        </p>
-      </div>
-
-      {/* 予算からの取り込み。実績が無い・ぶれる場合はこちらのほうが計画に近い */}
-      {hints && ((hints.budgetExpenseAnnual ?? 0) > 0 || (hints.budgetIncomeAnnual ?? 0) > 0) && (
-        <div className="bg-slate-900 rounded-xl border border-blue-500/30 p-3">
-          <p className="text-xs font-semibold text-blue-300 mb-2">
-            {scope === "joint" ? "共同" : "個人"}の予算（{hints.budgetYear ?? new Date().getFullYear()}年の合計）
-          </p>
-          <div className="flex gap-2">
+      {/* 取り込み（予算・実績）を1行のチップにまとめる。押すと編集画面が開く */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <span className="text-xs text-slate-400 cursor-help"
+          title="毎年継続的に発生する収入・支出を登録します。期間を区切れるのがポイントで、「給与は65歳まで」「年金は65歳から」「住宅ローンは2045年まで」のように設定すると、収入が減る時期・支出が終わる時期が自動でキャッシュフローに反映されます。">
+          ⓘ 毎年の収入・支出
+        </span>
+        {(hasBudget || hasActual) && <span className="text-[11px] text-slate-500 ml-1">取り込む:</span>}
+        {hasBudget && hints && (
+          <>
+            <span className="text-[11px] text-blue-300" title={budgetNote}>
+              {scope === "joint" ? "共同" : "個人"}の予算（{hints.budgetYear ?? new Date().getFullYear()}年）
+            </span>
             {(hints.budgetIncomeAnnual ?? 0) > 0 && (
-              <button
+              <button title={budgetNote}
                 onClick={() => setEditing({ kind: "income", name: "収入（予算ベース）", annual_amount: hints.budgetIncomeAnnual, growth_rate: 1.5 })}
-                className="flex-1 bg-green-500/10 border border-green-500/30 rounded-lg p-2.5 text-left hover:bg-green-500/20 transition-colors">
-                <p className="text-[11px] text-green-300/70">収入</p>
-                <p className="text-sm font-bold text-green-300">{fmtMan(hints.budgetIncomeAnnual ?? 0)}万円</p>
-                <p className="text-[10px] text-slate-500 mt-0.5">タップして登録</p>
+                className={`${chip} bg-green-500/10 border-green-500/30 text-green-300 hover:bg-green-500/20`}>
+                収入 {fmtMan(hints.budgetIncomeAnnual ?? 0)}万円
               </button>
             )}
             {(hints.budgetExpenseAnnual ?? 0) > 0 && (
-              <button
+              <button title={budgetNote}
                 onClick={() => setEditing({ kind: "expense", name: "基本生活費（予算ベース）", annual_amount: hints.budgetExpenseAnnual, growth_rate: null })}
-                className="flex-1 bg-red-500/10 border border-red-500/30 rounded-lg p-2.5 text-left hover:bg-red-500/20 transition-colors">
-                <p className="text-[11px] text-red-300/70">支出</p>
-                <p className="text-sm font-bold text-red-300">{fmtMan(hints.budgetExpenseAnnual ?? 0)}万円</p>
-                <p className="text-[10px] text-slate-500 mt-0.5">タップして登録</p>
+                className={`${chip} bg-red-500/10 border-red-500/30 text-red-300 hover:bg-red-500/20`}>
+                支出 {fmtMan(hints.budgetExpenseAnnual ?? 0)}万円
               </button>
             )}
-          </div>
-          <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
-予実管理で立てた{hints.budgetYear ?? new Date().getFullYear()}年の予算を1年分積み上げた金額です
-            （隔月やその月だけの予算も織り込んでいます）。登録後は金額を自由に変えられますし、
-            住居費や車の維持費など、予算に入れていない項目は別の行として足せます
-          </p>
-        </div>
-      )}
-
-      {hints && (hints.annualExpense > 0 || hints.annualIncome > 0) && (
-        <div className="bg-slate-900 rounded-xl border border-slate-800 p-3">
-          <p className="text-xs font-semibold text-slate-400 mb-2">この家計簿の直近1年の実績</p>
-          <div className="flex gap-2">
-            <button
+          </>
+        )}
+        {hasActual && hints && (
+          <>
+            <span className="text-[11px] text-slate-400 ml-1" title={actualNote}>実績（直近1年）</span>
+            <button title={actualNote}
               onClick={() => setEditing({ kind: "income", name: "給与収入（手取り）", annual_amount: hints.annualIncome, growth_rate: 1.5 })}
-              className="flex-1 bg-green-500/10 border border-green-500/30 rounded-lg p-2.5 text-left hover:bg-green-500/20 transition-colors">
-              <p className="text-[11px] text-green-300/70">収入</p>
-              <p className="text-sm font-bold text-green-300">{fmtMan(hints.annualIncome)}万円</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">タップして登録</p>
+              className={`${chip} bg-green-500/10 border-green-500/30 text-green-300 hover:bg-green-500/20`}>
+              収入 {fmtMan(hints.annualIncome)}万円
             </button>
-            <button
+            <button title={actualNote}
               onClick={() => setEditing({ kind: "expense", name: "基本生活費", annual_amount: hints.annualExpense, growth_rate: null })}
-              className="flex-1 bg-red-500/10 border border-red-500/30 rounded-lg p-2.5 text-left hover:bg-red-500/20 transition-colors">
-              <p className="text-[11px] text-red-300/70">支出</p>
-              <p className="text-sm font-bold text-red-300">{fmtMan(hints.annualExpense)}万円</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">タップして登録</p>
+              className={`${chip} bg-red-500/10 border-red-500/30 text-red-300 hover:bg-red-500/20`}>
+              支出 {fmtMan(hints.annualExpense)}万円
             </button>
+          </>
+        )}
+        <span className={`ml-auto text-xs font-bold ${balance >= 0 ? "text-blue-400" : "text-red-400"}`}>
+          <span className="text-[11px] font-normal text-slate-400">初年度の年間収支 </span>
+          {balance >= 0 ? "+" : ""}{fmtMan(balance)}万円
+        </span>
+      </div>
+
+      {/* 収入一覧と支出一覧（広い画面では横並び） */}
+      <div className="@container">
+        <div className="grid gap-3 @3xl:grid-cols-2 @3xl:items-start">
+          <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
+            <div className="px-4 py-1.5 bg-slate-800 border-b border-slate-800 flex items-center gap-2">
+              <h3 className="text-xs font-semibold text-green-300">収入（年額）</h3>
+              <span className="text-xs font-bold text-green-400">{fmtMan(incomeTotal)}万円</span>
+              <button onClick={() => setEditing({ kind: "income", name: "", annual_amount: 0, growth_rate: 1.5 })}
+                className="ml-auto bg-green-600 text-white rounded-md px-2.5 py-0.5 text-xs font-semibold hover:bg-green-700 transition-colors">
+                ＋ 収入を追加
+              </button>
+            </div>
+            {renderList(incomes, "income")}
           </div>
-          <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
-            支出には投資・貯蓄カテゴリを含めていません。積立は「支出」ではなく資産の移動なので、
-            キャッシュフロー上は運用利回りとして扱います
-          </p>
+
+          <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
+            <div className="px-4 py-1.5 bg-slate-800 border-b border-slate-800 flex items-center gap-2">
+              <h3 className="text-xs font-semibold text-red-300">支出（年額）</h3>
+              <span className="text-xs font-bold text-red-400">{fmtMan(expenseTotal)}万円</span>
+              <button onClick={() => setEditing({ kind: "expense", name: "", annual_amount: 0, growth_rate: null })}
+                className="ml-auto bg-slate-700 text-slate-100 rounded-md px-2.5 py-0.5 text-xs font-semibold hover:bg-slate-600 transition-colors">
+                ＋ 支出を追加
+              </button>
+            </div>
+            {renderList(expenses, "expense")}
+          </div>
         </div>
-      )}
-
-      <div className="flex gap-2">
-        <button onClick={() => setEditing({ kind: "income", name: "", annual_amount: 0, growth_rate: 1.5 })}
-          className="flex-1 bg-green-600 text-white rounded-lg py-2.5 text-sm font-semibold hover:bg-green-700 transition-colors">
-          ＋ 収入を追加
-        </button>
-        <button onClick={() => setEditing({ kind: "expense", name: "", annual_amount: 0, growth_rate: null })}
-          className="flex-1 bg-slate-700 text-slate-100 rounded-lg py-2.5 text-sm font-semibold hover:bg-slate-600 transition-colors">
-          ＋ 支出を追加
-        </button>
-      </div>
-
-      <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
-        <div className="px-4 py-2.5 bg-slate-800 border-b border-slate-800 flex justify-between">
-          <h3 className="text-xs font-semibold text-green-300">収入（年額）</h3>
-          <span className="text-xs font-bold text-green-400">{fmtMan(incomeTotal)}万円</span>
-        </div>
-        {renderList(incomes, "income")}
-      </div>
-
-      <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
-        <div className="px-4 py-2.5 bg-slate-800 border-b border-slate-800 flex justify-between">
-          <h3 className="text-xs font-semibold text-red-300">支出（年額）</h3>
-          <span className="text-xs font-bold text-red-400">{fmtMan(expenseTotal)}万円</span>
-        </div>
-        {renderList(expenses, "expense")}
-      </div>
-
-      <div className={`rounded-xl border p-3 text-center ${
-        incomeTotal - expenseTotal >= 0
-          ? "bg-blue-500/10 border-blue-500/30" : "bg-red-500/10 border-red-500/30"
-      }`}>
-        <p className="text-[11px] text-slate-400">初年度の年間収支</p>
-        <p className={`text-lg font-bold ${incomeTotal - expenseTotal >= 0 ? "text-blue-400" : "text-red-400"}`}>
-          {incomeTotal - expenseTotal >= 0 ? "+" : ""}{fmtMan(incomeTotal - expenseTotal)}万円
-        </p>
       </div>
 
       {editing && (
@@ -1392,13 +1345,17 @@ function SettingsTab({ settings, members, hints, scope, onSave, onChanged, flash
   const thisYear = new Date().getFullYear()
 
   return (
-    <div className="space-y-3">
+    <div className="@container space-y-3">
+      <div className="grid gap-3 @3xl:grid-cols-2 @3xl:items-start">
       {/* 家族構成（世帯で1つ。個人プランでは共同の登録を参照するだけにする） */}
       {scope !== "joint" ? (
-        <div className="bg-slate-900 rounded-xl border border-slate-800 p-4">
-          <h3 className="text-xs font-semibold text-slate-300 mb-2">家族構成</h3>
+        <div className="bg-slate-900 rounded-xl border border-slate-800 px-4 py-3">
+          <h3 className="text-xs font-semibold text-slate-300 mb-1.5 cursor-help"
+            title="家族構成は世帯で1つです。追加・変更は共同のライフプランから行ってください">
+            家族構成（共同で登録） ⓘ
+          </h3>
           {members.length > 0 ? (
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               {members.map(m => (
                 <div key={m.id} className="flex items-center gap-2 text-sm">
                   <span className="text-xs px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">{m.relation}</span>
@@ -1410,22 +1367,16 @@ function SettingsTab({ settings, members, hints, scope, onSave, onChanged, flash
           ) : (
             <p className="text-xs text-slate-500">まだ登録がありません</p>
           )}
-          <p className="text-[11px] text-slate-500 mt-2">
-            家族構成は世帯で1つです。追加・変更は共同のライフプランから行ってください
-          </p>
         </div>
       ) : (
       <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
-        <div className="px-4 py-2.5 bg-slate-800 border-b border-slate-800">
-          <h3 className="text-xs font-semibold text-slate-300">家族構成</h3>
-        </div>
-        <div className="p-4 space-y-3">
-          <p className="text-[11px] text-slate-500 leading-relaxed">
-            生年を登録すると、キャッシュフロー表に各年の年齢が並びます。
-            「子が18歳の年 = 大学入学」のようにイベントの発生年を自動計算できるようになります。
-          </p>
+        <h3 className="px-4 py-2 bg-slate-800 text-xs font-semibold text-slate-300 cursor-help"
+          title="生年を登録すると、キャッシュフロー表に各年の年齢が並びます。「子が18歳の年 = 大学入学」のようにイベントの発生年を自動計算できるようになります。">
+          家族構成 ⓘ
+        </h3>
+        <div className="px-4 py-3 space-y-1.5">
           {members.map(m => (
-            <div key={m.id} className="flex items-center gap-2 bg-slate-800 rounded-lg px-3 py-2">
+            <div key={m.id} className="flex items-center gap-2 border-b border-slate-800 py-1">
               <span className="text-xs px-1.5 py-0.5 rounded bg-slate-700 text-slate-300">{m.relation}</span>
               <span className="text-sm text-slate-100 flex-1">{m.name}</span>
               <span className="text-xs text-slate-500">{m.birth_year}年生 · {thisYear - m.birth_year}歳</span>
@@ -1433,65 +1384,63 @@ function SettingsTab({ settings, members, hints, scope, onSave, onChanged, flash
                 className="text-slate-600 hover:text-red-400 text-xl leading-none w-5">×</button>
             </div>
           ))}
-          <div className="grid grid-cols-[1fr_auto_auto] gap-2">
+          <div className="flex flex-wrap items-center gap-2 pt-1">
             <input type="text" value={newName} onChange={e => setNewName(e.target.value)}
-              placeholder="名前" className={INPUT_CLS} />
+              placeholder="名前" className={`${INPUT_CLS} w-32`} />
             <input type="number" value={newBirth} onChange={e => setNewBirth(e.target.value)}
               placeholder="生年" className={`${INPUT_CLS} w-24`} />
             <select value={newRelation} onChange={e => setNewRelation(e.target.value)} className={INPUT_CLS}>
               {["本人", "配偶者", "子", "その他"].map(r => <option key={r} value={r}>{r}</option>)}
             </select>
+            <button onClick={addMember} disabled={!newName.trim() || !newBirth}
+              className="bg-slate-700 text-slate-100 rounded-lg px-3 py-1.5 text-sm font-semibold hover:bg-slate-600 disabled:opacity-40 transition-colors">
+              家族を追加
+            </button>
           </div>
-          <button onClick={addMember} disabled={!newName.trim() || !newBirth}
-            className="w-full bg-slate-700 text-slate-100 rounded-lg py-2 text-sm font-semibold hover:bg-slate-600 disabled:opacity-40 transition-colors">
-            家族を追加
-          </button>
         </div>
       </div>
       )}
 
       {/* 前提条件 */}
       <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
-        <div className="px-4 py-2.5 bg-slate-800 border-b border-slate-800">
-          <h3 className="text-xs font-semibold text-slate-300">試算の前提条件</h3>
-        </div>
-        <div className="p-4 space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+        <h3 className="px-4 py-2 bg-slate-800 text-xs font-semibold text-slate-300">試算の前提条件</h3>
+        <div className="@container px-4 py-3 space-y-2">
+          <div className="grid grid-cols-2 @md:grid-cols-3 gap-x-3 gap-y-2">
             <Field label="開始年" hint="今年から始めるのが基本">
               <input type="number" value={f.start_year}
-                onChange={e => setF({ ...f, start_year: e.target.value })} className={`${INPUT_CLS} w-full`} />
+                onChange={e => setF({ ...f, start_year: e.target.value })} className={`${INPUT_CLS} w-24`} />
             </Field>
             <Field label="試算年数" hint="老後まで見るなら40〜50年">
               <input type="number" value={f.years}
-                onChange={e => setF({ ...f, years: e.target.value })} className={`${INPUT_CLS} w-full`} />
+                onChange={e => setF({ ...f, years: e.target.value })} className={`${INPUT_CLS} w-24`} />
             </Field>
             <Field label="物価上昇率（%）" hint="日銀目標は2%。保守的に見るなら1〜2%">
               <input type="text" inputMode="decimal" value={f.inflation_rate}
                 onFocus={e => e.currentTarget.select()}
-                onChange={e => setF({ ...f, inflation_rate: e.target.value })} className={`${INPUT_CLS} w-full text-right`} />
+                onChange={e => setF({ ...f, inflation_rate: e.target.value })} className={`${INPUT_CLS} w-20 text-right`} />
             </Field>
             <Field label="運用利回り（%）" hint="現預金中心なら0〜1%、投資比率が高いなら3〜5%">
               <input type="text" inputMode="decimal" value={f.return_rate}
                 onFocus={e => e.currentTarget.select()}
-                onChange={e => setF({ ...f, return_rate: e.target.value })} className={`${INPUT_CLS} w-full text-right`} />
+                onChange={e => setF({ ...f, return_rate: e.target.value })} className={`${INPUT_CLS} w-20 text-right`} />
             </Field>
             <Field label="現在の預貯金（万円）">
               <input type="text" inputMode="decimal" value={f.savingsMan}
                 onFocus={e => e.currentTarget.select()}
-                onChange={e => setF({ ...f, savingsMan: fmtDecimalInput(e.target.value) })} className={`${INPUT_CLS} w-full text-right`} />
+                onChange={e => setF({ ...f, savingsMan: fmtDecimalInput(e.target.value) })} className={`${INPUT_CLS} w-28 text-right`} />
             </Field>
             <Field label="現在の投資資産（万円）">
               <input type="text" inputMode="decimal" value={f.investmentMan}
                 onFocus={e => e.currentTarget.select()}
-                onChange={e => setF({ ...f, investmentMan: fmtDecimalInput(e.target.value) })} className={`${INPUT_CLS} w-full text-right`} />
+                onChange={e => setF({ ...f, investmentMan: fmtDecimalInput(e.target.value) })} className={`${INPUT_CLS} w-28 text-right`} />
             </Field>
           </div>
 
           {hints && (hints.savings > 0 || hints.investment > 0) && (
             <button
               onClick={() => setF({ ...f, savingsMan: yenToManStr(hints.savings), investmentMan: yenToManStr(hints.investment) })}
-              className="w-full text-xs bg-slate-800 text-slate-300 rounded-lg py-2 hover:bg-slate-700 transition-colors">
-              資産管理の最新値を取り込む（預貯金 {fmtMan(hints.savings)}万円 / 投資 {fmtMan(hints.investment)}万円）
+              className="text-[11px] text-blue-400 hover:text-blue-300">
+              ↺ 資産管理の最新値を取り込む（預貯金 {fmtMan(hints.savings)}万円 / 投資 {fmtMan(hints.investment)}万円）
             </button>
           )}
 
@@ -1499,10 +1448,12 @@ function SettingsTab({ settings, members, hints, scope, onSave, onChanged, flash
         </div>
       </div>
 
+      </div>
+
       {/* 解説 */}
-      <div className="bg-slate-900 rounded-xl border border-slate-800 p-4 space-y-2.5">
-        <h3 className="text-xs font-semibold text-slate-300">この試算の計算ルール</h3>
-        <div className="text-[11px] text-slate-400 leading-relaxed space-y-1.5">
+      <details className="bg-slate-900 rounded-xl border border-slate-800 px-4 py-2">
+        <summary className="text-xs font-semibold text-slate-300 cursor-pointer">この試算の計算ルール</summary>
+        <div className="text-[11px] text-slate-400 leading-relaxed space-y-1.5 pt-2">
           <p>
             <span className="text-slate-200 font-semibold">年間収支</span> = 収入合計 − 支出合計
           </p>
@@ -1518,17 +1469,19 @@ function SettingsTab({ settings, members, hints, scope, onSave, onChanged, flash
             現預金の比率が高い場合は運用利回りを低めに設定してください。
           </p>
         </div>
-      </div>
+      </details>
     </div>
   )
 }
 
+/** ヒントはラベル横のⓘ（title）で出し、2行目を使わない */
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-[11px] text-slate-400 mb-1">{label}</label>
+      <label className="block text-[11px] text-slate-400 mb-0.5" title={hint}>
+        {label}{hint && <span className="text-slate-500 cursor-help"> ⓘ</span>}
+      </label>
       {children}
-      {hint && <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">{hint}</p>}
     </div>
   )
 }

@@ -55,6 +55,8 @@ function HistoryContent() {
   const [category, setCategory] = useState(searchParams.get("category") ?? "")
   const [keyword, setKeyword] = useState(searchParams.get("keyword") ?? "")
   const [usageFilter, setUsageFilter] = useState<"all" | "self" | "joint">("all")
+  // モバイルの「絞り込み」欄の開閉（絞り込み中は常に表示）
+  const [filterOpen, setFilterOpen] = useState(false)
 
   // 編集モーダル
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
@@ -195,13 +197,14 @@ function HistoryContent() {
 
   // 表示するカードボタン（usageFilterに合わせる）
   const visibleCards = usageFilter === "all" ? cards : cards.filter(c => c.card_type === usageFilter)
+  const showFilters = filterOpen || !!category || !!keyword
 
   return (
     <div className={mode === "mobile" ? "pb-20" : ""}>
       <PageHeader title="明細履歴" />
       <div className={isPC ? "px-6 py-4" : "max-w-md mx-auto px-4 py-2"}>
         {/* フィルターバー */}
-        <div className={`bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 ${isPC ? "mb-4" : "mb-3 space-y-3"}`}>
+        <div className={`bg-slate-900 rounded-xl shadow-sm border border-slate-800 ${isPC ? "p-3 mb-4" : "px-2.5 py-2 mb-2 space-y-2"}`}>
           {isPC ? (
             <div className="flex items-center gap-3 flex-wrap">
               {/* 個人/共同トグル */}
@@ -275,84 +278,77 @@ function HistoryContent() {
             </div>
           ) : (
             <>
-              {/* モバイル: 個人/共同トグル */}
-              <div className="flex rounded-lg bg-slate-800 p-0.5">
-                {([["all", "すべて"], ["self", "個人"], ["joint", "共同"]] as const).map(([k, label]) => (
-                  <button key={k} onClick={() => { setUsageFilter(k); setCardId("") }}
-                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                      usageFilter === k
-                        ? k === "joint" ? "bg-slate-900 text-amber-400 shadow-sm"
-                        : k === "self" ? "bg-slate-900 text-indigo-400 shadow-sm"
-                        : "bg-slate-900 text-slate-300 shadow-sm"
-                        : "text-slate-400"
-                    }`}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-              {/* モバイル: カードフィルター */}
-              <div className="flex gap-1.5 flex-wrap">
-                <button onClick={() => setCardId("")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${cardId === "" ? "bg-slate-700 text-white border-gray-700" : "bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-600"}`}>
-                  すべて
-                </button>
-                {visibleCards.map(c => (
-                  <button key={c.id} onClick={() => setCardId(String(c.id))}
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all"
-                    style={{
-                      backgroundColor: cardId === String(c.id) ? c.color : "#1e293b",
-                      borderColor: cardId === String(c.id) ? c.color : "#334155",
-                      color: cardId === String(c.id) ? "white" : "#94a3b8",
-                    }}>
-                    {usageFilter === "all" && (
-                      <span className={`mr-1 text-[9px] font-bold px-1 py-0.5 rounded ${c.card_type === "joint" ? "bg-amber-400/25 text-amber-100" : "bg-indigo-400/25 text-indigo-100"}`}>
-                        {c.card_type === "joint" ? "共" : "個"}
-                      </span>
-                    )}
-                    {c.name}
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center gap-1 border rounded-lg px-1 py-1">
-                <button onClick={() => { const [y,mo] = month.split("-").map(Number); const d = new Date(y, mo-2, 1); setMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`) }}
-                  className="text-slate-400 hover:text-blue-400 px-1 font-bold text-base">‹</button>
-                <input type="month" value={month} onChange={e => setMonth(e.target.value)}
-                  className="flex-1 text-center text-sm font-semibold text-slate-100 border-0 outline-none bg-transparent min-w-0" />
-                <button onClick={() => { const [y,mo] = month.split("-").map(Number); const d = new Date(y, mo, 1); setMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`) }}
-                  className="text-slate-400 hover:text-blue-400 px-1 font-bold text-base">›</button>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs text-slate-300">カテゴリ</label>
-                    <button onClick={() => setCategory(category === "未分類" ? "" : "未分類")}
-                      className={`text-xs px-2 py-0.5 rounded-full border transition-all ${category === "未分類" ? "bg-orange-500 text-white border-orange-500" : "text-orange-400 border-orange-500/40 hover:bg-orange-500/10"}`}>
-                      未分類のみ
+              {/* モバイル: 月選択 ＋ 個人/共同 */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center">
+                  <button onClick={() => { const [y,mo] = month.split("-").map(Number); const d = new Date(y, mo-2, 1); setMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`) }}
+                    className="text-slate-400 hover:text-blue-400 px-1 font-bold text-base">‹</button>
+                  <input type="month" value={month} onChange={e => setMonth(e.target.value)} aria-label="月"
+                    className="w-28 text-center text-sm font-semibold text-slate-100 border-0 outline-none bg-transparent" />
+                  <button onClick={() => { const [y,mo] = month.split("-").map(Number); const d = new Date(y, mo, 1); setMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`) }}
+                    className="text-slate-400 hover:text-blue-400 px-1 font-bold text-base">›</button>
+                </div>
+                <div className="ml-auto flex rounded-lg bg-slate-800 p-0.5">
+                  {([["all", "すべて"], ["self", "個人"], ["joint", "共同"]] as const).map(([k, label]) => (
+                    <button key={k} onClick={() => { setUsageFilter(k); setCardId("") }}
+                      className={`px-2 py-1 rounded-md text-xs font-semibold transition-colors ${
+                        usageFilter === k
+                          ? k === "joint" ? "bg-slate-900 text-amber-400 shadow-sm"
+                          : k === "self" ? "bg-slate-900 text-indigo-400 shadow-sm"
+                          : "bg-slate-900 text-slate-300 shadow-sm"
+                          : "text-slate-400"
+                      }`}>
+                      {label}
                     </button>
-                  </div>
-                  <select value={category} onChange={e => setCategory(e.target.value)}
-                    className="w-full border rounded-lg px-2 py-1.5 text-sm bg-slate-900 text-slate-100">
-                    <option value="">すべて</option>
-                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                  ))}
+                </div>
+              </div>
+              {/* モバイル: 支払方法 ＋ 絞り込み ＋ 件数・合計 */}
+              <div className="flex items-center gap-2">
+                <div className="w-32 shrink-0">
+                  <select value={cardId} onChange={e => setCardId(e.target.value)} aria-label="支払方法"
+                    className="w-full border border-slate-700 rounded-lg px-1.5 py-1 text-xs bg-slate-900 text-slate-100">
+                    <option value="">全支払方法</option>
+                    {visibleCards.map(c => (
+                      <option key={c.id} value={String(c.id)}>
+                        {usageFilter === "all" ? (c.card_type === "joint" ? "［共］" : "［個］") : ""}{c.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
-                <div>
-                  <label className="block text-xs text-slate-300 mb-1">キーワード</label>
-                  <input type="text" value={keyword} onChange={e => setKeyword(e.target.value)}
-                    placeholder="メモ・カテゴリ"
-                    className="w-full border rounded-lg px-2 py-1.5 text-sm" />
+                <button onClick={() => setFilterOpen(o => !o)}
+                  className={`text-xs px-2 py-1 rounded-lg border transition-colors whitespace-nowrap ${
+                    category || keyword ? "border-blue-500/60 text-blue-300 bg-blue-500/10" : "border-slate-700 text-slate-400"
+                  }`}>
+                  🔍 絞り込み{category || keyword ? "●" : ""} {showFilters ? "▴" : "▾"}
+                </button>
+                <div className="ml-auto flex flex-col items-end leading-tight shrink-0">
+                  <span className="text-sm font-bold text-slate-100">{toJPY(total)}</span>
+                  <span className="text-[10px] text-slate-400">{filteredTransactions.length}件</span>
                 </div>
               </div>
+              {/* モバイル: カテゴリ・キーワード（閉じておき、絞り込み中は自動で開く） */}
+              {showFilters && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex items-center gap-1 min-w-0">
+                    <select value={category} onChange={e => setCategory(e.target.value)} aria-label="カテゴリ"
+                      className="min-w-0 flex-1 border border-slate-700 rounded-lg px-1.5 py-1 text-xs bg-slate-900 text-slate-100">
+                      <option value="">全カテゴリ</option>
+                      {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <button onClick={() => setCategory(category === "未分類" ? "" : "未分類")} title="未分類のみ"
+                      className={`shrink-0 text-xs px-1.5 py-1 rounded-lg border transition-all ${category === "未分類" ? "bg-orange-500 text-white border-orange-500" : "text-orange-400 border-orange-500/40 hover:bg-orange-500/10"}`}>
+                      ⚠
+                    </button>
+                  </div>
+                  <input type="text" value={keyword} onChange={e => setKeyword(e.target.value)} onFocus={() => setFilterOpen(true)}
+                    placeholder="キーワード（メモ・カテゴリ）" aria-label="キーワード"
+                    className="w-full min-w-0 border border-slate-700 rounded-lg px-2 py-1 text-xs bg-slate-900 text-slate-100" />
+                </div>
+              )}
             </>
           )}
         </div>
-
-        {!isPC && (
-          <div className="flex justify-between items-center px-1 mb-2">
-            <span className="text-sm text-slate-400">{filteredTransactions.length}件</span>
-            <span className="text-base font-bold text-slate-100">{toJPY(total)}</span>
-          </div>
-        )}
 
         {loading && <div className="text-center py-4 text-slate-400 text-sm">読み込み中...</div>}
 
@@ -379,9 +375,11 @@ function HistoryContent() {
                       <td className="px-4 py-1.5 text-slate-400 whitespace-nowrap">{t.date}</td>
                       <td className="px-3 py-1.5">
                         <div className="flex items-center gap-1 flex-wrap">
-                          <span className={`text-xs px-1.5 py-0.5 rounded font-medium whitespace-nowrap ${t.card_type === "joint" ? "bg-amber-500/15 text-amber-300" : "bg-indigo-500/15 text-indigo-300"}`}>
-                            {t.card_type === "joint" ? "共同" : "個人"}
-                          </span>
+                          {usageFilter === "all" && (
+                            <span className={`text-xs px-1.5 py-0.5 rounded font-medium whitespace-nowrap ${t.card_type === "joint" ? "bg-amber-500/15 text-amber-300" : "bg-indigo-500/15 text-indigo-300"}`}>
+                              {t.card_type === "joint" ? "共同" : "個人"}
+                            </span>
+                          )}
                           {t.source === "income" ? (
                             <span className="text-xs px-1.5 py-0.5 rounded font-medium whitespace-nowrap bg-green-500/15 text-green-300">収入</span>
                           ) : t.card_name && (
@@ -438,59 +436,57 @@ function HistoryContent() {
           const dayTotal = grouped[date].reduce((s, t) => s + t.amount, 0)
           return (
             <div key={date} className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 overflow-hidden mb-2">
-              <div className="flex justify-between items-center px-4 py-2 bg-slate-800 border-b">
+              <div className="flex justify-between items-center px-3 py-1 bg-slate-800 border-b border-slate-800">
                 <span className="text-xs font-medium text-slate-400">{date}</span>
                 <span className="text-xs font-semibold text-slate-400">{toJPY(dayTotal)}</span>
               </div>
               {grouped[date].map(t => (
-                <div key={t.id} className={`flex items-center gap-3 px-4 py-2 border-b last:border-0 ${t.category === "未分類" ? "bg-orange-500/10" : ""}`}>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
-                      <span className={`text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${t.card_type === "joint" ? "bg-amber-500/15 text-amber-300" : "bg-indigo-500/15 text-indigo-300"}`}>
-                        {t.card_type === "joint" ? "共同" : "個人"}
-                      </span>
-                      {t.source === "income" ? (
-                        <span className="text-xs px-1.5 py-0.5 rounded font-medium shrink-0 bg-green-500/15 text-green-300">収入</span>
-                      ) : t.card_name && (
-                        <span className="text-xs px-1.5 py-0.5 rounded text-white font-medium shrink-0"
-                          style={{ backgroundColor: t.color ?? "#6366f1" }}>
-                          {t.card_name}
-                        </span>
-                      )}
-                      {quickEditId === t.id ? (
-                        <select
-                          autoFocus
-                          defaultValue={t.category}
-                          onChange={e => handleQuickCategorySave(t, e.target.value)}
-                          onBlur={() => setQuickEditId(null)}
-                          className="text-sm rounded px-1 py-0.5 bg-slate-800 border border-blue-500/50 text-slate-100 outline-none max-w-[140px]"
-                        >
-                          {categoryOptionsFor(t.card_type, t.category).map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                      ) : (
-                        <button onClick={() => setQuickEditId(t.id)} title="タップしてカテゴリを変更"
-                          className={`text-sm font-medium truncate rounded px-1 -mx-1 hover:bg-slate-700 hover:underline decoration-dotted transition-colors text-left ${
-                          t.category === "未分類" ? "text-orange-400 font-semibold" : "text-slate-100"
-                        }`}>
-                          {t.category === "未分類" ? "⚠ 未分類" : t.category}
-                        </button>
-                      )}
-                      {t.source === "csv" && <span className="text-xs text-blue-400 shrink-0">CSV</span>}
-                      {t.source === "recurring" && <span className="text-xs text-green-400 shrink-0">定期</span>}
-                    </div>
-                    {t.memo && <p className="text-xs text-slate-400 truncate">{t.memo}</p>}
+                <div key={t.id} className={`flex items-center gap-1.5 px-3 py-1.5 border-b border-slate-800 last:border-0 ${t.category === "未分類" ? "bg-orange-500/10" : ""}`}>
+                  {/* 支払方法は色ドット（名前はtitle） */}
+                  {t.source === "income" ? (
+                    <span className="w-2 h-2 rounded-full shrink-0 bg-green-400" title="収入" />
+                  ) : (
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: t.color ?? "#6366f1" }} title={t.card_name ?? undefined} />
+                  )}
+                  <div className="flex-1 min-w-0 flex items-center gap-1">
+                    {quickEditId === t.id ? (
+                      <select
+                        autoFocus
+                        defaultValue={t.category}
+                        onChange={e => handleQuickCategorySave(t, e.target.value)}
+                        onBlur={() => setQuickEditId(null)}
+                        className="text-sm rounded px-1 py-0.5 bg-slate-800 border border-blue-500/50 text-slate-100 outline-none max-w-[140px]"
+                      >
+                        {categoryOptionsFor(t.card_type, t.category).map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    ) : (
+                      <button onClick={() => setQuickEditId(t.id)} title="タップしてカテゴリを変更"
+                        className={`shrink-0 max-w-[60%] text-sm font-medium truncate rounded px-1 -mx-1 hover:bg-slate-700 hover:underline decoration-dotted transition-colors text-left ${
+                        t.category === "未分類" ? "text-orange-400 font-semibold" : "text-slate-100"
+                      }`}>
+                        {t.category === "未分類" ? "⚠ 未分類" : t.category}
+                      </button>
+                    )}
+                    {t.memo && <span className="min-w-0 truncate text-xs text-slate-400" title={t.memo}>· {t.memo}</span>}
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <span className="text-sm font-semibold text-slate-100">{toJPY(t.amount)}</span>
+                  {usageFilter === "all" && (
+                    <span className={`text-[10px] px-1 rounded font-medium shrink-0 ${t.card_type === "joint" ? "bg-amber-500/15 text-amber-300" : "bg-indigo-500/15 text-indigo-300"}`}>
+                      {t.card_type === "joint" ? "共" : "個"}
+                    </span>
+                  )}
+                  {t.source === "csv" && <span className="text-[10px] text-blue-400 shrink-0">CSV</span>}
+                  {t.source === "recurring" && <span className="text-[10px] text-green-400 shrink-0">定期</span>}
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    <span className="text-sm font-semibold text-slate-100 mr-0.5">{toJPY(t.amount)}</span>
                     {t.source !== "income" && (
                       <button onClick={() => setSplitTarget(t)}
                         className="text-slate-600 hover:text-amber-400 transition-colors text-sm leading-none w-5 text-center"
                         title="立替分などを切り分ける">⑂</button>
                     )}
                     <button onClick={() => openEditModal(t)}
-                      className="text-slate-600 hover:text-blue-400 transition-colors text-sm leading-none w-6 text-center" title="編集">✏</button>
+                      className="text-slate-600 hover:text-blue-400 transition-colors text-sm leading-none w-5 text-center" title="編集">✏</button>
                     <button onClick={() => handleDelete(t.id, t.source)}
-                      className="text-slate-600 hover:text-red-400 transition-colors text-xl leading-none w-6 text-center">×</button>
+                      className="text-slate-600 hover:text-red-400 transition-colors text-xl leading-none w-5 text-center">×</button>
                   </div>
                 </div>
               ))}
@@ -518,74 +514,71 @@ function HistoryContent() {
       {editingTransaction && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
           onClick={e => { if (e.target === e.currentTarget) setEditingTransaction(null) }}>
-          <div className="bg-slate-900 rounded-2xl shadow-xl w-full max-w-md p-5 space-y-4">
+          <div className="bg-slate-900 rounded-2xl shadow-xl w-full max-w-md p-4 space-y-2.5">
             <div className="flex justify-between items-center">
               <h2 className="text-base font-bold text-slate-100">明細を編集</h2>
               <button onClick={() => setEditingTransaction(null)} className="text-slate-500 hover:text-slate-400 text-xl leading-none">×</button>
             </div>
 
-            {/* 日付 */}
-            <div>
-              <label className="text-xs text-slate-400 mb-1 block">日付</label>
-              <input type="date" value={editForm.date}
-                onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))}
-                className="w-full border rounded-lg px-3 py-2 text-sm text-slate-100 bg-slate-900 outline-none focus:ring-2 focus:ring-blue-400" />
+            {/* 日付・金額 */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs text-slate-400 mb-0.5 block">日付</label>
+                <input type="date" value={editForm.date}
+                  onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))}
+                  className="w-full border rounded-lg px-2 py-1.5 text-sm text-slate-100 bg-slate-900 outline-none focus:ring-2 focus:ring-blue-400" />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 mb-0.5 block">金額</label>
+                <div className="relative">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">¥</span>
+                  <input
+                    type="text" inputMode="numeric" value={editForm.amount}
+                    onChange={e => {
+                      const raw = toHalfWidth(e.target.value).replace(/,/g, "")
+                      if (raw === "" || /^\d+$/.test(raw)) {
+                        setEditForm(f => ({ ...f, amount: raw === "" ? "" : Number(raw).toLocaleString("ja-JP") }))
+                      }
+                    }}
+                    className="w-full border rounded-lg pl-6 pr-2 py-1.5 text-sm text-slate-100 bg-slate-900 outline-none focus:ring-2 focus:ring-blue-400" />
+                </div>
+              </div>
             </div>
 
-            {/* 支払方法 */}
-            <div>
-              <label className="text-xs text-slate-400 mb-1 block">支払方法</label>
-              <select value={editForm.card_id}
-                onChange={e => setEditForm(f => ({ ...f, card_id: Number(e.target.value) }))}
-                className="w-full border rounded-lg px-3 py-2 text-sm text-slate-100 bg-slate-900 outline-none focus:ring-2 focus:ring-blue-400">
-                {cards.map(c => <option key={c.id} value={c.id}>{c.name}（{c.card_type === "joint" ? "共同" : "個人"}）</option>)}
-              </select>
-            </div>
-
-            {/* カテゴリ */}
-            <div>
-              <label className="text-xs text-slate-400 mb-1 block">カテゴリ</label>
-              <select value={editForm.category}
-                onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}
-                className="w-full border rounded-lg px-3 py-2 text-sm text-slate-100 bg-slate-900 outline-none focus:ring-2 focus:ring-blue-400">
-                {categoryOptionsFor(cards.find(c => c.id === Number(editForm.card_id))?.card_type ?? "self", editForm.category)
-                  .map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-
-            {/* 金額 */}
-            <div>
-              <label className="text-xs text-slate-400 mb-1 block">金額</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">¥</span>
-                <input
-                  type="text" inputMode="numeric" value={editForm.amount}
-                  onChange={e => {
-                    const raw = toHalfWidth(e.target.value).replace(/,/g, "")
-                    if (raw === "" || /^\d+$/.test(raw)) {
-                      setEditForm(f => ({ ...f, amount: raw === "" ? "" : Number(raw).toLocaleString("ja-JP") }))
-                    }
-                  }}
-                  className="w-full border rounded-lg pl-7 pr-3 py-2 text-sm text-slate-100 bg-slate-900 outline-none focus:ring-2 focus:ring-blue-400" />
+            {/* 支払方法・カテゴリ */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs text-slate-400 mb-0.5 block">支払方法</label>
+                <select value={editForm.card_id}
+                  onChange={e => setEditForm(f => ({ ...f, card_id: Number(e.target.value) }))}
+                  className="w-full border rounded-lg px-2 py-1.5 text-sm text-slate-100 bg-slate-900 outline-none focus:ring-2 focus:ring-blue-400">
+                  {cards.map(c => <option key={c.id} value={c.id}>{c.name}（{c.card_type === "joint" ? "共同" : "個人"}）</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 mb-0.5 block">カテゴリ</label>
+                <select value={editForm.category}
+                  onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}
+                  className="w-full border rounded-lg px-2 py-1.5 text-sm text-slate-100 bg-slate-900 outline-none focus:ring-2 focus:ring-blue-400">
+                  {categoryOptionsFor(cards.find(c => c.id === Number(editForm.card_id))?.card_type ?? "self", editForm.category)
+                    .map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
               </div>
             </div>
 
             {/* メモ */}
-            <div>
-              <label className="text-xs text-slate-400 mb-1 block">メモ</label>
-              <input type="text" value={editForm.memo}
-                onChange={e => setEditForm(f => ({ ...f, memo: e.target.value }))}
-                className="w-full border rounded-lg px-3 py-2 text-sm text-slate-100 bg-slate-900 outline-none focus:ring-2 focus:ring-blue-400" />
-            </div>
+            <input type="text" value={editForm.memo} placeholder="メモ" aria-label="メモ"
+              onChange={e => setEditForm(f => ({ ...f, memo: e.target.value }))}
+              className="w-full border rounded-lg px-2 py-1.5 text-sm text-slate-100 bg-slate-900 outline-none focus:ring-2 focus:ring-blue-400" />
 
             {/* ボタン */}
-            <div className="flex gap-3 pt-1">
+            <div className="flex gap-2 pt-1">
               <button onClick={() => setEditingTransaction(null)}
-                className="flex-1 py-2.5 rounded-xl border border-slate-800 text-sm text-slate-400 hover:bg-slate-800">
+                className="flex-1 py-2 rounded-xl border border-slate-800 text-sm text-slate-400 hover:bg-slate-800">
                 キャンセル
               </button>
               <button onClick={handleEditSave} disabled={editSaving}
-                className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
+                className="flex-1 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
                 {editSaving ? "保存中..." : "保存"}
               </button>
             </div>

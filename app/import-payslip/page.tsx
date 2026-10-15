@@ -362,25 +362,31 @@ export default function ImportPayslipPage() {
       <PageHeader title="給与明細取込" />
       <div className={isPC ? "max-w-3xl mx-auto px-6 py-4 space-y-4" : "max-w-md mx-auto px-4 py-3 space-y-4"}>
 
-        <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 text-xs text-blue-300">
-          <p className="font-semibold">アイドマ・ホールディングス給与明細PDF対応</p>
-          <p className="text-blue-400 mt-0.5">金額をタップして修正できます</p>
-        </div>
+        <input ref={fileRef} type="file" accept=".pdf" className="hidden"
+          onChange={e => { const f = e.target.files?.[0]; if (f) { setFile(f); doParse(f) } }} />
+        {/* 解析後はファイル名＋「ファイル変更」リンクだけにする */}
+        {result ? (
+          <div className="flex items-center gap-2 text-xs text-slate-400">
+            <span className="shrink-0">📄</span>
+            <span className="truncate min-w-0">{file?.name}</span>
+            <button type="button" onClick={() => fileRef.current?.click()}
+              className="text-blue-400 hover:text-blue-300 underline shrink-0">ファイル変更</button>
+          </div>
+        ) : (
+          <div
+            className="border-2 border-dashed border-slate-700 rounded-xl px-3 py-3 cursor-pointer hover:border-blue-400 hover:bg-blue-500/10 transition-colors flex items-center gap-2"
+            onClick={() => fileRef.current?.click()}
+            onDragOver={e => e.preventDefault()}
+            onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.type === "application/pdf") { setFile(f); doParse(f) } }}
+            title="アイドマ・ホールディングス給与明細PDF対応。解析後、金額をタップして修正できます"
+          >
+            <span className="text-lg shrink-0">📄</span>
+            <span className="text-sm text-slate-300 truncate min-w-0">{file ? file.name : "タップしてPDFを選択"}</span>
+            <span className="text-[10px] text-slate-500 ml-auto shrink-0">アイドマ給与明細PDF ⓘ</span>
+          </div>
+        )}
 
-        <div
-          className="border-2 border-dashed border-slate-700 rounded-xl p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-500/10 transition-colors"
-          onClick={() => fileRef.current?.click()}
-          onDragOver={e => e.preventDefault()}
-          onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.type === "application/pdf") { setFile(f); doParse(f) } }}
-        >
-          <div className="text-4xl mb-2">📄</div>
-          <p className="text-sm font-medium text-slate-400">{file ? file.name : "タップしてPDFを選択"}</p>
-          <p className="text-xs text-slate-500 mt-1">.pdf ファイル</p>
-          <input ref={fileRef} type="file" accept=".pdf" className="hidden"
-            onChange={e => { const f = e.target.files?.[0]; if (f) { setFile(f); doParse(f) } }} />
-        </div>
-
-        {loading && <div className="text-center py-6 text-slate-500 text-sm">解析中...</div>}
+        {loading && <div className="text-center py-2 text-slate-500 text-sm">解析中...</div>}
         {error && <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 text-xs text-red-400">{error}</div>}
 
         {result && (
@@ -470,11 +476,11 @@ export default function ImportPayslipPage() {
               </div>
 
               {/* 登録される給与額 */}
-              <div className="mt-2 pt-2 border-t border-slate-800 flex justify-between items-center bg-green-500/10 -mx-4 px-4 py-1.5">
-                <span className="text-xs text-green-300 font-semibold">登録する給与収入</span>
+              <div className="mt-2 pt-2 border-t border-slate-800 flex justify-between items-center bg-green-500/10 -mx-4 px-4 py-1.5"
+                title="支給合計（額面）− 営業交通費・通勤手当">
+                <span className="text-xs text-green-300 font-semibold">登録する給与収入 <span className="text-[10px] text-green-400/70 font-normal">ⓘ</span></span>
                 <span className="text-xs text-green-300 font-bold">{toJPY(salaryIncome)}</span>
               </div>
-              <p className="text-[10px] text-slate-500 mt-1">支給合計（額面）− 営業交通費・通勤手当</p>
             </div>
 
             {/* 控除＋調整 */}
@@ -533,8 +539,9 @@ export default function ImportPayslipPage() {
                     className="text-[10px] px-2 py-0.5 rounded-full border border-dashed border-slate-700 text-slate-500 hover:border-blue-500/40 hover:text-blue-400 transition-colors">
                     ＋控除追加
                   </button>
+                  <span className="text-[10px] text-slate-500 self-center cursor-help"
+                    title="マイナス入力（例: -37042）＝還付（控除を減らす）">ⓘ マイナス＝還付</span>
                 </div>
-                <p className="text-[10px] text-slate-500">マイナス入力（例: -37042）＝還付（控除を減らす）</p>
               </div>
 
               {/* 控除合計 */}
@@ -546,29 +553,6 @@ export default function ImportPayslipPage() {
 
             {/* 保存 */}
             <div className="px-4 py-3 space-y-2">
-              <div className="bg-slate-800 rounded-lg px-3 py-2 space-y-1">
-                <p className="text-[10px] font-semibold text-slate-400">
-                  登録内容（{2 + incomeAdj.filter(a => a.label && Number(a.amount.replace(/,/g, "")) !== 0).length}件）
-                </p>
-                <div className="flex justify-between text-xs">
-                  <span className="text-slate-400">収入: 給与</span>
-                  <span className="text-green-400 font-medium">{toJPY(salaryIncome)}</span>
-                </div>
-                {incomeAdj.filter(a => a.label).map(a => {
-                  const amt = Number(a.amount.replace(/,/g, ""))
-                  return (
-                    <div key={a.id} className="flex justify-between text-xs">
-                      <span className="text-slate-400">収入: {a.label}</span>
-                      <span className="text-green-400 font-medium">{toJPY(isNaN(amt) ? 0 : amt)}</span>
-                    </div>
-                  )
-                })}
-                <div className="flex justify-between text-xs">
-                  <span className="text-slate-400">控除: 給与源泉税</span>
-                  <span className="text-red-400 font-medium">−{toJPY(deductionTotal)}</span>
-                </div>
-              </div>
-
               {saveMsg && (
                 <div className={`text-xs rounded-lg px-3 py-2 flex items-center justify-between ${savedIds.length > 0 ? "bg-green-500/10 text-green-300" : "bg-slate-800 text-slate-400"}`}>
                   <span>{saveMsg}</span>
@@ -581,10 +565,28 @@ export default function ImportPayslipPage() {
                 </div>
               )}
 
-              <button onClick={handleSave} disabled={saving || !result.paymentMonth || savedIds.length > 0}
-                className="w-full bg-blue-600 text-white text-sm font-semibold py-3 rounded-xl disabled:opacity-50 hover:bg-blue-700 transition-colors">
-                {saving ? "保存中..." : savedIds.length > 0 ? "保存済み" : "家計簿に保存する"}
-              </button>
+              {/* 登録内容は1行サマリー（内訳はtitle） */}
+              {(() => {
+                const adjs = incomeAdj.filter(a => a.label).map(a => {
+                  const n = Number(a.amount.replace(/,/g, ""))
+                  return { label: a.label, amt: isNaN(n) ? 0 : n }
+                })
+                const incomeSum = salaryIncome + adjs.reduce((s, a) => s + a.amt, 0)
+                const breakdown = [`収入: 給与 ${toJPY(salaryIncome)}`, ...adjs.map(a => `収入: ${a.label} ${toJPY(a.amt)}`), `控除: 給与源泉税 −${toJPY(deductionTotal)}`].join("\n")
+                return (
+                  <div className="flex items-center gap-3">
+                    <p className="flex-1 min-w-0 text-xs text-slate-400 truncate cursor-help" title={breakdown}>
+                      収入 <span className="text-green-400 font-semibold">{toJPY(incomeSum)}</span>
+                      {" / "}控除 <span className="text-red-400 font-semibold">−{toJPY(deductionTotal)}</span>
+                      <span className="text-slate-500 ml-1">ⓘ</span>
+                    </p>
+                    <button onClick={handleSave} disabled={saving || !result.paymentMonth || savedIds.length > 0}
+                      className="shrink-0 bg-blue-600 text-white text-sm font-semibold px-5 py-2 rounded-lg disabled:opacity-50 hover:bg-blue-700 transition-colors">
+                      {saving ? "保存中..." : savedIds.length > 0 ? "保存済み" : "家計簿に保存する"}
+                    </button>
+                  </div>
+                )
+              })()}
             </div>
           </div>
         )}
@@ -628,22 +630,20 @@ export default function ImportPayslipPage() {
                 <div key={group.date} className="border-b last:border-0">
                   {/* ヘッダー行（クリックで展開） */}
                   <div
-                    className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-slate-800 transition-colors"
+                    className="flex items-center justify-between px-4 py-2 cursor-pointer hover:bg-slate-800 transition-colors"
                     onClick={() => setExpandedDate(isExpanded ? null : group.date)}
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-500">{isExpanded ? "▼" : "▶"}</span>
-                      <div>
-                        <p className="text-sm font-medium text-slate-100">{group.month}支払分</p>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          {group.records.map(r => `${r.category} ${toJPY(r.amount)}`).join(" / ")}
-                        </p>
-                      </div>
+                    <div className="flex items-baseline gap-2 min-w-0">
+                      <span className="text-xs text-slate-500 shrink-0">{isExpanded ? "▼" : "▶"}</span>
+                      <span className="text-sm font-medium text-slate-100 shrink-0">{group.month}支払分</span>
+                      <span className="text-xs text-slate-500 truncate min-w-0">
+                        {group.records.map(r => `${r.category} ${toJPY(r.amount)}`).join(" / ")}
+                      </span>
                     </div>
                     <button
                       onClick={e => { e.stopPropagation(); handleDeleteHistoryGroup(group) }}
                       disabled={deletingDate === group.date}
-                      className="text-xs text-red-400 hover:text-red-400 border border-red-500/30 hover:border-red-400 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-40 shrink-0 ml-3"
+                      className="text-xs text-red-400 hover:text-red-400 border border-red-500/30 hover:border-red-400 px-2 py-0.5 rounded transition-colors disabled:opacity-40 shrink-0 ml-3"
                     >
                       {deletingDate === group.date ? "削除中..." : "削除"}
                     </button>

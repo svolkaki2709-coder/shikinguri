@@ -160,193 +160,178 @@ export function RetirementGap({ members, settings, hints, payslipHints, saved, s
     onSaved()
   }
 
-  const input = "w-full bg-slate-900 text-slate-100 border border-slate-700 rounded-lg px-2 py-2 text-sm text-right"
+  // 幅は入力内容に合わせて固定（w-fullにしない）
+  const input = "w-28 bg-slate-900 text-slate-100 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-right"
+  const inputAge = "w-16 bg-slate-900 text-slate-100 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-right"
 
   return (
     <div className="space-y-3">
-      {/* 結論 */}
-      <div className={`rounded-xl border p-4 ${
-        gap > 0 ? "bg-amber-500/10 border-amber-500/40" : "bg-green-500/10 border-green-500/40"
-      }`}>
-        <p className="text-xs text-slate-400">
-          {currentAge}歳 → {retireAge}歳で退職、{lifeAge}歳まで（老後{retireYears}年）の前提
-        </p>
-        {gap > 0 ? (
-          <>
-            <p className="text-2xl font-bold text-amber-300 mt-1">{man(gap)} 足りません</p>
-            <p className="text-sm text-slate-300 mt-2">
-              埋めるには、今の積立に加えて
-              <span className="font-bold text-amber-200 mx-1">毎月 {yen(extraMonthly)}</span>
-              を{yearsToRetire}年間
+      <div className="grid gap-3 @3xl:grid-cols-2 @3xl:items-start">
+        <div className="space-y-3">
+          {/* 結論 */}
+          <div className={`rounded-xl border px-4 py-3 ${
+            gap > 0 ? "bg-amber-500/10 border-amber-500/40" : "bg-green-500/10 border-green-500/40"
+          }`}>
+            <p className="text-xs text-slate-400">
+              {currentAge}歳 → {retireAge}歳で退職、{lifeAge}歳まで（老後{retireYears}年）の前提
             </p>
-            <p className="text-[11px] text-slate-500 mt-1">
-              年{(realRate * 100).toFixed(1)}%（実質）で運用した場合。運用しない場合は毎月 {yen(gap / Math.max(1, yearsToRetire * 12))}
-            </p>
-          </>
-        ) : (
-          <>
-            <p className="text-2xl font-bold text-green-300 mt-1">{man(-gap)} 足ります</p>
-            <p className="text-sm text-slate-300 mt-2">
-              今のペースで必要額に届きます。余裕分は繰上げ退職や、ゆとり費の上乗せに回せます
-            </p>
-          </>
-        )}
-      </div>
+            {gap > 0 ? (
+              <>
+                <p className="text-2xl font-bold text-amber-300 mt-0.5">{man(gap)} 足りません</p>
+                <p className="text-sm text-slate-300 mt-1"
+                  title={`年${(realRate * 100).toFixed(1)}%（実質）で運用した場合。運用しない場合は毎月 ${yen(gap / Math.max(1, yearsToRetire * 12))}`}>
+                  埋めるには、今の積立に加えて
+                  <span className="font-bold text-amber-200 mx-1">毎月 {yen(extraMonthly)}</span>
+                  を{yearsToRetire}年間 <span className="text-[11px] text-slate-500 cursor-help">ⓘ</span>
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-2xl font-bold text-green-300 mt-0.5">{man(-gap)} 足ります</p>
+                <p className="text-sm text-slate-300 mt-1"
+                  title="余裕分は繰上げ退職や、ゆとり費の上乗せに回せます">
+                  今のペースで必要額に届きます <span className="text-[11px] text-slate-500 cursor-help">ⓘ</span>
+                </p>
+              </>
+            )}
+            {gapYears > 0 && (
+              <p className="text-[11px] text-amber-300/90 mt-1"
+                title={`退職（${retireAge}歳）から年金開始（${pensionStartAge}歳）までの${gapYears}年間は、収入が無いまま資産を取り崩します。この期間の分は特に現金で持っておく必要があります`}>
+                ⚠ 年金開始までの{gapYears}年間に {yen(monthlyNeed * 12 * gapYears)} の現金が必要 ⓘ
+              </p>
+            )}
+          </div>
 
-      {/* 内訳 */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
-        <h3 className="text-sm font-bold text-slate-100">計算の内訳</h3>
+          {/* 感度 */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2">
+            <h3 className="text-xs font-bold text-slate-200 mb-1"
+              title="長生きするほど必要額は増えます。一方で、働く期間を延ばすと「貯める期間が伸びて取り崩す期間が縮む」ため、効き方が最も大きくなります">
+              前提が変わったら <span className="font-normal text-slate-500 cursor-help">ⓘ</span>
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs whitespace-nowrap">
+                <thead>
+                  <tr className="text-slate-500 border-b border-slate-800">
+                    <th className="text-left py-1 px-2 font-medium">条件</th>
+                    <th className="text-right py-1 px-2 font-medium">過不足</th>
+                    <th className="text-right py-1 px-2 font-medium">必要な追加積立</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    { label: "この前提のまま", life: lifeAge, rate: realRate, retire: retireAge },
+                    { label: "95歳まで生きる", life: 95, rate: realRate, retire: retireAge },
+                    { label: "運用が1%下振れ", life: lifeAge, rate: Math.max(0, realRate - 0.01), retire: retireAge },
+                    { label: "70歳まで働く", life: lifeAge, rate: realRate, retire: 70 },
+                  ].map((sc, i) => {
+                    const rYears = Math.max(0, sc.life - sc.retire)
+                    const toRetire = Math.max(0, sc.retire - currentAge)
+                    const spend = monthlyNeed * 12 * rYears + num(p.careCost)
+                    const pen = pensionMonthly * 12 * Math.max(0, sc.life - Math.max(pensionStartAge, 0))
+                    const need = Math.max(0, spend - pen)
+                    const assets = currentAssets * Math.pow(1 + sc.rate, toRetire)
+                      + futureValueOfMonthly(saving, sc.rate, toRetire) + num(p.retireBonus)
+                    const g = need - assets
+                    return (
+                      <tr key={i} className="border-b border-slate-800 last:border-0">
+                        <td className="py-1 px-2 text-slate-300">{sc.label}</td>
+                        <td className={`py-1 px-2 text-right font-semibold ${g > 0 ? "text-amber-300" : "text-green-300"}`}>
+                          {g > 0 ? `−${man(g)}` : `+${man(-g)}`}
+                        </td>
+                        <td className="py-1 px-2 text-right text-slate-400">
+                          {g > 0 ? `月 ${yen(requiredMonthly(g, sc.rate, toRetire))}` : "—"}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
 
-        <div className="space-y-2">
-          <p className="text-xs font-semibold text-slate-400">老後に出ていくお金</p>
+        {/* 内訳 */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 space-y-1">
+          <h3 className="text-sm font-bold text-slate-100">計算の内訳</h3>
+
+          <p className="text-[11px] font-semibold text-slate-500 pt-0.5">老後に出ていくお金</p>
           <Line label={`生活費 ${yen(monthlyNeed)}/月 × ${retireYears}年`} value={monthlyNeed * 12 * retireYears} />
           <Line label="介護・医療などの一時費用" value={num(p.careCost)} />
           <Line label="合計" value={totalSpend} bold />
-        </div>
 
-        <div className="space-y-2 pt-2 border-t border-slate-800">
-          <p className="text-xs font-semibold text-slate-400">入ってくるお金</p>
+          <p className="text-[11px] font-semibold text-slate-500 pt-1 border-t border-slate-800">入ってくるお金</p>
           <Line
             label={`年金 ${yen(pensionMonthly)}/月 × ${Math.max(0, lifeAge - pensionStartAge)}年`}
             value={totalPension}
             hint={p.pension ? "手入力" : payslipHints ? "給与明細の標準報酬額からの概算" : "未入力"}
           />
           <Line label="差し引き 必要な自己資金" value={needed} bold />
-        </div>
 
-        <div className="space-y-2 pt-2 border-t border-slate-800">
-          <p className="text-xs font-semibold text-slate-400">退職までに用意できる見込み</p>
+          <p className="text-[11px] font-semibold text-slate-500 pt-1 border-t border-slate-800">退職までに用意できる見込み</p>
           <Line label={`今の資産 ${yen(currentAssets)} を${yearsToRetire}年運用`} value={currentAssets * Math.pow(1 + realRate, yearsToRetire)} />
           <Line label={`積立 ${yen(saving)}/月 × ${yearsToRetire}年`} value={futureValueOfMonthly(saving, realRate, yearsToRetire)} />
           <Line label="退職金" value={num(p.retireBonus)} />
           <Line label="合計" value={assetsAtRetire} bold />
-        </div>
 
-        <div className="flex items-center justify-between pt-2 border-t border-slate-800">
-          <span className="text-sm font-semibold text-slate-200">過不足</span>
-          <span className={`text-lg font-bold ${gap > 0 ? "text-amber-300" : "text-green-300"}`}>
-            {gap > 0 ? `−${yen(gap)}` : `+${yen(-gap)}`}
-          </span>
+          <div className="flex items-center justify-between pt-1 border-t border-slate-800">
+            <span className="text-sm font-semibold text-slate-200">過不足</span>
+            <span className={`text-lg font-bold ${gap > 0 ? "text-amber-300" : "text-green-300"}`}>
+              {gap > 0 ? `−${yen(gap)}` : `+${yen(-gap)}`}
+            </span>
+          </div>
         </div>
-
-        {gapYears > 0 && (
-          <p className="text-[11px] text-amber-300/80 bg-amber-500/10 rounded-lg px-2.5 py-2">
-            退職（{retireAge}歳）から年金開始（{pensionStartAge}歳）までの{gapYears}年間は、
-            収入が無いまま資産を取り崩します。この期間に必要な
-            {yen(monthlyNeed * 12 * gapYears)} は特に現金で持っておく必要があります
-          </p>
-        )}
       </div>
 
       {/* 前提 */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+      <div className="@container bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 space-y-2">
         <button onClick={() => setOpenAssumptions(v => !v)} className="text-sm font-bold text-slate-100 w-full text-left">
           前提条件 {openAssumptions ? "▲" : "▼"}
+          <span className="ml-2 text-[11px] font-normal text-slate-500 cursor-help"
+            title={`金額はすべて今の物価での価値で計算し、運用利回りは${settings.return_rate}% − 物価上昇${settings.inflation_rate}% = 実質${(realRate * 100).toFixed(1)}% を使っています。年金は「ねんきん定期便」の見込額を入れると精度が上がります。介護費用は1人あたり一時費用74万円＋月8.3万円×5年が平均値なので、2人分なら1,000万円前後を見込む考え方もあります`}>
+            実質利回り{(realRate * 100).toFixed(1)}% ⓘ
+          </span>
         </button>
 
         {openAssumptions && (
-          <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-2">
-              <Field label="退職する年齢"><input className={input} inputMode="numeric" value={p.retireAge} onChange={e => set("retireAge", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} /></Field>
-              <Field label="何歳まで"><input className={input} inputMode="numeric" value={p.lifeAge} onChange={e => set("lifeAge", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} /></Field>
-              <Field label="年金の開始"><input className={input} inputMode="numeric" value={p.pensionStartAge} onChange={e => set("pensionStartAge", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} /></Field>
-            </div>
+          <div className="grid grid-cols-2 @md:grid-cols-3 @3xl:grid-cols-4 gap-x-3 gap-y-2 pb-1">
+            <Field label="退職する年齢"><input className={inputAge} inputMode="numeric" value={p.retireAge} onChange={e => set("retireAge", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} /></Field>
+            <Field label="何歳まで"><input className={inputAge} inputMode="numeric" value={p.lifeAge} onChange={e => set("lifeAge", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} /></Field>
+            <Field label="年金の開始"><input className={inputAge} inputMode="numeric" value={p.pensionStartAge} onChange={e => set("pensionStartAge", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} /></Field>
 
-            <div>
-              <label className="text-[10px] text-slate-500 block mb-1">老後の生活費（月）</label>
-              <div className="flex rounded-lg bg-slate-800 p-0.5 text-[11px] mb-1.5">
-                {([["budget", "予算から"], ["actual", "実績から"], ["manual", "手入力"]] as const).map(([k, label]) => (
-                  <button key={k} type="button" onClick={() => set("livingSource", k)}
-                    className={`flex-1 px-2 py-1 rounded-md transition-colors ${p.livingSource === k ? "bg-blue-600 text-white" : "text-slate-400"}`}>
-                    {label}
-                  </button>
-                ))}
+            <div className="col-span-2 @md:col-span-3 @3xl:col-span-1">
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <label className="text-[10px] text-slate-500"
+                  title="退職後は通勤・被服・交際費が減る一方、医療費と在宅時間の光熱費が増えます。現役時の7割前後が一つの目安です">
+                  老後の生活費（月） ⓘ
+                </label>
+                <select value={p.livingSource} onChange={e => set("livingSource", e.target.value as Params["livingSource"])}
+                  className="bg-slate-900 text-slate-100 border border-slate-700 rounded px-1 py-0.5 text-[11px]">
+                  <option value="budget">予算から</option>
+                  <option value="actual">実績から</option>
+                  <option value="manual">手入力</option>
+                </select>
               </div>
               {p.livingSource === "manual" ? (
                 <input className={input} inputMode="numeric" value={p.livingManual}
                   onChange={e => set("livingManual", money(e.target.value))} />
               ) : (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-400 flex-1">
-                    今の生活費 {yen(baseMonthly)} の
-                  </span>
-                  <div className="w-20 shrink-0">
-                    <input className={input} inputMode="numeric" value={p.livingRate}
-                      onChange={e => set("livingRate", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} />
-                  </div>
-                  <span className="text-xs text-slate-400">% = {yen(retireLiving)}</span>
+                <div className="flex items-center gap-1 whitespace-nowrap">
+                  <span className="text-[11px] text-slate-400">{yen(baseMonthly)} ×</span>
+                  <input className="w-14 bg-slate-900 text-slate-100 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-right"
+                    inputMode="numeric" value={p.livingRate}
+                    onChange={e => set("livingRate", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} />
+                  <span className="text-[11px] text-slate-400">% = {yen(retireLiving)}</span>
                 </div>
               )}
-              <p className="text-[11px] text-slate-500 mt-1">
-                退職後は通勤・被服・交際費が減る一方、医療費と在宅時間の光熱費が増えます。
-                現役時の7割前後が一つの目安です
-              </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <Field label="ゆとり費（月）"><input className={input} inputMode="numeric" value={p.extra} onChange={e => set("extra", money(e.target.value))} /></Field>
-              <Field label="年金（月・世帯合計）"><input className={input} inputMode="numeric" placeholder={pensionEstimate ? String(pensionEstimate) : "0"} value={p.pension} onChange={e => set("pension", money(e.target.value))} /></Field>
-              <Field label="退職金（一時金）"><input className={input} inputMode="numeric" value={p.retireBonus} onChange={e => set("retireBonus", money(e.target.value))} /></Field>
-              <Field label="今の積立（月）"><input className={input} inputMode="numeric" placeholder={nisaMonthly ? String(nisaMonthly) : "0"} value={p.monthlySaving} onChange={e => set("monthlySaving", money(e.target.value))} /></Field>
-              <Field label="介護・医療の一時費用"><input className={input} inputMode="numeric" value={p.careCost} onChange={e => set("careCost", money(e.target.value))} /></Field>
-            </div>
-
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              金額はすべて今の物価での価値で計算し、運用利回りは
-              {settings.return_rate}% − 物価上昇{settings.inflation_rate}% = 実質{(realRate * 100).toFixed(1)}% を使っています。
-              年金は「ねんきん定期便」の見込額を入れると精度が上がります。
-              介護費用は1人あたり一時費用74万円＋月8.3万円×5年が平均値なので、2人分なら1,000万円前後を見込む考え方もあります
-            </p>
+            <Field label="ゆとり費（月）"><input className={input} inputMode="numeric" value={p.extra} onChange={e => set("extra", money(e.target.value))} /></Field>
+            <Field label="年金（月・世帯合計）"><input className={input} inputMode="numeric" placeholder={pensionEstimate ? String(pensionEstimate) : "0"} value={p.pension} onChange={e => set("pension", money(e.target.value))} /></Field>
+            <Field label="退職金（一時金）"><input className={input} inputMode="numeric" value={p.retireBonus} onChange={e => set("retireBonus", money(e.target.value))} /></Field>
+            <Field label="今の積立（月）"><input className={input} inputMode="numeric" placeholder={nisaMonthly ? String(nisaMonthly) : "0"} value={p.monthlySaving} onChange={e => set("monthlySaving", money(e.target.value))} /></Field>
+            <Field label="介護・医療の一時費用"><input className={input} inputMode="numeric" value={p.careCost} onChange={e => set("careCost", money(e.target.value))} /></Field>
           </div>
         )}
-      </div>
-
-      {/* 感度 */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2">
-        <h3 className="text-sm font-bold text-slate-100">前提が変わったら</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs whitespace-nowrap">
-            <thead>
-              <tr className="text-slate-500 border-b border-slate-800">
-                <th className="text-left py-1.5 px-2 font-medium">条件</th>
-                <th className="text-right py-1.5 px-2 font-medium">過不足</th>
-                <th className="text-right py-1.5 px-2 font-medium">必要な追加積立</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                { label: "この前提のまま", life: lifeAge, rate: realRate, retire: retireAge },
-                { label: "95歳まで生きる", life: 95, rate: realRate, retire: retireAge },
-                { label: "運用が1%下振れ", life: lifeAge, rate: Math.max(0, realRate - 0.01), retire: retireAge },
-                { label: "70歳まで働く", life: lifeAge, rate: realRate, retire: 70 },
-              ].map((sc, i) => {
-                const rYears = Math.max(0, sc.life - sc.retire)
-                const toRetire = Math.max(0, sc.retire - currentAge)
-                const spend = monthlyNeed * 12 * rYears + num(p.careCost)
-                const pen = pensionMonthly * 12 * Math.max(0, sc.life - Math.max(pensionStartAge, 0))
-                const need = Math.max(0, spend - pen)
-                const assets = currentAssets * Math.pow(1 + sc.rate, toRetire)
-                  + futureValueOfMonthly(saving, sc.rate, toRetire) + num(p.retireBonus)
-                const g = need - assets
-                return (
-                  <tr key={i} className="border-b border-slate-800 last:border-0">
-                    <td className="py-1.5 px-2 text-slate-300">{sc.label}</td>
-                    <td className={`py-1.5 px-2 text-right font-semibold ${g > 0 ? "text-amber-300" : "text-green-300"}`}>
-                      {g > 0 ? `−${man(g)}` : `+${man(-g)}`}
-                    </td>
-                    <td className="py-1.5 px-2 text-right text-slate-400">
-                      {g > 0 ? `月 ${yen(requiredMonthly(g, sc.rate, toRetire))}` : "—"}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-        <p className="text-[11px] text-slate-500">
-          長生きするほど必要額は増えます。一方で、働く期間を延ばすと「貯める期間が伸びて取り崩す期間が縮む」ため、
-          効き方が最も大きくなります
-        </p>
       </div>
 
       <SaveButton label="この前提を保存する" onSave={save} />
@@ -354,13 +339,13 @@ export function RetirementGap({ members, settings, hints, payslipHints, saved, s
   )
 }
 
+/** 補足（hint）はラベルのtitleで出す */
 function Line({ label, value, bold, hint }: { label: string; value: number; bold?: boolean; hint?: string }) {
   return (
-    <div className="flex items-start justify-between gap-3">
-      <div className="min-w-0">
-        <p className={`text-sm ${bold ? "font-semibold text-slate-200" : "text-slate-300"}`}>{label}</p>
-        {hint && <p className="text-[11px] text-slate-500">{hint}</p>}
-      </div>
+    <div className="flex items-baseline justify-between gap-3">
+      <p className={`text-sm min-w-0 ${bold ? "font-semibold text-slate-200" : "text-slate-300"}`} title={hint}>
+        {label}{hint && <span className="text-[10px] text-slate-500 cursor-help"> ⓘ{hint === "未入力" ? " 未入力" : ""}</span>}
+      </p>
       <span className={`text-sm shrink-0 ${bold ? "font-bold text-slate-100" : "text-slate-300"}`}>{yen(value)}</span>
     </div>
   )

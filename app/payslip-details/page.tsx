@@ -244,21 +244,15 @@ export default function PayslipDetailsPage() {
       <PageHeader title="給与源泉管理" />
       <div className={isPC ? "max-w-5xl mx-auto px-6 py-4 space-y-4" : "max-w-md mx-auto px-4 py-3 space-y-4"}>
 
-        {/* ヘッダー説明 */}
-        <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 text-xs text-blue-300 flex items-start justify-between gap-3">
-          <div>
-            <p className="font-semibold">給与明細取込データから自動反映</p>
-            <p className="text-blue-400 mt-0.5">
-              月次の税・社会保険料内訳を一覧管理。
-              <Link href="/import-payslip" className="underline ml-1 hover:text-blue-300">給与明細取込</Link>
-              で保存すると自動登録されます。
-            </p>
-          </div>
+        {/* 操作行（説明文はtitleへ） */}
+        <div className="flex items-center justify-end gap-2 -mb-2"
+          title="給与明細取込で保存すると、月次の税・社会保険料内訳がここに自動登録されます">
+          <Link href="/import-payslip" className="text-xs text-blue-400 hover:text-blue-300">給与明細取込 ›</Link>
           <button
             onClick={() => setShowNotes(n => !n)}
-            className="text-blue-400 border border-blue-500/40 rounded-lg px-2.5 py-1 text-[10px] font-semibold whitespace-nowrap hover:bg-blue-500/15 transition-colors shrink-0"
+            className="text-blue-400 border border-blue-500/40 rounded-md px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap hover:bg-blue-500/15 transition-colors"
           >
-            {showNotes ? "解説を閉じる" : "税金の仕組みを見る"}
+            {showNotes ? "解説を閉じる" : "税金の仕組み"}
           </button>
         </div>
 
@@ -286,13 +280,13 @@ export default function PayslipDetailsPage() {
           </div>
         )}
 
-        {loading && <div className="text-center py-10 text-slate-500 text-sm">読み込み中...</div>}
+        {loading && <div className="text-center py-3 text-slate-500 text-sm">読み込み中...</div>}
 
         {!loading && details.length === 0 && (
-          <div className="text-center py-10 space-y-3">
-            <p className="text-slate-500 text-sm">まだデータがありません</p>
+          <div className="flex items-center justify-center gap-3 py-3 text-sm">
+            <span className="text-slate-500">まだデータがありません</span>
             <Link href="/import-payslip"
-              className="inline-block bg-blue-600 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-blue-700 transition-colors">
+              className="bg-blue-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors">
               給与明細を取り込む
             </Link>
           </div>

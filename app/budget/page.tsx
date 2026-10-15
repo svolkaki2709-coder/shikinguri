@@ -613,24 +613,30 @@ function BudgetContent() {
     const gDiff = gActual - gBudget
     const gBad = moreIsBetter(group) ? gDiff < 0 : gDiff > 0
 
+    // 行・ヘッダー共通の列幅（名前 | 実績 | 予算 | 差額）
+    const colNum = "w-16 sm:w-[4.5rem] shrink-0 text-right tabular-nums"
+
     return (
       <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 overflow-hidden">
-        {/* グループヘッダー */}
-        <div className={`px-3 py-2 flex items-center justify-between ${gc?.header ?? "bg-slate-700 text-white"}`}>
-          <span className="text-xs font-bold">{group}</span>
-          <div className="flex gap-3 text-xs font-semibold">
-            <span>予算 {toJPY(gBudget)}</span>
-            <span>実績 {toJPY(gActual)}</span>
-            <span className={gBad
-              ? "bg-red-500 text-white px-1.5 py-0.5 rounded font-bold"
-              : "opacity-90"}>
+        {/* グループヘッダー（列見出しを兼ねる） */}
+        <div className={`px-2 py-1 flex items-center gap-1.5 ${gc?.header ?? "bg-slate-700 text-white"}`}>
+          <span className="flex-1 min-w-0 text-xs font-bold truncate">{group}</span>
+          <span className={`${colNum} text-[11px] font-semibold leading-tight`}>
+            <span className="block text-[9px] font-normal opacity-80">実績</span>{toJPY(gActual)}
+          </span>
+          <span className={`${colNum} text-[11px] font-semibold leading-tight`}>
+            <span className="block text-[9px] font-normal opacity-80">予算</span>{toJPY(gBudget)}
+          </span>
+          <span className={`${colNum} text-[11px] font-semibold leading-tight`} title="実績 − 予算">
+            <span className="block text-[9px] font-normal opacity-80">差額</span>
+            <span className={gBad ? "bg-red-500 text-white px-1 rounded font-bold" : "opacity-90"}>
               {gDiff >= 0 ? "+" : "−"}{toJPY(Math.abs(gDiff))}
             </span>
-          </div>
+          </span>
         </div>
 
-        {/* カテゴリ行 */}
-        <div className="divide-y divide-gray-100">
+        {/* カテゴリ行（1行：名前 | 実績 | 予算 | 差額、進捗は下端の細線） */}
+        <div className="divide-y divide-slate-800">
           {rows.map((b, rowIdx) => {
             const sign = getEffectiveSign(b)
             const favorable = sign === 1 || moreIsBetter(b.groupType)
@@ -648,6 +654,7 @@ function BudgetContent() {
                   ? (b.groupType === "立替" ? "▲未精算 " : "▲不足 ")
                   : (b.groupType === "立替" ? "+精算済 " : "+余剰 "))
               : (isBad ? "▲超過 " : "+予算内 ")
+            const isEditing = editingBudget?.category === b.category && editingBudget?.cardType === b.cardType
             return (
               <div
                 key={`${b.category}-${b.cardType}`}
@@ -656,86 +663,90 @@ function BudgetContent() {
                 onDragOver={e => { e.preventDefault(); setDragOverIdx({ group, idx: rowIdx }) }}
                 onDragEnd={() => { setDragItem(null); setDragOverIdx(null) }}
                 onDrop={() => handleReorderDrop(group, rowIdx)}
-                className={`px-3 py-2.5 border-l-4 cursor-grab active:cursor-grabbing transition-opacity ${
+                className={`relative flex items-center gap-1.5 pl-1.5 pr-2 py-1.5 border-l-4 cursor-grab active:cursor-grabbing transition-opacity ${
                   gc?.border ?? "border-l-gray-300"
                 } ${gc?.row ?? "bg-slate-900"} ${isDragging ? "opacity-40" : "opacity-100"} ${
                   isDraggingOver ? "border-t-2 border-t-blue-400" : ""
                 }`}
               >
-                <div className="flex justify-between items-center mb-1">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    {/* ドラッグハンドル */}
-                    <span className="text-slate-500 text-xs cursor-grab shrink-0 select-none font-bold tracking-tighter">⋮⋮</span>
-                    <span className={`text-xs font-medium truncate ${gc?.text ?? "text-slate-300"}`}>{b.category}</span>
-                    {/* グループ変更ドロップダウン */}
-                    <select
-                      value={b.groupType ?? ""}
-                      onChange={e => handleSetGroupType(b.category, b.cardType, e.target.value || null)}
-                      onClick={e => e.stopPropagation()}
-                      onDragStart={e => e.stopPropagation()}
-                      className="text-[10px] border border-slate-800 rounded px-1 py-0.5 bg-slate-900 text-slate-500 hover:text-slate-300 hover:border-slate-600 cursor-pointer outline-none focus:ring-1 focus:ring-blue-300 transition-colors shrink-0"
-                    >
-                      <option value="">グループ未設定</option>
-                      {GROUP_ORDER.map(g => <option key={g} value={g}>{g}</option>)}
-                    </select>
+                {/* ドラッグハンドル */}
+                <span className="text-slate-600 text-[10px] cursor-grab shrink-0 select-none font-bold tracking-tighter">⋮⋮</span>
+                <span className={`min-w-0 flex-1 text-xs font-medium truncate ${gc?.text ?? "text-slate-300"}`} title={b.category}>{b.category}</span>
+                {/* グループ変更（⋯の上に透明なselectを重ねる） */}
+                <span className="relative shrink-0 w-4 text-center text-slate-500 hover:text-slate-300 text-xs leading-none"
+                  title={`グループを変更（現在: ${b.groupType ?? "未設定"}）`}>
+                  ⋯
+                  <select
+                    value={b.groupType ?? ""}
+                    onChange={e => handleSetGroupType(b.category, b.cardType, e.target.value || null)}
+                    onClick={e => e.stopPropagation()}
+                    onDragStart={e => e.stopPropagation()}
+                    aria-label="グループを変更"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer bg-slate-900 text-slate-100"
+                  >
+                    <option value="">グループ未設定</option>
+                    {GROUP_ORDER.map(g => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                </span>
+                {/* 実績（クリックで明細） */}
+                <span
+                  className={`${colNum} text-[11px] text-slate-300 ${b.actual !== 0 ? "cursor-pointer underline decoration-dotted hover:text-blue-400 transition-colors" : ""}`}
+                  title="実績"
+                  onClick={e => { if (b.actual !== 0) { e.stopPropagation(); openDrillDown(b.category, b.cardType, month) } }}
+                >{toJPY(b.actual)}</span>
+                {/* 予算（クリックで編集） */}
+                {isEditing && editingBudget ? (
+                  <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()} onDragStart={e => e.stopPropagation()}>
+                    {/* 毎月 / 今月 トグル */}
+                    <div className="flex rounded overflow-hidden border border-slate-800 text-[10px]">
+                      <button
+                        type="button"
+                        onClick={() => setEditingBudget({ ...editingBudget, periodType: "monthly" })}
+                        className={`px-1.5 py-0.5 transition-colors ${editingBudget.periodType === "monthly" ? "bg-blue-500 text-white" : "bg-slate-900 text-slate-400"}`}
+                      >毎月</button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingBudget({ ...editingBudget, periodType: "this_month" })}
+                        className={`px-1.5 py-0.5 transition-colors border-l border-slate-800 ${editingBudget.periodType === "this_month" ? "bg-purple-500 text-white" : "bg-slate-900 text-slate-400"}`}
+                      >今月</button>
+                    </div>
+                    <AmountInput
+                      value={editingBudget.value}
+                      onChange={v => setEditingBudget({ ...editingBudget, value: v })}
+                      onCommit={() => handleBudgetSave(b.category, b.cardType, editingBudget.value, editingBudget.periodType)}
+                      onCancel={() => setEditingBudget(null)}
+                      className="w-20 text-right text-xs text-slate-100 border border-blue-400 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-blue-400 bg-slate-900"
+                    />
                   </div>
+                ) : (
+                  <span
+                    onClick={e => { e.stopPropagation(); setEditingBudget({ category: b.category, cardType: b.cardType, value: b.budget > 0 ? String(b.budget) : "", periodType: "monthly" }) }}
+                    className={`${colNum} text-[11px] text-slate-400 cursor-pointer hover:text-blue-400 hover:underline`}
+                    title="クリックして予算を編集"
+                  >
+                    {b.budget > 0 ? toJPY(b.budget) : "—"}
+                  </span>
+                )}
+                {/* 差額 */}
+                <span className={`${colNum} text-[11px] font-semibold`}>
                   {sign !== 0 && hasBudget && (
-                    <span className={`text-xs font-semibold shrink-0 ml-2 ${isBad ? "text-red-400" : "text-green-400"}`}>
-                      {diffLabel}{toJPY(Math.abs(effectiveDiff))}
+                    <span className={isBad ? "text-red-400" : "text-green-400"} title={diffLabel.trim()}>
+                      {isBad ? "▲" : "+"}{toJPY(Math.abs(effectiveDiff))}
                     </span>
                   )}
                   {/* 予算未設定でも実績があるものは、グループ合計には効いている。
                       何も出さないと「超過の合計が一致しない」と読めてしまうので明示する */}
                   {sign !== 0 && !hasBudget && b.actual !== 0 && (
-                    <span className="text-xs font-semibold shrink-0 ml-2 text-amber-400">
-                      予算なし {toJPY(Math.abs(b.actual))}
-                    </span>
+                    <span className="text-[10px] text-amber-400" title={`予算なし ${toJPY(Math.abs(b.actual))}`}>予算なし</span>
                   )}
-                </div>
-                <div className="w-full bg-slate-800 rounded-full h-1.5 mb-1">
-                  <div
-                    className={`h-1.5 rounded-full ${isBad ? "bg-red-400" : (gc?.progress ?? "bg-blue-500")}`}
+                </span>
+                {/* 進捗（下端の細線） */}
+                {hasBudget && (
+                  <span
+                    className={`absolute left-0 bottom-0 h-0.5 ${isBad ? "bg-red-400" : (gc?.progress ?? "bg-blue-500")}`}
                     style={{ width: `${pct}%` }}
                   />
-                </div>
-                <div className="flex justify-between items-center text-[11px] text-slate-400">
-                  <span
-                    className={b.actual !== 0 ? "cursor-pointer underline decoration-dotted hover:text-blue-400 transition-colors" : ""}
-                    onClick={e => { if (b.actual !== 0) { e.stopPropagation(); openDrillDown(b.category, b.cardType, month) } }}
-                  >実績 {toJPY(b.actual)}</span>
-                  {editingBudget?.category === b.category && editingBudget?.cardType === b.cardType ? (
-                    <div className="flex items-center gap-1" onClick={e => e.stopPropagation()} onDragStart={e => e.stopPropagation()}>
-                      {/* 毎月 / 今月 トグル */}
-                      <div className="flex rounded overflow-hidden border border-slate-800 text-[10px]">
-                        <button
-                          type="button"
-                          onClick={() => setEditingBudget({ ...editingBudget, periodType: "monthly" })}
-                          className={`px-1.5 py-0.5 transition-colors ${editingBudget.periodType === "monthly" ? "bg-blue-500 text-white" : "bg-slate-900 text-slate-400"}`}
-                        >毎月</button>
-                        <button
-                          type="button"
-                          onClick={() => setEditingBudget({ ...editingBudget, periodType: "this_month" })}
-                          className={`px-1.5 py-0.5 transition-colors border-l border-slate-800 ${editingBudget.periodType === "this_month" ? "bg-purple-500 text-white" : "bg-slate-900 text-slate-400"}`}
-                        >今月</button>
-                      </div>
-                      <AmountInput
-                        value={editingBudget.value}
-                        onChange={v => setEditingBudget({ ...editingBudget, value: v })}
-                        onCommit={() => handleBudgetSave(b.category, b.cardType, editingBudget.value, editingBudget.periodType)}
-                        onCancel={() => setEditingBudget(null)}
-                        className="w-20 text-right text-xs text-slate-100 border border-blue-400 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-blue-400 bg-slate-900"
-                      />
-                    </div>
-                  ) : (
-                    <span
-                      onClick={e => { e.stopPropagation(); setEditingBudget({ category: b.category, cardType: b.cardType, value: b.budget > 0 ? String(b.budget) : "", periodType: "monthly" }) }}
-                      className="cursor-pointer hover:text-blue-400 hover:underline"
-                      title="クリックして予算を編集"
-                    >
-                      予算 {b.budget > 0 ? toJPY(b.budget) : "—"}
-                    </span>
-                  )}
-                </div>
+                )}
               </div>
             )
           })}
@@ -750,108 +761,34 @@ function BudgetContent() {
       <PageHeader title="予算管理" />
       <div className={isPC ? "px-6 py-4" : "px-3 py-2"}>
 
-        {/* メインタブ切替 */}
-        <div className="flex rounded-xl bg-slate-800 p-1 mb-3">
-          {([["monthly", "月次"], ["yearly", "年次"]] as const).map(([k, label]) => (
-            <button key={k} onClick={() => setMainTab(k)}
-              className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                mainTab === k ? "bg-slate-900 shadow-sm text-blue-400" : "text-slate-400"
-              }`}>
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* ═══════════════════════════════════════════════════════
-            月次タブ
-        ═══════════════════════════════════════════════════════ */}
-        {mainTab === "monthly" && (
-          <div className="space-y-3">
-            <div className={isPC ? "flex items-stretch gap-2" : "space-y-3"}>
-            {/* 月選択 */}
-            <div className={`flex items-center gap-1 bg-slate-900 rounded-xl shadow-sm border border-slate-800 px-2 py-1.5 ${isPC ? "w-52 shrink-0" : ""}`}>
-              <button onClick={() => setMonth(prevMonth(month))}
-                className="text-slate-400 hover:text-blue-400 px-1.5 py-0.5 rounded hover:bg-slate-800 text-lg font-bold">‹</button>
-              <input type="month" value={month} onChange={e => setMonth(e.target.value)}
-                className="flex-1 min-w-0 text-center text-sm font-semibold text-slate-100 border-0 outline-none bg-transparent" />
-              <button onClick={() => setMonth(nextMonth(month))}
-                className="text-slate-400 hover:text-blue-400 px-1.5 py-0.5 rounded hover:bg-slate-800 text-lg font-bold">›</button>
-            </div>
-
-            {/* 収支サマリーカード（個人/共同で切替） */}
-            {cardTypeFilter === "self" ? (
-              <div className={`grid ${isPC ? "grid-cols-4 flex-1" : "grid-cols-2"} gap-2`}>
-                <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 px-3 py-2 text-center">
-                  <p className="text-[11px] text-slate-400 mb-1">収入</p>
-                  <p className="text-sm font-bold text-green-400">{toJPY(incomeTotal)}</p>
-                  {selfTaxTotal > 0 && (
-                    <>
-                      <p className="text-[11px] text-slate-300 mt-1">手取り {toJPY(selfNetIncome)}</p>
-                      <p className="text-[10px] text-slate-500">税・社会保険 −{toJPY(selfTaxTotal)}</p>
-                    </>
-                  )}
-                </div>
-                <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 px-3 py-2 text-center">
-                  <p className="text-[11px] text-slate-400 mb-1">支出</p>
-                  <p className={`text-sm font-bold ${selfActual > selfBudget && selfBudget > 0 ? "text-red-400" : "text-slate-100"}`}>
-                    {toJPY(selfActual)}
-                  </p>
-                </div>
-                <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 px-3 py-2 text-center">
-                  <p className="text-[11px] text-slate-400 mb-1">予算</p>
-                  <p className="text-sm font-bold text-slate-300">{toJPY(selfBudget)}</p>
-                </div>
-                <div className={`rounded-xl shadow-sm px-3 py-2 text-center ${selfVariance > 0 ? "bg-red-500/10" : "bg-blue-500/10"}`}>
-                  <p className="text-[11px] text-slate-400 mb-1">予実差</p>
-                  <p className={`text-sm font-bold ${selfVariance > 0 ? "text-red-400" : "text-blue-400"}`}>
-                    {selfVariance > 0 ? "+" : ""}{toJPY(selfVariance)}
-                  </p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">
-                    {selfVariance > 0 ? "予算オーバー" : selfVariance === 0 ? "予算ちょうど" : "予算内"}
-                  </p>
-                </div>
+        {/* メインタブ切替（月次は月選択・個人/共同も同じ行に並べる） */}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 mb-2">
+          <div className="flex rounded-lg bg-slate-800 p-0.5">
+            {([["monthly", "月次"], ["yearly", "年次"]] as const).map(([k, label]) => (
+              <button key={k} onClick={() => setMainTab(k)}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                  mainTab === k ? "bg-slate-900 shadow-sm text-blue-400" : "text-slate-400"
+                }`}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {mainTab === "monthly" && (
+            <>
+              {/* 月選択 */}
+              <div className="flex items-center">
+                <button onClick={() => setMonth(prevMonth(month))}
+                  className="text-slate-400 hover:text-blue-400 px-1.5 rounded hover:bg-slate-800 text-lg font-bold leading-none">‹</button>
+                <input type="month" value={month} onChange={e => setMonth(e.target.value)} aria-label="月"
+                  className="w-32 text-center text-sm font-semibold text-slate-100 border-0 outline-none bg-transparent" />
+                <button onClick={() => setMonth(nextMonth(month))}
+                  className="text-slate-400 hover:text-blue-400 px-1.5 rounded hover:bg-slate-800 text-lg font-bold leading-none">›</button>
               </div>
-            ) : (
-              <div className={`grid ${isPC ? "grid-cols-4 flex-1" : "grid-cols-2"} gap-2`}>
-                <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 px-3 py-2 text-center">
-                  <p className="text-[11px] text-slate-400 mb-1">入金</p>
-                  <p className="text-sm font-bold text-green-400">{toJPY(jointIncomeTotal)}</p>
-                  {jointTaxTotal > 0 && (
-                    <>
-                      <p className="text-[11px] text-slate-300 mt-1">手取り {toJPY(jointNetIncome)}</p>
-                      <p className="text-[10px] text-slate-500">税・社会保険 −{toJPY(jointTaxTotal)}</p>
-                    </>
-                  )}
-                </div>
-                <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 px-3 py-2 text-center">
-                  <p className="text-[11px] text-slate-400 mb-1">支出</p>
-                  <p className={`text-sm font-bold ${jointActual > jointBudget && jointBudget > 0 ? "text-red-400" : "text-slate-100"}`}>
-                    {toJPY(jointActual)}
-                  </p>
-                </div>
-                <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 px-3 py-2 text-center">
-                  <p className="text-[11px] text-slate-400 mb-1">予算</p>
-                  <p className="text-sm font-bold text-slate-300">{toJPY(jointBudget)}</p>
-                </div>
-                <div className={`rounded-xl shadow-sm px-3 py-2 text-center ${jointVariance > 0 ? "bg-red-500/10" : "bg-amber-500/10"}`}>
-                  <p className="text-[11px] text-slate-400 mb-1">予実差</p>
-                  <p className={`text-sm font-bold ${jointVariance > 0 ? "text-red-400" : "text-amber-400"}`}>
-                    {jointVariance > 0 ? "+" : ""}{toJPY(jointVariance)}
-                  </p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">
-                    {jointVariance > 0 ? "予算オーバー" : jointVariance === 0 ? "予算ちょうど" : "予算内"}
-                  </p>
-                </div>
-              </div>
-            )}
-            </div>
-
-            {/* 個人/共同トグルと、動きのない行の表示切替を1行にまとめる */}
-            <div className="flex items-center gap-2">
-              <div className={`flex rounded-lg bg-slate-800 p-0.5 ${isPC ? "w-64" : "flex-1"}`}>
+              {/* 個人/共同 */}
+              <div className="flex rounded-lg bg-slate-800 p-0.5">
                 {([["self", "個人"] as const, ["joint", "共同"] as const]).map(([k, label]) => (
                   <button key={k} onClick={() => setCardTypeFilter(k)}
-                    className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
                       cardTypeFilter === k
                         ? k === "self" ? "bg-slate-900 text-indigo-400 shadow-sm" : "bg-slate-900 text-amber-400 shadow-sm"
                         : "text-slate-400"
@@ -870,6 +807,121 @@ function BudgetContent() {
                     : `動きのないカテゴリを表示（${hiddenRowCount}）`}
                 </button>
               )}
+            </>
+          )}
+          {mainTab === "yearly" && (
+            <>
+              {/* 年選択 */}
+              <div className="flex items-center">
+                <button onClick={() => setYear(year - 1)}
+                  className="text-slate-400 hover:text-blue-400 px-1.5 font-bold text-sm">‹</button>
+                <span className="text-sm font-semibold text-slate-100 w-14 text-center">{year}年</span>
+                <button onClick={() => setYear(year + 1)}
+                  className="text-slate-400 hover:text-blue-400 px-1.5 font-bold text-sm">›</button>
+              </div>
+
+              {/* 個人/共同 */}
+              <div className="flex rounded-lg bg-slate-800 p-0.5">
+                {([["self", "個人"] as const, ["joint", "共同"] as const]).map(([k, label]) => (
+                  <button key={k} onClick={() => setYearCardTypeFilter(k)}
+                    className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${
+                      yearCardTypeFilter === k
+                        ? k === "self" ? "bg-slate-900 text-indigo-400 shadow-sm" : "bg-slate-900 text-amber-400 shadow-sm"
+                        : "text-slate-400"
+                    }`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* 表示（テーブルの予算/実績/差額/両方 と グラフ を1つのセレクトに） */}
+              <select
+                value={displayMode === "chart" ? "chart" : viewMode}
+                onChange={e => {
+                  const v = e.target.value
+                  if (v === "chart") { setDisplayMode("chart"); return }
+                  setDisplayMode("table")
+                  if (v !== viewMode) setViewMode(v as ViewMode)
+                }}
+                aria-label="表示"
+                className="border border-slate-700 rounded-lg px-1.5 py-1 text-xs bg-slate-900 text-slate-100 cursor-pointer"
+              >
+                <option value="budget">表：予算</option>
+                <option value="actual">表：実績</option>
+                <option value="diff">表：差額</option>
+                <option value="both">表：両方</option>
+                <option value="chart">グラフ</option>
+              </select>
+
+              {/* 期間計セレクター（テーブル時のみ） */}
+              {displayMode === "table" && (
+                <div className="flex items-center gap-1 border border-slate-700 rounded-lg px-1.5 py-1 text-xs text-slate-300 bg-slate-900">
+                  <span className="text-slate-500 shrink-0">期間</span>
+                  <select value={rangeFrom} onChange={e => setRangeFrom(e.target.value)}
+                    className="border-0 outline-none bg-slate-900 text-xs text-slate-100 cursor-pointer">
+                    {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")).map(m => (
+                      <option key={m} value={m}>{Number(m)}月</option>
+                    ))}
+                  </select>
+                  <span className="text-slate-500">〜</span>
+                  <select value={rangeTo} onChange={e => setRangeTo(e.target.value)}
+                    className="border-0 outline-none bg-slate-900 text-xs text-slate-100 cursor-pointer">
+                    {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")).map(m => (
+                      <option key={m} value={m}>{Number(m)}月</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <span className="text-xs text-slate-500 ml-auto cursor-help"
+                title={"凡例\n赤背景 = 予算超過\n赤文字 = 超過額\n緑文字 = 余剰\n青ヘッダー = 当月"}>
+                {months.length}ヶ月 ⓘ
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* ═══════════════════════════════════════════════════════
+            月次タブ
+        ═══════════════════════════════════════════════════════ */}
+        {mainTab === "monthly" && (() => {
+          // 表示中の個人/共同に応じたサマリー値（計算は上で済んでいる値を選ぶだけ）
+          const isSelf = cardTypeFilter === "self"
+          const sIncome = isSelf ? incomeTotal : jointIncomeTotal
+          const sTax = isSelf ? selfTaxTotal : jointTaxTotal
+          const sNet = isSelf ? selfNetIncome : jointNetIncome
+          const sActual = isSelf ? selfActual : jointActual
+          const sBudget = isSelf ? selfBudget : jointBudget
+          const sVariance = isSelf ? selfVariance : jointVariance
+          const okColor = isSelf ? "text-blue-400" : "text-amber-400"
+          return (
+          <div className="space-y-2">
+            {/* 収支サマリー（1枚・4列） */}
+            <div className="grid grid-cols-4 divide-x divide-slate-800 bg-slate-900 rounded-xl shadow-sm border border-slate-800 py-1.5 text-center">
+              <div className="px-1 min-w-0" title={sTax > 0 ? `手取り ${toJPY(sNet)}（税・社会保険 −${toJPY(sTax)}）` : undefined}>
+                <p className="text-[10px] text-slate-400">{isSelf ? "収入" : "入金"}</p>
+                <p className="text-xs sm:text-sm font-bold text-green-400 truncate">{toJPY(sIncome)}</p>
+                {sTax > 0 && (
+                  <p className="text-[10px] text-slate-400 truncate">手取 {toJPY(sNet)}</p>
+                )}
+              </div>
+              <div className="px-1 min-w-0">
+                <p className="text-[10px] text-slate-400">支出</p>
+                <p className={`text-xs sm:text-sm font-bold truncate ${sActual > sBudget && sBudget > 0 ? "text-red-400" : "text-slate-100"}`}>
+                  {toJPY(sActual)}
+                </p>
+              </div>
+              <div className="px-1 min-w-0">
+                <p className="text-[10px] text-slate-400">予算</p>
+                <p className="text-xs sm:text-sm font-bold text-slate-300 truncate">{toJPY(sBudget)}</p>
+              </div>
+              <div className="px-1 min-w-0"
+                title={`予実差 = 実績 − 予算（${sVariance > 0 ? "予算オーバー" : sVariance === 0 ? "予算ちょうど" : "予算内"}）`}>
+                <p className="text-[10px] text-slate-400">予実差</p>
+                <p className={`text-xs sm:text-sm font-bold truncate ${sVariance > 0 ? "text-red-400" : okColor}`}>
+                  {sVariance > 0 ? "+" : ""}{toJPY(sVariance)}
+                </p>
+              </div>
             </div>
 
             {monthlyLoading && (
@@ -877,12 +929,9 @@ function BudgetContent() {
             )}
 
             {!monthlyLoading && filteredBudgets.length === 0 && (
-              <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-6 text-center space-y-3">
-                <p className="text-slate-400 text-sm">予算が設定されていません</p>
-                <Link href="/settings"
-                  className="inline-block bg-blue-600 text-white text-sm px-4 py-2 rounded-lg">
-                  設定から予算を追加する
-                </Link>
+              <div className="flex items-center gap-2 bg-slate-900 rounded-xl border border-slate-800 px-3 py-2 text-xs">
+                <span className="text-slate-400">予算未設定</span>
+                <Link href="/settings" className="text-blue-400 hover:underline">設定から追加 ›</Link>
               </div>
             )}
 
@@ -897,7 +946,7 @@ function BudgetContent() {
                   ))}
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {monthlyGroups.map(({ group, rows }) => (
                     <div key={group}>{renderMonthlyGroupCard(group, rows)}</div>
                   ))}
@@ -905,87 +954,14 @@ function BudgetContent() {
               )
             )}
           </div>
-        )}
+          )
+        })()}
 
         {/* ═══════════════════════════════════════════════════════
             年次タブ
         ═══════════════════════════════════════════════════════ */}
         {mainTab === "yearly" && (
           <div className="space-y-3">
-            {/* コントロールバー */}
-            <div className="flex flex-wrap items-center gap-2">
-              {/* 年選択 */}
-              <div className="flex items-center gap-1 bg-slate-900 border rounded-lg px-2 py-1.5">
-                <button onClick={() => setYear(year - 1)}
-                  className="text-slate-400 hover:text-blue-400 px-1 font-bold text-sm">‹</button>
-                <span className="text-sm font-semibold text-slate-100 w-16 text-center">{year}年</span>
-                <button onClick={() => setYear(year + 1)}
-                  className="text-slate-400 hover:text-blue-400 px-1 font-bold text-sm">›</button>
-              </div>
-
-              {/* 個人/共同 */}
-              <div className="flex rounded-lg bg-slate-800 p-0.5">
-                {([["self", "個人"] as const, ["joint", "共同"] as const]).map(([k, label]) => (
-                  <button key={k} onClick={() => setYearCardTypeFilter(k)}
-                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                      yearCardTypeFilter === k
-                        ? k === "self" ? "bg-slate-900 text-indigo-400 shadow-sm" : "bg-slate-900 text-amber-400 shadow-sm"
-                        : "text-slate-400"
-                    }`}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-
-              {/* テーブル/グラフ切替 */}
-              <div className="flex rounded-lg bg-slate-800 p-0.5">
-                {([["table", "テーブル"], ["chart", "グラフ"]] as const).map(([k, label]) => (
-                  <button key={k} onClick={() => setDisplayMode(k)}
-                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                      displayMode === k ? "bg-slate-900 text-blue-400 shadow-sm" : "text-slate-400"
-                    }`}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-
-              {/* 表示モード（テーブル時のみ） */}
-              {displayMode === "table" && (
-                <div className="flex rounded-lg bg-slate-800 p-0.5">
-                  {([["budget", "予算"], ["actual", "実績"], ["diff", "差額"], ["both", "両方"]] as const).map(([k, label]) => (
-                    <button key={k} onClick={() => setViewMode(k)}
-                      className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                        viewMode === k ? "bg-slate-900 text-blue-400 shadow-sm" : "text-slate-400"
-                      }`}>
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* 期間計セレクター（テーブル時のみ） */}
-              {displayMode === "table" && (
-                <div className="flex items-center gap-1 bg-slate-900 border rounded-lg px-2 py-1.5 text-xs text-slate-300">
-                  <span className="text-slate-500 shrink-0">期間</span>
-                  <select value={rangeFrom} onChange={e => setRangeFrom(e.target.value)}
-                    className="border-0 outline-none bg-transparent text-xs text-slate-100 cursor-pointer">
-                    {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")).map(m => (
-                      <option key={m} value={m}>{Number(m)}月</option>
-                    ))}
-                  </select>
-                  <span className="text-slate-500">〜</span>
-                  <select value={rangeTo} onChange={e => setRangeTo(e.target.value)}
-                    className="border-0 outline-none bg-transparent text-xs text-slate-100 cursor-pointer">
-                    {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")).map(m => (
-                      <option key={m} value={m}>{Number(m)}月</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <span className="text-xs text-slate-500 ml-auto">{months.length}ヶ月</span>
-            </div>
-
             {yearlyLoading && (
               <div className="text-center py-12 text-slate-500 text-sm">読み込み中...</div>
             )}
@@ -1091,9 +1067,6 @@ function BudgetContent() {
                       <th className="text-left px-3 py-2 font-semibold sticky left-0 bg-slate-800 z-30 min-w-[140px]"
                         style={{ boxShadow: "2px 0 0 0 #1e293b" }}>
                         カテゴリ
-                        <span className="block text-[10px] font-normal text-blue-300 mt-0.5">
-                          表示: {viewMode === "budget" ? "予算" : viewMode === "actual" ? "実績" : viewMode === "diff" ? "差額" : "予算/実績"}
-                        </span>
                       </th>
                       {months.map(m => (
                         <th key={m} className={`text-right px-2 py-2 font-medium min-w-[90px] ${
@@ -1440,16 +1413,6 @@ function BudgetContent() {
                     </tr>
                   </tfoot>
                 </table>
-              </div>
-            )}
-
-            {/* 凡例 */}
-            {!yearlyLoading && (
-              <div className="flex flex-wrap gap-3 text-xs text-slate-500">
-                <span>赤背景 = 予算超過</span>
-                <span className="text-red-400">赤文字 = 超過額</span>
-                <span className="text-green-400">緑文字 = 余剰</span>
-                <span className="text-blue-400">青ヘッダー = 当月</span>
               </div>
             )}
           </div>

@@ -171,10 +171,12 @@ export default function AssetsPage() {
 
   const alreadyEntered = assets.some(a => a.month === defaultMonth)
 
+  const moneyInput = "w-full border rounded-lg pl-6 pr-2 py-1.5 text-sm text-right bg-slate-900 text-slate-100"
+
   return (
     <div className={isPC ? "" : "pb-20"}>
       <PageHeader title="資産管理" />
-      <main className={isPC ? "max-w-xl mx-auto px-6 py-4 space-y-3" : "max-w-md mx-auto px-4 py-2 space-y-3"}>
+      <main className={isPC ? "max-w-5xl mx-auto px-6 py-4 space-y-3" : "max-w-md mx-auto px-4 py-2 space-y-3"}>
         {loading && <div className="text-center py-4 text-slate-400">読み込み中...</div>}
         {loadError && (
           <div className="bg-red-500/10 border border-red-500/40 rounded-xl p-3 text-sm text-red-300">
@@ -183,205 +185,180 @@ export default function AssetsPage() {
         )}
 
         {!loading && (
-          <>
-            <div className="flex gap-2">
-              {([["self", "🙋 個人"], ["joint", "👫 共同"]] as const).map(([k, label]) => (
-                <button key={k} onClick={() => setScope(k)}
-                  className={`flex-1 rounded-xl py-2 text-sm font-semibold transition-colors ${
-                    scope === k ? "bg-blue-600 text-white" : "bg-slate-900 text-slate-400 border border-slate-800"
-                  }`}>
-                  {label}
-                </button>
-              ))}
-            </div>
-            <p className="text-[11px] text-slate-500 -mt-1">
-              ここで記録した残高が、ライフプランの「現在の資産」としてそのまま使われます
-            </p>
-            {/* 最新残高サマリー */}
+          <div className={isPC ? "grid grid-cols-1 lg:grid-cols-2 gap-3 items-start" : "space-y-3"}>
+            {/* 左：サマリー＋月末入力 */}
+            <div className="space-y-3">
+            {/* 最新残高サマリー（1〜2行） */}
             {latest && (
-              <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3">
-                <p className="text-xs text-slate-300 mb-1">{monthEndLabel(latest.month)} 時点の資産</p>
-                <p className="text-3xl font-bold text-blue-400">{toJPY(latest.total)}</p>
-                <div className="mt-3 grid grid-cols-2 gap-3">
-                  <div className="bg-green-500/10 rounded-xl p-3 text-center">
-                    <p className="text-xs text-slate-300 mb-1">貯金</p>
-                    <p className="text-lg font-bold text-green-400">{toJPY(latest.savings)}</p>
-                  </div>
-                  <div className="bg-purple-500/10 rounded-xl p-3 text-center">
-                    <p className="text-xs text-slate-300 mb-1">投資 (NISA)</p>
-                    <p className="text-lg font-bold text-purple-400">{toJPY(latest.investment)}</p>
-                  </div>
+              <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 px-3 py-2">
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <span className="text-xs text-slate-400">{monthEndLabel(latest.month)} 時点</span>
+                  <span className="text-2xl font-bold text-blue-400">{toJPY(latest.total)}</span>
                 </div>
+                <p className="text-xs text-slate-400">
+                  貯金 <b className="text-green-400">{toJPY(latest.savings)}</b>
+                  <span className="mx-1.5 text-slate-700">|</span>
+                  投資 (NISA) <b className="text-purple-400">{toJPY(latest.investment)}</b>
+                </p>
               </div>
             )}
 
             {/* 月次資産入力 */}
-            <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 space-y-3">
-              <div>
-                <h2 className="text-sm font-semibold text-slate-300">月末の残高を記録する</h2>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  月末時点の残高を毎月1回入れてください。同じ時点で揃えておくと、増減が正しく比べられます
-                </p>
+            <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-semibold text-slate-300 mr-auto"
+                  title={"月末時点の残高を毎月1回入れてください。同じ時点で揃えておくと、増減が正しく比べられます\nここで記録した残高が、ライフプランの「現在の資産」としてそのまま使われます"}>
+                  月末の残高を記録 <span className="text-[11px] text-slate-500 cursor-help">ⓘ</span>
+                </h2>
+                <div className="flex rounded-lg overflow-hidden border border-slate-700 text-xs font-semibold shrink-0">
+                  {([["self", "🙋 個人"], ["joint", "👫 共同"]] as const).map(([k, label]) => (
+                    <button key={k} onClick={() => setScope(k)}
+                      className={`px-2.5 py-1 transition-colors ${
+                        scope === k ? "bg-blue-600 text-white" : "bg-slate-900 text-slate-400"
+                      }`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              {/* 今月分がまだなら、先に知らせる */}
-              {!alreadyEntered && (
-                <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
-                  <p className="text-xs text-amber-300 font-semibold">
-                    {monthEndLabel(defaultMonth)}時点の残高がまだ入っていません
-                  </p>
-                  {month !== defaultMonth && (
-                    <button onClick={() => setMonth(defaultMonth)}
-                      className="text-[11px] text-amber-200 underline mt-1">
-                      {monthEndLabel(defaultMonth)}を入力する
+              {/* 未入力・抜けている月を1行のチップで */}
+              {(!alreadyEntered || missingMonths.length > 0) && (
+                <div className="flex flex-wrap items-center gap-1">
+                  <span className="text-[11px] text-amber-300 mr-0.5">⚠ 未入力:</span>
+                  {Array.from(new Set([...missingMonths, ...(alreadyEntered ? [] : [defaultMonth])])).map(m => (
+                    <button key={m} onClick={() => setMonth(m)}
+                      className={`text-[11px] px-2 py-0.5 rounded border transition-colors ${
+                        month === m
+                          ? "bg-blue-600 text-white border-blue-500"
+                          : m === defaultMonth
+                          ? "border-amber-500/50 text-amber-300 hover:border-blue-500"
+                          : "border-slate-600 text-slate-300 hover:border-blue-500"
+                      }`}>
+                      {monthEndLabel(m)}
                     </button>
-                  )}
+                  ))}
                 </div>
               )}
 
-              {/* 抜けている月 */}
-              {missingMonths.length > 0 && (
-                <div className="bg-slate-800/60 border border-slate-700 rounded-lg px-3 py-2">
-                  <p className="text-[11px] text-slate-400 mb-1">入力が抜けている月</p>
-                  <div className="flex flex-wrap gap-1">
-                    {missingMonths.map(m => (
-                      <button key={m} onClick={() => setMonth(m)}
-                        className={`text-[11px] px-2 py-0.5 rounded border transition-colors ${
-                          month === m
-                            ? "bg-blue-600 text-white border-blue-500"
-                            : "border-slate-600 text-slate-300 hover:border-blue-500"
-                        }`}>
-                        {monthEndLabel(m)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <label className="text-xs text-slate-300 mb-1 block">どの月末の残高か</label>
-                <div className="flex items-center gap-1 border rounded-lg px-2 py-1">
+              {/* 月｜貯金｜投資｜保存 */}
+              <div className="grid grid-cols-2 sm:grid-cols-[auto_1fr_1fr_auto] gap-2 items-center">
+                <div className="col-span-2 sm:col-span-1 flex items-center gap-1 border rounded-lg px-1.5 py-1" title="どの月末の残高か">
                   <button onClick={() => setMonth(prevMonthOf(month))}
-                    className="text-slate-400 hover:text-blue-400 px-1 font-bold text-base">‹</button>
-                  <span className="flex-1 text-center text-sm font-semibold text-slate-100">
+                    className="text-slate-400 hover:text-blue-400 px-1 font-bold text-base leading-none">‹</button>
+                  <span className="flex-1 sm:flex-none sm:w-28 text-center text-sm font-semibold text-slate-100">
                     {monthEndLabel(month)}
                   </span>
                   <button onClick={() => setMonth(nextMonthOf(month))}
                     disabled={month >= defaultMonth}
-                    className="text-slate-400 hover:text-blue-400 px-1 font-bold text-base disabled:opacity-30">›</button>
+                    className="text-slate-400 hover:text-blue-400 px-1 font-bold text-base leading-none disabled:opacity-30">›</button>
                 </div>
-                {month > defaultMonth && (
-                  <p className="text-[11px] text-amber-400 mt-1">この月はまだ月末を迎えていません</p>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-xs text-slate-300 mb-1 block">貯金残高（円）</label>
-                  <input type="text" inputMode="numeric" value={savings}
+                <div className="relative" title="貯金残高（円）">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-green-400">貯</span>
+                  <input type="text" inputMode="numeric" value={savings} aria-label="貯金残高（円）"
                     onChange={e => setSavings(fmtMoneyInput(e.target.value))}
-                    placeholder="0" className="w-full border rounded-lg px-3 py-2 text-sm" />
+                    placeholder="貯金" className={moneyInput} />
                 </div>
-                <div>
-                  <label className="text-xs text-slate-300 mb-1 block">投資残高（円）</label>
-                  <input type="text" inputMode="numeric" value={investment}
+                <div className="relative" title="投資残高（円）">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-purple-400">投</span>
+                  <input type="text" inputMode="numeric" value={investment} aria-label="投資残高（円）"
                     onChange={e => setInvestment(fmtMoneyInput(e.target.value))}
-                    placeholder="0" className="w-full border rounded-lg px-3 py-2 text-sm" />
+                    placeholder="投資" className={moneyInput} />
                 </div>
+                <button onClick={handleSaveAssets} disabled={saving}
+                  title={`${monthEndLabel(month)}の残高を保存`}
+                  className="col-span-2 sm:col-span-1 bg-blue-600 text-white rounded-lg px-4 py-1.5 text-sm font-semibold disabled:opacity-50">
+                  {saving ? "保存中..." : "保存"}
+                </button>
               </div>
+              {month > defaultMonth && (
+                <p className="text-[11px] text-amber-400">この月はまだ月末を迎えていません</p>
+              )}
               {saveMsg && <p className="text-xs text-green-400">✅ {saveMsg}</p>}
-              <button onClick={handleSaveAssets} disabled={saving}
-                className="w-full bg-blue-600 text-white rounded-lg py-2.5 text-sm font-semibold disabled:opacity-50">
-                {saving ? "保存中..." : `${monthEndLabel(month)}の残高を保存`}
-              </button>
+            </div>
             </div>
 
+            {/* 右：目標＋履歴 */}
+            <div className="space-y-3">
             {/* 目標設定 */}
-            <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 space-y-3">
+            <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 space-y-2">
               <h2 className="text-sm font-semibold text-slate-300">貯蓄目標</h2>
 
-              {/* 目標一覧 */}
-              {goals.map(g => {
-                const pct = Math.min((totalAssets / g.target_amount) * 100, 100)
-                const remaining = g.target_amount - totalAssets
-                return (
-                  <div key={g.id} className="border rounded-xl p-3">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <p className="text-sm font-medium text-slate-100">{g.name}</p>
-                        {g.deadline && <p className="text-xs text-slate-300">目標：{g.deadline}</p>}
+              {/* 目標一覧（1目標＝2行） */}
+              {goals.length > 0 && (
+                <div className="divide-y divide-slate-800">
+                  {goals.map(g => {
+                    const pct = Math.min((totalAssets / g.target_amount) * 100, 100)
+                    const remaining = g.target_amount - totalAssets
+                    return (
+                      <div key={g.id} className="py-1.5">
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="text-sm font-medium text-slate-100 truncate min-w-0">{g.name}</span>
+                          {g.deadline && <span className="text-slate-500 shrink-0">〜{g.deadline}</span>}
+                          <span className="ml-auto text-slate-300 shrink-0">{toJPY(totalAssets)} / {toJPY(g.target_amount)}</span>
+                          <button onClick={() => handleDeleteGoal(g.id)}
+                            className="text-slate-600 hover:text-red-400 text-lg leading-none w-5 shrink-0">×</button>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs mt-0.5">
+                          <div className="flex-1 bg-slate-800 rounded-full h-1.5">
+                            <div className="h-1.5 rounded-full bg-blue-500" style={{ width: `${pct}%` }} />
+                          </div>
+                          <span className="text-blue-400 font-semibold w-12 text-right shrink-0">{pct.toFixed(1)}%</span>
+                          <span className="text-slate-400 shrink-0">{remaining > 0 ? `あと${toJPY(remaining)}` : "達成済み"}</span>
+                        </div>
                       </div>
-                      <button onClick={() => handleDeleteGoal(g.id)}
-                        className="text-slate-600 hover:text-red-400 text-xl leading-none">×</button>
-                    </div>
-                    <div className="flex justify-between text-xs text-slate-300 mb-1">
-                      <span>{toJPY(totalAssets)}</span>
-                      <span>{toJPY(g.target_amount)}</span>
-                    </div>
-                    <div className="w-full bg-slate-800 rounded-full h-2 mb-1">
-                      <div className="h-2 rounded-full bg-blue-500"
-                        style={{ width: `${pct}%` }} />
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-blue-400 font-semibold">{pct.toFixed(1)}%</span>
-                      <span className="text-slate-300">
-                        {remaining > 0 ? `あと${toJPY(remaining)}` : "達成済み"}
-                      </span>
-                    </div>
-                  </div>
-                )
-              })}
-
-              {/* 目標追加フォーム */}
-              <div className="border-t pt-3 space-y-2">
-                <p className="text-xs font-medium text-slate-400">新しい目標を追加</p>
-                <input type="text" value={goalName} onChange={e => setGoalName(e.target.value)}
-                  placeholder="目標名（例：緊急資金100万）"
-                  className="w-full border rounded-lg px-3 py-2 text-sm" />
-                <div className="grid grid-cols-2 gap-2">
-                  <input type="text" inputMode="numeric" value={goalAmount} onChange={e => setGoalAmount(fmtMoneyInput(e.target.value))}
-                    placeholder="目標額（円）"
-                    className="w-full border rounded-lg px-3 py-2 text-sm" />
-                  <input type="date" value={goalDeadline} onChange={e => setGoalDeadline(e.target.value)}
-                    className="w-full border rounded-lg px-3 py-2 text-sm" />
+                    )
+                  })}
                 </div>
+              )}
+
+              {/* 目標追加フォーム：目標名｜目標額｜期限｜追加 */}
+              <div className="grid grid-cols-2 sm:grid-cols-[1fr_8rem_9rem_auto] gap-1.5 border-t border-slate-800 pt-2">
+                <input type="text" value={goalName} onChange={e => setGoalName(e.target.value)}
+                  placeholder="新しい目標（例：緊急資金100万）"
+                  className="col-span-2 sm:col-span-1 min-w-0 border rounded-lg px-2 py-1.5 text-sm bg-slate-900 text-slate-100" />
+                <input type="text" inputMode="numeric" value={goalAmount} onChange={e => setGoalAmount(fmtMoneyInput(e.target.value))}
+                  placeholder="目標額（円）"
+                  className="min-w-0 border rounded-lg px-2 py-1.5 text-sm text-right bg-slate-900 text-slate-100" />
+                <input type="date" value={goalDeadline} onChange={e => setGoalDeadline(e.target.value)} title="期限（任意）"
+                  className="min-w-0 border rounded-lg px-2 py-1.5 text-sm bg-slate-900 text-slate-100" />
                 <button onClick={handleAddGoal} disabled={!goalName || !goalAmount || addingGoal}
-                  className="w-full bg-green-600 text-white rounded-lg py-2 text-sm font-semibold disabled:opacity-50">
-                  目標を追加
+                  className="col-span-2 sm:col-span-1 bg-green-600 text-white rounded-lg px-3 py-1.5 text-sm font-semibold disabled:opacity-50">
+                  追加
                 </button>
               </div>
             </div>
 
-            {/* 履歴テーブル */}
+            {/* 履歴テーブル（1か月＝1行） */}
             {assets.length > 0 && (
               <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 overflow-hidden">
-                <div className="px-4 py-3 bg-slate-800 border-b">
-                  <h2 className="text-sm font-semibold text-slate-300">資産推移履歴</h2>
+                <div className="grid grid-cols-[3.5rem_1fr_1fr_1fr_auto] items-center gap-1.5 px-3 py-1.5 bg-slate-800 border-b text-[11px] text-slate-400">
+                  <span className="text-xs font-semibold text-slate-300">推移</span>
+                  <span className="text-right">貯金</span>
+                  <span className="text-right">投資</span>
+                  <span className="text-right">合計</span>
+                  <span className="w-12" />
                 </div>
                 {[...assets].reverse().map(a => (
-                  <div key={a.month} className="flex items-center px-4 py-2 border-b last:border-0 text-sm">
-                    <span className="text-slate-400 w-24 shrink-0">{monthEndLabel(a.month)}</span>
-                    <div className="flex-1 space-y-0.5">
-                      <div className="flex justify-between">
-                        <span className="text-slate-400 text-xs">貯金</span>
-                        <span className="text-green-400 text-xs">{toJPY(a.savings)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400 text-xs">投資</span>
-                        <span className="text-purple-400 text-xs">{toJPY(a.investment)}</span>
-                      </div>
-                    </div>
-                    <span className="font-semibold text-blue-400 ml-3">{toJPY(a.total)}</span>
-                    <button onClick={() => setMonth(a.month)}
-                      title="この月を編集する"
-                      className="text-[11px] text-slate-500 hover:text-blue-400 ml-2">編集</button>
-                    <button onClick={() => handleDeleteAsset(a.month)}
-                      title="この月の記録を削除する"
-                      className="text-slate-600 hover:text-red-400 text-lg leading-none ml-1 w-5">×</button>
+                  <div key={a.month} className="grid grid-cols-[3.5rem_1fr_1fr_1fr_auto] items-center gap-1.5 px-3 py-1 border-b last:border-0 text-xs">
+                    <span className="text-slate-400" title={monthEndLabel(a.month)}>{a.month.replace("-", "/")}</span>
+                    <span className="text-green-400 text-right">{toJPY(a.savings)}</span>
+                    <span className="text-purple-400 text-right">{toJPY(a.investment)}</span>
+                    <span className="font-semibold text-blue-400 text-right">{toJPY(a.total)}</span>
+                    <span className="w-12 flex items-center justify-end gap-1">
+                      <button onClick={() => setMonth(a.month)}
+                        title="この月を編集する"
+                        className="text-[11px] text-slate-500 hover:text-blue-400">編集</button>
+                      <button onClick={() => handleDeleteAsset(a.month)}
+                        title="この月の記録を削除する"
+                        className="text-slate-600 hover:text-red-400 text-base leading-none w-4">×</button>
+                    </span>
                   </div>
                 ))}
               </div>
             )}
-          </>
+            </div>
+          </div>
         )}
       </main>
       <BottomNav />

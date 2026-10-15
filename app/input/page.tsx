@@ -269,122 +269,134 @@ export default function InputPage() {
 const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
   const selfColor = cards.find(c => c.card_type === "self")?.color ?? "#6366f1"
 
+  // 定期の未登録候補ボックス（0件なら1行に畳む）
+  const renderPendingBox = (kind: "expense" | "income") => {
+    const list = kind === "expense" ? pendingExpense : pendingIncome
+    const tone = kind === "expense"
+      ? { box: "bg-amber-500/10 border-amber-500/30", text: "text-amber-300", hover: "hover:text-amber-100", row: "border-amber-500/20", btn: "bg-amber-500 hover:bg-amber-600" }
+      : { box: "bg-green-500/10 border-green-500/30", text: "text-green-300", hover: "hover:text-green-100", row: "border-green-500/20", btn: "bg-green-600 hover:bg-green-700" }
+    return (
+      <div className={`${tone.box} border rounded-xl px-3 py-2 space-y-1.5`}>
+        <div className="flex items-center gap-2">
+          <p className={`text-xs font-semibold ${tone.text}`}>📋 定期{kind === "expense" ? "支出" : "入金"}</p>
+          {list.length === 0
+            ? <span className="text-[11px] text-slate-500">✓ 未登録なし</span>
+            : <span className={`text-[11px] ${tone.text}`}>未登録 {list.length}件</span>}
+          <div className={`ml-auto flex items-center gap-1 ${tone.text}`}>
+            <button onClick={() => shiftPendingMonth(-1)} className={`px-1.5 ${tone.hover} font-bold`}>‹</button>
+            <span className="text-xs font-semibold w-16 text-center">{pendingMonth}</span>
+            <button onClick={() => shiftPendingMonth(1)} disabled={pendingMonth >= currentMonth}
+              className={`px-1.5 ${tone.hover} font-bold disabled:opacity-30`}>›</button>
+          </div>
+        </div>
+        {list.map(r => (
+          <div key={r.id} className={`flex items-center gap-2 bg-slate-900 rounded-lg px-2.5 py-1.5 border ${tone.row}`}>
+            <span className="text-[10px] px-1.5 py-0.5 rounded text-white font-bold shrink-0"
+              style={{ backgroundColor: r.color ?? (kind === "expense" ? "#6366f1" : "#22c55e") }}>
+              {kind === "expense" ? r.card_name : (r.card_type === "joint" ? "共同" : "個人")}
+            </span>
+            <p className="min-w-0 flex-1 truncate text-xs text-slate-100" title={r.memo || undefined}>
+              <span className="font-medium">{r.category}</span>
+              <span className="text-[10px] text-slate-500"> · {r.day_of_month}日{r.memo ? ` · ${r.memo}` : ""}</span>
+            </p>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <div className="relative shrink-0">
+                <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[11px] text-slate-500">¥</span>
+                <input
+                  type="text" inputMode="numeric"
+                  value={pendingAmountOverrides[r.id] !== undefined
+                    ? groupDigits(pendingAmountOverrides[r.id])
+                    : r.amount.toLocaleString("ja-JP")}
+                  onChange={e => {
+                    const raw = toHalfWidth(e.target.value).replace(/,/g, "")
+                    if (raw === "" || /^\d+$/.test(raw)) {
+                      setPendingAmountOverrides(prev => ({ ...prev, [r.id]: raw }))
+                    }
+                  }}
+                  onFocus={e => e.currentTarget.select()}
+                  className="w-20 text-right text-xs font-semibold text-slate-100 bg-slate-800 border border-slate-700 rounded pl-3.5 pr-1.5 py-1 outline-none focus:ring-1 focus:ring-blue-400"
+                />
+              </div>
+              <button onClick={() => handleSkipRecurring(r)} disabled={skippingId === r.id || confirmingId === r.id}
+                title={`${pendingMonth}はこの項目を対象外にする`}
+                className="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 px-2 py-1 rounded-lg font-semibold disabled:opacity-50 transition-colors">
+                {skippingId === r.id ? "..." : "スキップ"}
+              </button>
+              <button onClick={() => handleConfirmRecurring(r)} disabled={confirmingId === r.id || skippingId === r.id}
+                className={`text-xs ${tone.btn} text-white px-2.5 py-1 rounded-lg font-semibold disabled:opacity-50 transition-colors`}>
+                {confirmingId === r.id ? "..." : "確定"}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  const incomeHistory = monthIncomeRecords.filter(r => Number(r.amount) > 0)
+
   return (
     <div className={isPC ? "" : "pb-20"}>
       <PageHeader title="入力" />
       <main className={isPC ? "max-w-xl mx-auto px-6 py-4 space-y-3" : "max-w-md mx-auto px-4 py-2 space-y-3"}>
 
-        {/* メインタブ: 支出 / 収入 */}
-        <div className="flex rounded-xl bg-slate-800 p-1">
-          <button onClick={() => setMainTab("expense")}
-            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${mainTab === "expense" ? "bg-slate-900 shadow-sm text-blue-400" : "text-slate-400"}`}>
-            💸 支出
-          </button>
-          <button onClick={() => setMainTab("income")}
-            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${mainTab === "income" ? "bg-slate-900 shadow-sm text-green-400" : "text-slate-400"}`}>
-            💰 入金
-          </button>
+        {/* メインタブ: 支出 / 収入 ＋ 個人/共同 */}
+        <div className="flex items-center gap-2">
+          <div className="flex flex-1 rounded-xl bg-slate-800 p-1">
+            <button onClick={() => setMainTab("expense")} title="現金・電子マネー・PayPay等、カード以外の支出を記録します"
+              className={`flex-1 py-1.5 rounded-lg text-sm font-semibold transition-colors ${mainTab === "expense" ? "bg-slate-900 shadow-sm text-blue-400" : "text-slate-400"}`}>
+              💸 支出
+            </button>
+            <button onClick={() => setMainTab("income")}
+              className={`flex-1 py-1.5 rounded-lg text-sm font-semibold transition-colors ${mainTab === "income" ? "bg-slate-900 shadow-sm text-green-400" : "text-slate-400"}`}>
+              💰 入金
+            </button>
+          </div>
+          {mainTab === "expense" ? (
+            <div className="flex rounded-xl bg-slate-800 p-1 gap-0.5 shrink-0" title="用途">
+              {([["self", "個人", selfColor], ["joint", "共同", jointColor]] as const).map(([k, label, color]) => (
+                <button key={k} type="button" onClick={() => setUsageType(k)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                  style={{
+                    backgroundColor: usageType === k ? color + "22" : "transparent",
+                    color: usageType === k ? color : "#94a3b8",
+                    boxShadow: usageType === k ? `0 0 0 1.5px ${color}` : "none",
+                  }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="flex rounded-xl bg-slate-800 p-1 gap-0.5 shrink-0">
+              <button type="button" onClick={() => setIncomeCardType("self")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${incomeCardType === "self" ? "bg-slate-900 shadow-sm text-indigo-400" : "text-slate-400"}`}>
+                個人
+              </button>
+              <button type="button" onClick={() => setIncomeCardType("joint")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${incomeCardType === "joint" ? "bg-slate-900 shadow-sm text-amber-400" : "text-slate-400"}`}>
+                共同
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ═══ 支出タブ ═══ */}
         {mainTab === "expense" && (
           <>
             {/* 定期支出候補（未登録が0件でも月切り替えは常に出す） */}
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold text-amber-300">📋 定期支出（未登録）</p>
-                  <div className="flex items-center gap-1 text-amber-300">
-                    <button onClick={() => shiftPendingMonth(-1)} className="px-1.5 hover:text-amber-100 font-bold">‹</button>
-                    <span className="text-xs font-semibold w-16 text-center">{pendingMonth}</span>
-                    <button onClick={() => shiftPendingMonth(1)} disabled={pendingMonth >= currentMonth}
-                      className="px-1.5 hover:text-amber-100 font-bold disabled:opacity-30">›</button>
-                  </div>
-                </div>
-                {pendingExpense.length === 0 && (
-                  <p className="text-xs text-slate-500 text-center py-2">この月の未登録はありません</p>
-                )}
-                {pendingExpense.map(r => (
-                  <div key={r.id} className="flex items-center justify-between bg-slate-900 rounded-lg px-3 py-2 border border-amber-500/20">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-[10px] px-1.5 py-0.5 rounded text-white font-bold shrink-0"
-                        style={{ backgroundColor: r.color ?? "#6366f1" }}>
-                        {r.card_name}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium text-slate-100 truncate">{r.category}</p>
-                        <p className="text-[10px] text-slate-500">{r.day_of_month}日{r.memo ? ` / ${r.memo}` : ""}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                      <div className="relative shrink-0">
-                        <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[11px] text-slate-500">¥</span>
-                        <input
-                          type="text" inputMode="numeric"
-                          value={pendingAmountOverrides[r.id] !== undefined
-                            ? groupDigits(pendingAmountOverrides[r.id])
-                            : r.amount.toLocaleString("ja-JP")}
-                          onChange={e => {
-                            const raw = toHalfWidth(e.target.value).replace(/,/g, "")
-                            if (raw === "" || /^\d+$/.test(raw)) {
-                              setPendingAmountOverrides(prev => ({ ...prev, [r.id]: raw }))
-                            }
-                          }}
-                          onFocus={e => e.currentTarget.select()}
-                          className="w-20 text-right text-xs font-semibold text-slate-100 bg-slate-800 border border-slate-700 rounded pl-3.5 pr-1.5 py-1 outline-none focus:ring-1 focus:ring-blue-400"
-                        />
-                      </div>
-                      <button onClick={() => handleSkipRecurring(r)} disabled={skippingId === r.id || confirmingId === r.id}
-                        title={`${pendingMonth}はこの項目を対象外にする`}
-                        className="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 px-2 py-1 rounded-lg font-semibold disabled:opacity-50 transition-colors">
-                        {skippingId === r.id ? "..." : "スキップ"}
-                      </button>
-                      <button onClick={() => handleConfirmRecurring(r)} disabled={confirmingId === r.id || skippingId === r.id}
-                        className="text-xs bg-amber-500 hover:bg-amber-600 text-white px-2.5 py-1 rounded-lg font-semibold disabled:opacity-50 transition-colors">
-                        {confirmingId === r.id ? "..." : "確定"}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-            </div>
+            {renderPendingBox("expense")}
 
             {/* 支出フォーム */}
-            <form onSubmit={handleSubmit} className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-4 space-y-4">
-              <p className="text-xs text-slate-400">現金・電子マネー・PayPay等、カード以外の支出を記録します</p>
-
-              {/* 共同 / 個人 トグル */}
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-2">用途</label>
-                <div className="flex rounded-xl bg-slate-800 p-1 gap-1">
-                  <button type="button" onClick={() => setUsageType("self")}
-                    className="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all"
-                    style={{
-                      backgroundColor: usageType === "self" ? selfColor + "22" : "transparent",
-                      color: usageType === "self" ? selfColor : "#94a3b8",
-                      boxShadow: usageType === "self" ? `0 0 0 2px ${selfColor}` : "none",
-                    }}>
-                    個人
-                  </button>
-                  <button type="button" onClick={() => setUsageType("joint")}
-                    className="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all"
-                    style={{
-                      backgroundColor: usageType === "joint" ? jointColor + "22" : "transparent",
-                      color: usageType === "joint" ? jointColor : "#94a3b8",
-                      boxShadow: usageType === "joint" ? `0 0 0 2px ${jointColor}` : "none",
-                    }}>
-                    共同
-                  </button>
-                </div>
-              </div>
-
+            <form onSubmit={handleSubmit} className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 space-y-2.5">
               {/* 支払方法 */}
               {usageCards.length > 1 && (
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-2">支払方法</label>
-                  <div className="flex gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-slate-400 shrink-0">支払</span>
+                  <div className="flex gap-1.5 flex-wrap">
                     {usageCards.map(c => (
                       <button key={c.id} type="button"
                         onClick={() => setSelectedCardId(c.id)}
-                        className="flex-1 py-2 rounded-lg text-sm font-medium border-2 transition-all"
+                        className="px-3 py-1 rounded-lg text-xs font-medium border-2 transition-all"
                         style={{
                           borderColor: selectedCard?.id === c.id ? c.color : "#334155",
                           backgroundColor: selectedCard?.id === c.id ? c.color + "18" : "#1e293b",
@@ -397,60 +409,48 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
                 </div>
               )}
 
-              {/* 日付 */}
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">日付</label>
-                <input type="date" value={date} onChange={e => setDate(e.target.value)}
-                  className="w-full border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              {/* 日付・カテゴリ */}
+              <div className="grid grid-cols-2 gap-2">
+                <input type="date" value={date} onChange={e => setDate(e.target.value)} title="日付" aria-label="日付"
+                  className="w-full border border-slate-700 rounded-lg px-2 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required />
-              </div>
-
-              {/* カテゴリ */}
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">カテゴリ</label>
                 {filteredCategories.length === 0 ? (
-                  <p className="text-xs text-amber-400 bg-amber-500/10 rounded-lg px-3 py-2">
-                    カテゴリが未設定です。設定 → カテゴリ から追加してください。
+                  <p className="text-xs text-amber-400 bg-amber-500/10 rounded-lg px-2 py-1.5" title="設定 → カテゴリ から追加してください">
+                    カテゴリ未設定
                   </p>
                 ) : (
-                  <select value={category} onChange={e => setCategory(e.target.value)}
-                    className="w-full border border-slate-700 rounded-lg px-3 py-2 text-sm bg-slate-900 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  <select value={category} onChange={e => setCategory(e.target.value)} title="カテゴリ" aria-label="カテゴリ"
+                    className="w-full border border-slate-700 rounded-lg px-2 py-2 text-sm bg-slate-900 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required>
                     {filteredCategories.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 )}
               </div>
 
-              {/* 金額 */}
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">金額（円）</label>
+              {/* 金額・メモ */}
+              <div className="grid grid-cols-2 gap-2">
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">¥</span>
-                  <input type="text" inputMode="numeric"
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">¥</span>
+                  <input type="text" inputMode="numeric" aria-label="金額"
                     value={amount ? Number(amount.replace(/,/g, "")).toLocaleString("ja-JP") : ""}
                     onChange={e => { const raw = toHalfWidth(e.target.value).replace(/,/g, ""); if (raw === "" || /^\d+$/.test(raw)) setAmount(raw) }}
-                    placeholder="0"
-                    className="w-full border border-slate-700 rounded-lg pl-7 pr-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="金額"
+                    className="w-full border border-slate-700 rounded-lg pl-6 pr-2 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required />
                 </div>
-              </div>
-
-              {/* メモ */}
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">メモ（任意）</label>
-                <input type="text" value={memo} onChange={e => setMemo(e.target.value)}
-                  placeholder="例：スーパーで食材"
-                  className="w-full border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <input type="text" value={memo} onChange={e => setMemo(e.target.value)} aria-label="メモ"
+                  placeholder="メモ（任意）"
+                  className="w-full border border-slate-700 rounded-lg px-2 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
 
               {message && (
-                <div className={`text-sm rounded-lg px-3 py-2 ${message.type === "success" ? "bg-green-500/10 text-green-300" : "bg-red-500/10 text-red-300"}`}>
+                <div className={`text-sm rounded-lg px-3 py-1.5 ${message.type === "success" ? "bg-green-500/10 text-green-300" : "bg-red-500/10 text-red-300"}`}>
                   {message.type === "success" ? "✅ " : "❌ "}{message.text}
                 </div>
               )}
 
               <button type="submit" disabled={loading || !selectedCard || filteredCategories.length === 0}
-                className="w-full bg-blue-600 text-white rounded-lg py-2.5 font-semibold text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                className="w-full bg-blue-600 text-white rounded-lg py-2 font-semibold text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors">
                 {loading ? "保存中..." : "記録する"}
               </button>
             </form>
@@ -461,166 +461,81 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
         {mainTab === "income" && (
           <div className="space-y-3">
             {/* 定期入金候補（未登録が0件でも月切り替えは常に出す） */}
-            <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold text-green-300">📋 定期入金（未登録）</p>
-                  <div className="flex items-center gap-1 text-green-300">
-                    <button onClick={() => shiftPendingMonth(-1)} className="px-1.5 hover:text-green-100 font-bold">‹</button>
-                    <span className="text-xs font-semibold w-16 text-center">{pendingMonth}</span>
-                    <button onClick={() => shiftPendingMonth(1)} disabled={pendingMonth >= currentMonth}
-                      className="px-1.5 hover:text-green-100 font-bold disabled:opacity-30">›</button>
-                  </div>
-                </div>
-                {pendingIncome.length === 0 && (
-                  <p className="text-xs text-slate-500 text-center py-2">この月の未登録はありません</p>
-                )}
-                {pendingIncome.map(r => (
-                  <div key={r.id} className="flex items-center justify-between bg-slate-900 rounded-lg px-3 py-2 border border-green-500/20">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-[10px] px-1.5 py-0.5 rounded text-white font-bold shrink-0"
-                        style={{ backgroundColor: r.color ?? "#22c55e" }}>
-                        {r.card_type === "joint" ? "共同" : "個人"}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium text-slate-100 truncate">{r.category}</p>
-                        <p className="text-[10px] text-slate-500">{r.day_of_month}日{r.memo ? ` / ${r.memo}` : ""}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                      <div className="relative shrink-0">
-                        <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[11px] text-slate-500">¥</span>
-                        <input
-                          type="text" inputMode="numeric"
-                          value={pendingAmountOverrides[r.id] !== undefined
-                            ? groupDigits(pendingAmountOverrides[r.id])
-                            : r.amount.toLocaleString("ja-JP")}
-                          onChange={e => {
-                            const raw = toHalfWidth(e.target.value).replace(/,/g, "")
-                            if (raw === "" || /^\d+$/.test(raw)) {
-                              setPendingAmountOverrides(prev => ({ ...prev, [r.id]: raw }))
-                            }
-                          }}
-                          onFocus={e => e.currentTarget.select()}
-                          className="w-20 text-right text-xs font-semibold text-slate-100 bg-slate-800 border border-slate-700 rounded pl-3.5 pr-1.5 py-1 outline-none focus:ring-1 focus:ring-blue-400"
-                        />
-                      </div>
-                      <button onClick={() => handleSkipRecurring(r)} disabled={skippingId === r.id || confirmingId === r.id}
-                        title={`${pendingMonth}はこの項目を対象外にする`}
-                        className="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 px-2 py-1 rounded-lg font-semibold disabled:opacity-50 transition-colors">
-                        {skippingId === r.id ? "..." : "スキップ"}
-                      </button>
-                      <button onClick={() => handleConfirmRecurring(r)} disabled={confirmingId === r.id || skippingId === r.id}
-                        className="text-xs bg-green-600 hover:bg-green-700 text-white px-2.5 py-1 rounded-lg font-semibold disabled:opacity-50 transition-colors">
-                        {confirmingId === r.id ? "..." : "確定"}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-            </div>
+            {renderPendingBox("income")}
 
             {/* 収入フォーム */}
-            <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-4 space-y-4">
-
-              {/* 個人 / 共同 トグル */}
-              <div className="flex rounded-xl bg-slate-800 p-1 gap-1">
-                <button type="button" onClick={() => setIncomeCardType("self")}
-                  className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${incomeCardType === "self" ? "bg-slate-900 shadow-sm text-indigo-400" : "text-slate-400"}`}>
-                  個人
-                </button>
-                <button type="button" onClick={() => setIncomeCardType("joint")}
-                  className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${incomeCardType === "joint" ? "bg-slate-900 shadow-sm text-amber-400" : "text-slate-400"}`}>
-                  共同
-                </button>
-              </div>
-
-              {/* 日付 */}
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">日付</label>
-                <input type="date" value={incomeDate} onChange={e => setIncomeDate(e.target.value)}
-                  className="w-full border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-green-500" />
-              </div>
-
+            <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-3 space-y-2.5">
               {/* カテゴリ */}
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-2">カテゴリ</label>
-                {incomeCategories.length > 0 ? (
-                  <div className="flex gap-2 flex-wrap">
-                    {incomeCategories.map(cat => (
-                      <button key={cat} type="button" onClick={() => setIncomeCategory(cat)}
-                        className={`flex-1 py-2 rounded-lg text-sm font-medium border-2 transition-colors ${
-                          incomeCategory === cat
-                            ? incomeCardType === "self"
-                              ? "border-indigo-500 bg-indigo-500/10 text-indigo-300"
-                              : "border-amber-500 bg-amber-500/10 text-amber-300"
-                            : "border-slate-800 text-slate-400"
-                        }`}>
-                        {cat}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <select value={incomeCategory} onChange={e => setIncomeCategory(e.target.value)}
-                    className="w-full border border-slate-700 rounded-lg px-3 py-2 text-sm bg-slate-900 text-slate-100 focus:outline-none focus:ring-2 focus:ring-green-500">
-                    <option value="">カテゴリを選択</option>
-                  </select>
-                )}
-              </div>
+              {incomeCategories.length > 0 ? (
+                <div className="flex gap-1.5 flex-wrap">
+                  {incomeCategories.map(cat => (
+                    <button key={cat} type="button" onClick={() => setIncomeCategory(cat)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                        incomeCategory === cat
+                          ? incomeCardType === "self"
+                            ? "border-indigo-500 bg-indigo-500/10 text-indigo-300"
+                            : "border-amber-500 bg-amber-500/10 text-amber-300"
+                          : "border-slate-700 text-slate-400"
+                      }`}>
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <select value={incomeCategory} onChange={e => setIncomeCategory(e.target.value)} aria-label="カテゴリ"
+                  className="w-full border border-slate-700 rounded-lg px-3 py-2 text-sm bg-slate-900 text-slate-100 focus:outline-none focus:ring-2 focus:ring-green-500">
+                  <option value="">カテゴリを選択</option>
+                </select>
+              )}
 
-              {/* 金額 */}
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">金額（円）</label>
+              {/* 日付・金額 */}
+              <div className="grid grid-cols-2 gap-2">
+                <input type="date" value={incomeDate} onChange={e => setIncomeDate(e.target.value)} title="日付" aria-label="日付"
+                  className="w-full border border-slate-700 rounded-lg px-2 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-green-500" />
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">¥</span>
-                  <input type="text" inputMode="numeric"
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">¥</span>
+                  <input type="text" inputMode="numeric" aria-label="金額"
                     value={incomeAmount ? Number(incomeAmount.replace(/,/g, "")).toLocaleString("ja-JP") : ""}
                     onChange={e => { const raw = toHalfWidth(e.target.value).replace(/,/g, ""); if (raw === "" || /^\d+$/.test(raw)) setIncomeAmount(raw) }}
-                    placeholder="0"
-                    className="w-full border border-slate-700 rounded-lg pl-7 pr-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-green-500" />
+                    placeholder="金額"
+                    className="w-full border border-slate-700 rounded-lg pl-6 pr-2 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-green-500" />
                 </div>
               </div>
 
-              {/* メモ */}
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">メモ（任意）</label>
-                <input type="text" value={incomeMemo} onChange={e => setIncomeMemo(e.target.value)}
-                  placeholder="例：3月分給与"
-                  className="w-full border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-green-500" />
+              {/* メモ・記録ボタン */}
+              <div className="flex gap-2">
+                <input type="text" value={incomeMemo} onChange={e => setIncomeMemo(e.target.value)} aria-label="メモ"
+                  placeholder="メモ（例：3月分給与）"
+                  className="min-w-0 flex-1 border border-slate-700 rounded-lg px-2 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-green-500" />
+                <button onClick={handleSaveIncome} disabled={incomeSaving || !incomeAmount}
+                  className="shrink-0 bg-green-600 text-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-green-700 disabled:opacity-50 transition-colors">
+                  {incomeSaving ? "保存中..." : "入金を記録"}
+                </button>
               </div>
 
               {incomeMsg && <p className="text-xs text-green-400">✅ {incomeMsg}</p>}
-
-              <button onClick={handleSaveIncome} disabled={incomeSaving || !incomeAmount}
-                className="w-full bg-green-600 text-white rounded-lg py-2.5 text-sm font-semibold hover:bg-green-700 disabled:opacity-50 transition-colors">
-                {incomeSaving ? "保存中..." : "入金を記録"}
-              </button>
             </div>
 
             {/* 収入履歴 */}
-            {monthIncomeRecords.filter(r => Number(r.amount) > 0).length > 0 && (
+            {incomeHistory.length > 0 && (
               <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 overflow-hidden">
-                <p className="text-xs font-semibold text-slate-400 px-4 py-2.5 border-b bg-slate-800">
-                  {incomeDate.slice(0, 7)} の入金記録
+                <p className="text-xs font-semibold text-slate-400 px-3 py-1.5 border-b border-slate-800 bg-slate-800">
+                  {incomeDate.slice(0, 7)} の入金記録 <span className="text-slate-500 font-normal">{incomeHistory.length}件</span>
                 </p>
-                {monthIncomeRecords.filter(r => Number(r.amount) > 0).map(r => (
-                  <div key={r.id} className="flex items-center justify-between px-4 py-2.5 border-b last:border-0">
-                    <div>
-                      <p className="text-sm font-medium text-slate-100">{r.category}</p>
-                      {r.memo && <p className="text-xs text-slate-500">{r.memo}</p>}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-sm font-semibold ${Number(r.amount) >= 0 ? "text-green-400" : "text-red-400"}`}>
-                        {Number(r.amount) >= 0 ? "+" : ""}¥{Number(r.amount).toLocaleString("ja-JP")}
-                      </span>
-                      <button onClick={() => handleDeleteIncome(r.id)}
-                        className="text-slate-600 hover:text-red-400 text-xl leading-none w-6">×</button>
-                    </div>
+                {incomeHistory.map(r => (
+                  <div key={r.id} className="flex items-center gap-2 px-3 py-1.5 border-b border-slate-800 last:border-0">
+                    <p className="min-w-0 flex-1 truncate text-sm text-slate-100" title={r.memo || undefined}>
+                      <span className="font-medium">{r.category}</span>
+                      {r.memo && <span className="text-xs text-slate-500"> · {r.memo}</span>}
+                    </p>
+                    <span className={`shrink-0 text-sm font-semibold ${Number(r.amount) >= 0 ? "text-green-400" : "text-red-400"}`}>
+                      {Number(r.amount) >= 0 ? "+" : ""}¥{Number(r.amount).toLocaleString("ja-JP")}
+                    </span>
+                    <button onClick={() => handleDeleteIncome(r.id)}
+                      className="shrink-0 text-slate-600 hover:text-red-400 text-xl leading-none w-6">×</button>
                   </div>
                 ))}
               </div>
-            )}
-
-            {monthIncomeRecords.filter(r => Number(r.amount) > 0).length === 0 && (
-              <p className="text-center text-xs text-slate-500 py-4">この月の入金記録はありません</p>
             )}
           </div>
         )}

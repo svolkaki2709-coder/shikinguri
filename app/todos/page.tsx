@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, type MouseEvent } from "react"
 import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
 import { useViewMode } from "@/components/ViewModeContext"
@@ -65,6 +65,8 @@ export default function TodosPage() {
   const [assigneeFilter, setAssigneeFilter] = useState("")
   const [editingId, setEditingId] = useState<number | null>(null)
   const [openTemplate, setOpenTemplate] = useState(false)
+  const [openNew, setOpenNew] = useState(false)
+  const [openManage, setOpenManage] = useState(false)
   const [members, setMembers] = useState<string[]>([])
 
   useEffect(() => { load() }, [scope])
@@ -212,76 +214,111 @@ export default function TodosPage() {
     return buckets.filter(b => b.list.length > 0)
   }, [visible, groupBy, categoryOptions])
 
+  const pct = stats.total > 0 ? Math.round((stats.done / stats.total) * 100) : 0
+  // その他メニューの項目を押したら閉じる
+  const closeMenu = (e: MouseEvent) => { const d = (e.currentTarget as HTMLElement).closest("details"); if (d) d.open = false }
+
   return (
     <div className="min-h-screen bg-slate-950 pb-20">
       <PageHeader title="やることリスト（2人で管理）" />
 
-      <div className={`px-4 py-4 space-y-4 ${isPC ? "max-w-5xl mx-auto" : "max-w-md mx-auto"}`}>
-        {/* スコープ切替 */}
-        <div className="flex gap-2">
-          {(["joint", "self"] as const).map(s => (
-            <button
-              key={s}
-              onClick={() => setScope(s)}
-              className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-colors ${
-                scope === s ? "bg-blue-600 text-white" : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-200"
-              }`}
-            >
-              {s === "joint" ? "👫 共同（2人で共有）" : "🙋 自分だけ"}
-            </button>
-          ))}
-        </div>
-
-        {/* サマリー */}
-        <div className="grid grid-cols-4 gap-2">
-          <Stat label="残り" value={stats.open} tone="text-slate-100" />
-          <Stat label="超過" value={stats.overdue} tone={stats.overdue > 0 ? "text-red-400" : "text-slate-500"} />
-          <Stat label="今週" value={stats.soon} tone={stats.soon > 0 ? "text-orange-400" : "text-slate-500"} />
-          <Stat label="完了" value={stats.done} tone="text-green-400" />
-        </div>
-
-        {/* 進捗バー */}
-        {stats.total > 0 && (
-          <div>
-            <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-green-500 transition-all"
-                style={{ width: `${Math.round((stats.done / stats.total) * 100)}%` }}
-              />
-            </div>
-            <p className="text-xs text-slate-500 mt-1">
-              {stats.total}件中 {stats.done}件 完了（{Math.round((stats.done / stats.total) * 100)}%）
-            </p>
+      <div className={`px-4 py-3 space-y-2.5 ${isPC ? "max-w-5xl mx-auto" : "max-w-md mx-auto"}`}>
+        {/* 1行目：スコープ｜追加｜テンプレート｜その他 */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex rounded-lg overflow-hidden border border-slate-800 text-xs font-semibold">
+            {(["joint", "self"] as const).map(s => (
+              <button
+                key={s}
+                onClick={() => setScope(s)}
+                title={s === "joint" ? "2人で共有" : "自分だけに見える"}
+                className={`px-3 py-1.5 transition-colors ${
+                  scope === s ? "bg-blue-600 text-white" : "bg-slate-900 text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                {s === "joint" ? "👫 共同" : "🙋 自分だけ"}
+              </button>
+            ))}
           </div>
-        )}
+          <button
+            onClick={() => setOpenNew(v => !v)}
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold border transition-colors ${
+              openNew ? "bg-slate-700 border-slate-600 text-slate-100" : "bg-slate-900 border-slate-800 text-slate-300 hover:text-slate-100"
+            }`}
+          >
+            ＋ 追加
+          </button>
+          <button
+            onClick={() => setOpenTemplate(true)}
+            title="入籍・引っ越し・出産の手続きを一式まとめて登録"
+            className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-slate-900 border border-blue-500/40 text-blue-300 hover:bg-slate-800 transition-colors"
+          >
+            ＋ テンプレート
+          </button>
+          {(importedTemplates.length > 0 || stats.done > 0) && (
+            <details className="relative">
+              <summary className="list-none cursor-pointer rounded-lg px-2.5 py-1.5 text-xs text-slate-400 border border-slate-800 bg-slate-900 hover:text-slate-200">
+                その他 ▾
+              </summary>
+              <div className="absolute left-0 sm:left-auto sm:right-0 z-20 mt-1 w-56 bg-slate-900 border border-slate-700 rounded-lg shadow-lg py-1 text-xs">
+                {importedTemplates.length > 0 && (
+                  <button onClick={e => { closeMenu(e); setOpenManage(true) }}
+                    className="block w-full text-left px-3 py-2 text-slate-300 hover:bg-slate-800">
+                    取り込みのやり直し・担当の一括変更
+                  </button>
+                )}
+                {stats.done > 0 && (
+                  <button onClick={e => { closeMenu(e); clearDone() }}
+                    className="block w-full text-left px-3 py-2 text-red-400 hover:bg-slate-800">
+                    完了分を削除（{stats.done}件）
+                  </button>
+                )}
+              </div>
+            </details>
+          )}
+        </div>
 
-        <button
-          onClick={() => setOpenTemplate(true)}
-          className="w-full bg-slate-900 border border-blue-500/40 text-blue-300 rounded-lg py-2.5 text-sm font-semibold hover:bg-slate-800 transition-colors"
-        >
-          ＋ テンプレートから取り込む（入籍・引っ越し・出産）
-        </button>
+        {/* 2行目：件数と進捗を1行に */}
+        <div className="flex items-center gap-3 text-xs">
+          <span className="text-slate-400 shrink-0">
+            残り<b className="text-slate-100 ml-0.5">{stats.open}</b>
+            <span className="mx-1.5 text-slate-700">|</span>超過<b className={`ml-0.5 ${stats.overdue > 0 ? "text-red-400" : "text-slate-500"}`}>{stats.overdue}</b>
+            <span className="mx-1.5 text-slate-700">|</span>今週<b className={`ml-0.5 ${stats.soon > 0 ? "text-orange-400" : "text-slate-500"}`}>{stats.soon}</b>
+            <span className="mx-1.5 text-slate-700">|</span>完了<b className="ml-0.5 text-green-400">{stats.done}</b>
+          </span>
+          {stats.total > 0 && (
+            <>
+              <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden min-w-[3rem]"
+                title={`${stats.total}件中 ${stats.done}件 完了`}>
+                <div className="h-full bg-green-500 transition-all" style={{ width: `${pct}%` }} />
+              </div>
+              <span className="text-slate-500 shrink-0">{pct}%</span>
+            </>
+          )}
+        </div>
 
-        {importedTemplates.length > 0 && (
+        {openManage && importedTemplates.length > 0 && (
           <ManagePanel
             imported={importedTemplates}
             assignees={assigneeOptions}
             counts={todos.filter(t => !t.done)}
             onUndo={undoTemplate}
             onBulkAssignee={bulkAssignee}
+            onClose={() => setOpenManage(false)}
           />
         )}
 
-        <NewTodoForm scope={scope} assignees={assigneeOptions} categories={categoryOptions} onAdded={load} />
+        {openNew && (
+          <NewTodoForm scope={scope} assignees={assigneeOptions} categories={categoryOptions} onAdded={load} onClose={() => setOpenNew(false)} />
+        )}
 
-        {/* 表示切替 */}
+        {/* 3行目：表示切替 */}
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <div className="flex rounded-lg overflow-hidden border border-slate-800">
             {(["due", "category"] as const).map(g => (
               <button
                 key={g}
                 onClick={() => setGroupBy(g)}
-                className={`px-3 py-1.5 ${groupBy === g ? "bg-slate-700 text-slate-100" : "bg-slate-900 text-slate-400"}`}
+                className={`px-3 py-1 ${groupBy === g ? "bg-slate-700 text-slate-100" : "bg-slate-900 text-slate-400"}`}
               >
                 {g === "due" ? "期限順" : "カテゴリ別"}
               </button>
@@ -290,7 +327,7 @@ export default function TodosPage() {
           <select
             value={assigneeFilter}
             onChange={e => setAssigneeFilter(e.target.value)}
-            className="bg-slate-900 text-slate-100 border border-slate-800 rounded-lg px-2 py-1.5"
+            className="bg-slate-900 text-slate-100 border border-slate-800 rounded-lg px-2 py-1"
           >
             <option value="">担当：すべて</option>
             {assigneeOptions.map(a => <option key={a} value={a}>{a}</option>)}
@@ -299,30 +336,22 @@ export default function TodosPage() {
             <input type="checkbox" checked={showDone} onChange={e => setShowDone(e.target.checked)} />
             完了も表示
           </label>
-          {stats.done > 0 && (
-            <button onClick={clearDone} className="ml-auto text-slate-500 hover:text-red-400">
-              完了分を削除
-            </button>
-          )}
         </div>
 
-        {/* リスト */}
+        {/* リスト：グループごとに1枚のカードにまとめる */}
         {loading ? (
-          <p className="text-sm text-slate-500 text-center py-8">読み込み中...</p>
+          <p className="text-xs text-slate-500 py-2">読み込み中...</p>
         ) : visible.length === 0 ? (
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 text-center">
-            <p className="text-sm text-slate-400">まだ項目がありません</p>
-            <p className="text-xs text-slate-500 mt-2">
-              上の「テンプレートから取り込む」で、入籍後にやる手続きを一式まとめて登録できます
-            </p>
-          </div>
+          <p className="text-xs text-slate-500 py-1" title="「＋ テンプレート」で、入籍後にやる手続きを一式まとめて登録できます">
+            まだ項目がありません ⓘ
+          </p>
         ) : (
           groups.map(g => (
-            <div key={g.name}>
-              <h2 className="text-xs font-semibold text-slate-500 mb-1.5 px-1">
+            <div key={g.name} className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+              <h2 className="text-[11px] font-semibold text-slate-400 px-3 py-1 bg-slate-800/50 border-b border-slate-800">
                 {g.name}（{g.list.length}）
               </h2>
-              <div className="space-y-1.5">
+              <div className="divide-y divide-slate-800">
                 {g.list.map(t =>
                   editingId === t.id ? (
                     <EditRow
@@ -358,15 +387,6 @@ export default function TodosPage() {
   )
 }
 
-function Stat({ label, value, tone }: { label: string; value: number; tone: string }) {
-  return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl px-2 py-2 text-center">
-      <p className="text-[10px] text-slate-500">{label}</p>
-      <p className={`text-lg font-bold ${tone}`}>{value}</p>
-    </div>
-  )
-}
-
 function CategoryChip({ name }: { name: string }) {
   return (
     <span className={`text-[10px] px-1.5 py-0.5 rounded border ${CATEGORY_STYLE[name] ?? CATEGORY_STYLE["その他"]}`}>
@@ -379,44 +399,44 @@ function TodoRow({ todo, onToggle, onEdit }: { todo: Todo; onToggle: () => void;
   const [open, setOpen] = useState(false)
   const due = dueLabel(todo.due_date)
 
+  // スマホは2行（タイトル／属性）、sm以上は1行に並べる
   return (
-    <div className={`bg-slate-900 border rounded-xl px-3 py-2.5 transition-colors ${
-      todo.done ? "border-slate-800 opacity-50" : "border-slate-800"
-    }`}>
-      <div className="flex items-start gap-2.5">
+    <div className={`px-3 py-1.5 transition-colors ${todo.done ? "opacity-50" : ""}`}>
+      <div className="flex items-start sm:items-center gap-2.5">
         <button
           onClick={onToggle}
           aria-label={todo.done ? "未完了に戻す" : "完了にする"}
-          className={`mt-0.5 w-5 h-5 shrink-0 rounded border flex items-center justify-center text-xs transition-colors ${
+          className={`mt-0.5 sm:mt-0 w-5 h-5 shrink-0 rounded border flex items-center justify-center text-xs transition-colors ${
             todo.done ? "bg-green-600 border-green-600 text-white" : "border-slate-600 hover:border-green-500"
           }`}
         >
           {todo.done ? "✓" : ""}
         </button>
 
-        <div className="flex-1 min-w-0">
-          <button onClick={() => setOpen(v => !v)} className="text-left w-full">
-            <p className={`text-sm ${todo.done ? "line-through text-slate-500" : "text-slate-100"}`}>{todo.title}</p>
-            <div className="flex flex-wrap items-center gap-1.5 mt-1">
-              <CategoryChip name={todo.category} />
-              {todo.assignee && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">👤 {todo.assignee}</span>
-              )}
-              {todo.due_date && <span className="text-[10px] text-slate-500">{todo.due_date}</span>}
-              {!todo.done && <span className={`text-[10px] ${due.cls}`}>{due.text}</span>}
-            </div>
-          </button>
-
-          {open && (
-            <div className="mt-2 pt-2 border-t border-slate-800">
-              {todo.detail && <p className="text-xs text-slate-400 leading-relaxed whitespace-pre-wrap">{todo.detail}</p>}
-              <button onClick={onEdit} className="text-xs text-blue-400 hover:text-blue-300 mt-2">
-                編集する
-              </button>
-            </div>
-          )}
-        </div>
+        <button onClick={() => setOpen(v => !v)} className="flex-1 min-w-0 text-left sm:flex sm:items-center sm:gap-2">
+          <p className={`text-sm sm:flex-1 sm:min-w-0 sm:truncate ${todo.done ? "line-through text-slate-500" : "text-slate-100"}`}>
+            {todo.title}
+            {todo.detail && <span className="ml-1 text-[10px] text-slate-600" title="メモあり">📝</span>}
+          </p>
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 mt-0.5 sm:mt-0 sm:shrink-0">
+            <CategoryChip name={todo.category} />
+            {todo.assignee && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">👤 {todo.assignee}</span>
+            )}
+            {todo.due_date && <span className="text-[10px] text-slate-500">{todo.due_date}</span>}
+            {!todo.done && <span className={`text-[10px] sm:w-14 sm:text-right ${due.cls}`}>{due.text}</span>}
+          </div>
+        </button>
       </div>
+
+      {open && (
+        <div className="mt-1.5 ml-[1.875rem] pt-1.5 border-t border-slate-800">
+          {todo.detail && <p className="text-xs text-slate-400 leading-relaxed whitespace-pre-wrap">{todo.detail}</p>}
+          <button onClick={onEdit} className="text-xs text-blue-400 hover:text-blue-300 mt-1">
+            編集する
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -430,12 +450,13 @@ function EditRow({ todo, assignees, categories, onCancel, onSave, onDelete }: {
   onDelete: () => void
 }) {
   const [draft, setDraft] = useState<Todo>(todo)
-  const input = "w-full bg-slate-900 text-slate-100 border border-slate-700 rounded-lg px-2 py-1.5 text-sm"
+  const input = "w-full min-w-0 bg-slate-900 text-slate-100 border border-slate-700 rounded-lg px-2 py-1.5 text-sm"
 
   return (
-    <div className="bg-slate-900 border border-blue-500/40 rounded-xl p-3 space-y-2">
-      <input className={input} value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} />
-      <div className="grid grid-cols-2 gap-2">
+    <div className="bg-blue-500/5 border-l-2 border-blue-500/60 px-3 py-2 space-y-1.5">
+      {/* タイトル｜カテゴリ｜担当｜期限 */}
+      <div className="grid grid-cols-2 sm:grid-cols-[1fr_8rem_8rem_9rem] gap-1.5">
+        <input className={`${input} col-span-2 sm:col-span-1`} value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} />
         <input
           className={input}
           list="todo-categories"
@@ -443,9 +464,6 @@ function EditRow({ todo, assignees, categories, onCancel, onSave, onDelete }: {
           value={draft.category}
           onChange={e => setDraft({ ...draft, category: e.target.value })}
         />
-        <datalist id="todo-categories">
-          {categories.map(c => <option key={c} value={c} />)}
-        </datalist>
         <input
           className={input}
           list="todo-assignees"
@@ -453,28 +471,35 @@ function EditRow({ todo, assignees, categories, onCancel, onSave, onDelete }: {
           value={draft.assignee}
           onChange={e => setDraft({ ...draft, assignee: e.target.value })}
         />
+        <input
+          type="date"
+          className={`${input} col-span-2 sm:col-span-1`}
+          value={draft.due_date ?? ""}
+          onChange={e => setDraft({ ...draft, due_date: e.target.value || null })}
+        />
+        <datalist id="todo-categories">
+          {categories.map(c => <option key={c} value={c} />)}
+        </datalist>
         <datalist id="todo-assignees">
           {assignees.map(a => <option key={a} value={a} />)}
         </datalist>
       </div>
-      <input
-        type="date"
-        className={input}
-        value={draft.due_date ?? ""}
-        onChange={e => setDraft({ ...draft, due_date: e.target.value || null })}
-      />
-      <textarea
-        className={`${input} h-20`}
-        placeholder="メモ・持ち物・注意点"
-        value={draft.detail}
-        onChange={e => setDraft({ ...draft, detail: e.target.value })}
-      />
-      <div className="flex gap-2">
-        <SaveButton label="保存" onSave={() => onSave(draft)} className="flex-1" />
-        <button onClick={onCancel} className="px-4 rounded-lg border border-slate-700 text-sm text-slate-400">
+      {/* メモは普段1行、フォーカスで広がる */}
+      <div className="flex flex-wrap sm:flex-nowrap gap-1.5">
+        <textarea
+          rows={1}
+          className={`${input} flex-1 basis-full sm:basis-auto h-9 focus:h-20 resize-none transition-[height]`}
+          placeholder="メモ・持ち物・注意点"
+          value={draft.detail}
+          onChange={e => setDraft({ ...draft, detail: e.target.value })}
+        />
+        <div className="w-20 shrink-0">
+          <SaveButton label="保存" onSave={() => onSave(draft)} className="py-1.5!" />
+        </div>
+        <button onClick={onCancel} className="px-3 rounded-lg border border-slate-700 text-sm text-slate-400">
           取消
         </button>
-        <button onClick={onDelete} className="px-4 rounded-lg border border-red-900 text-sm text-red-400">
+        <button onClick={onDelete} className="px-3 rounded-lg border border-red-900 text-sm text-red-400">
           削除
         </button>
       </div>
@@ -482,30 +507,19 @@ function EditRow({ todo, assignees, categories, onCancel, onSave, onDelete }: {
   )
 }
 
-function NewTodoForm({ scope, assignees, categories, onAdded }: {
+function NewTodoForm({ scope, assignees, categories, onAdded, onClose }: {
   scope: string
   assignees: string[]
   categories: string[]
   onAdded: () => Promise<void>
+  onClose: () => void
 }) {
-  const [open, setOpen] = useState(false)
   const [title, setTitle] = useState("")
   const [category, setCategory] = useState("その他")
   const [assignee, setAssignee] = useState("")
   const [due, setDue] = useState("")
   const [detail, setDetail] = useState("")
-  const input = "w-full bg-slate-900 text-slate-100 border border-slate-700 rounded-lg px-2 py-2 text-sm"
-
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className="w-full bg-slate-900 border border-slate-800 text-slate-400 rounded-lg py-2.5 text-sm hover:text-slate-200 transition-colors"
-      >
-        ＋ 自分たちで項目を追加する
-      </button>
-    )
-  }
+  const input = "w-full min-w-0 bg-slate-900 text-slate-100 border border-slate-700 rounded-lg px-2 py-1.5 text-sm"
 
   async function add() {
     if (!title.trim()) throw new Error("項目名を入れてください")
@@ -520,29 +534,39 @@ function NewTodoForm({ scope, assignees, categories, onAdded }: {
   }
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-2">
-      <input className={input} placeholder="やること（例：銀行口座の名義変更）" value={title} onChange={e => setTitle(e.target.value)} />
-      <div className="grid grid-cols-2 gap-2">
+    <div className="bg-slate-900 border border-slate-800 rounded-xl p-2.5 space-y-1.5">
+      {/* やること｜カテゴリ｜担当｜期限 */}
+      <div className="grid grid-cols-2 sm:grid-cols-[1fr_8rem_8rem_9rem] gap-1.5">
+        <input className={`${input} col-span-2 sm:col-span-1`} placeholder="やること（例：銀行口座の名義変更）" value={title} onChange={e => setTitle(e.target.value)} />
         <input
           className={input}
           list="todo-categories-new"
-          placeholder="カテゴリ（自由に作れます）"
+          placeholder="カテゴリ"
+          title="カテゴリは自由に作れます"
           value={category}
           onChange={e => setCategory(e.target.value)}
         />
+        <input className={input} list="todo-assignees-new" placeholder="担当" value={assignee} onChange={e => setAssignee(e.target.value)} />
+        <input type="date" className={`${input} col-span-2 sm:col-span-1`} value={due} onChange={e => setDue(e.target.value)} title="期限" />
         <datalist id="todo-categories-new">
           {categories.map(c => <option key={c} value={c} />)}
         </datalist>
-        <input className={input} list="todo-assignees-new" placeholder="担当" value={assignee} onChange={e => setAssignee(e.target.value)} />
         <datalist id="todo-assignees-new">
           {assignees.map(a => <option key={a} value={a} />)}
         </datalist>
       </div>
-      <input type="date" className={input} value={due} onChange={e => setDue(e.target.value)} />
-      <textarea className={`${input} h-16`} placeholder="メモ（持ち物・窓口など）" value={detail} onChange={e => setDetail(e.target.value)} />
-      <div className="flex gap-2">
-        <SaveButton label="追加する" savedLabel="追加しました" onSave={add} className="flex-1" />
-        <button onClick={() => setOpen(false)} className="px-4 rounded-lg border border-slate-700 text-sm text-slate-400">
+      <div className="flex flex-wrap sm:flex-nowrap gap-1.5">
+        <textarea
+          rows={1}
+          className={`${input} flex-1 basis-full sm:basis-auto h-9 focus:h-16 resize-none transition-[height]`}
+          placeholder="メモ（持ち物・窓口など）"
+          value={detail}
+          onChange={e => setDetail(e.target.value)}
+        />
+        <div className="w-28 shrink-0">
+          <SaveButton label="追加する" savedLabel="追加しました" onSave={add} className="py-1.5!" />
+        </div>
+        <button onClick={onClose} className="px-3 rounded-lg border border-slate-700 text-sm text-slate-400">
           閉じる
         </button>
       </div>
@@ -559,35 +583,24 @@ function defaultConds(t: TodoTemplate) {
  * 取り込んだあとのやり直し。
  * テンプレートは一度に数十件入るので、間違えたときに1件ずつ消させない。
  */
-function ManagePanel({ imported, assignees, counts, onUndo, onBulkAssignee }: {
+function ManagePanel({ imported, assignees, counts, onUndo, onBulkAssignee, onClose }: {
   imported: { tpl: TodoTemplate; count: number }[]
   assignees: string[]
   counts: Todo[]
   onUndo: (tplId: string, name: string, count: number) => Promise<void>
   onBulkAssignee: (from: string, to: string) => Promise<void>
+  onClose: () => void
 }) {
-  const [open, setOpen] = useState(false)
   const [from, setFrom] = useState(assignees[0] ?? "2人で")
   const [to, setTo] = useState("")
   const input = "w-full bg-slate-900 text-slate-100 border border-slate-700 rounded-lg px-2 py-2 text-sm"
   const fromCount = counts.filter(t => t.assignee === from).length
 
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className="w-full text-xs text-slate-500 hover:text-slate-300 py-1"
-      >
-        取り込みのやり直し・担当の一括変更
-      </button>
-    )
-  }
-
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-slate-200">取り込みのやり直し</h3>
-        <button onClick={() => setOpen(false)} className="text-slate-500 text-lg leading-none">×</button>
+        <button onClick={onClose} className="text-slate-500 text-lg leading-none">×</button>
       </div>
 
       <div>

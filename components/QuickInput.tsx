@@ -186,7 +186,7 @@ function QuickInputModal({ tab, setTab, onClose }: {
     <div className="relative">
       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base">¥</span>
       <input
-        type="text" inputMode="numeric" placeholder="0" autoComplete="off"
+        type="text" inputMode="numeric" placeholder="金額" autoComplete="off"
         value={value ? Number(value).toLocaleString("ja-JP") : ""}
         onChange={e => { const raw = toHalfWidth(e.target.value).replace(/,/g, ""); if (raw === "" || /^\d+$/.test(raw)) onChange(raw) }}
         className={`w-full border border-slate-700 rounded-xl pl-8 pr-3 py-3 text-lg font-semibold text-slate-100 focus:outline-none focus:ring-2 ${ring}`}
@@ -204,7 +204,7 @@ function QuickInputModal({ tab, setTab, onClose }: {
         {/* ヘッダー */}
         <div className="sticky top-0 bg-slate-900 border-b border-slate-800 px-4 pt-3 pb-2 rounded-t-2xl">
           <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-2 sm:hidden" />
-          <div className="flex items-center justify-between">
+          <div className="flex items-center">
             <div className="flex rounded-lg bg-slate-800 p-0.5">
               <button onClick={() => { setTab("expense"); setMessage(null) }}
                 className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-colors ${tab === "expense" ? "bg-slate-900 shadow-sm text-blue-400" : "text-slate-400"}`}>
@@ -215,35 +215,37 @@ function QuickInputModal({ tab, setTab, onClose }: {
                 💰 入金
               </button>
             </div>
+            {/* 個人/共同（小さなセグメント） */}
+            {loaded && (
+              <div className="flex rounded-lg bg-slate-800 p-0.5 ml-2">
+                {([["self", "個人", "text-indigo-400"], ["joint", "共同", "text-amber-400"]] as const).map(([k, label, color]) => {
+                  const active = tab === "expense" ? usageType === k : incomeCardType === k
+                  return (
+                    <button key={k} type="button" onClick={() => tab === "expense" ? setUsageType(k) : setIncomeCardType(k)}
+                      className={`px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${active ? `bg-slate-900 shadow-sm ${color}` : "text-slate-400"}`}>
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+            <div className="flex-1" />
             <button onClick={onClose} className="text-slate-500 hover:text-slate-400 text-2xl leading-none px-2">×</button>
           </div>
         </div>
 
-        <div className="px-4 py-4 space-y-4">
+        <div className="px-4 py-3 space-y-3">
           {!loaded && <p className="text-center text-sm text-slate-500 py-8">読み込み中...</p>}
 
           {/* ═══ 支出 ═══ */}
           {loaded && tab === "expense" && (
             <>
-              {/* 個人/共同 */}
-              <div className="flex rounded-xl bg-slate-800 p-1 gap-1">
-                {([["self", "個人", "text-indigo-400"], ["joint", "共同", "text-amber-400"]] as const).map(([k, label, color]) => (
-                  <button key={k} type="button" onClick={() => setUsageType(k)}
-                    className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${usageType === k ? `bg-slate-900 shadow-sm ${color}` : "text-slate-400"}`}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-
               {/* 金額（最初に・大きく） */}
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">金額</label>
-                {amountInput(amount, setAmount, "focus:ring-blue-500")}
-              </div>
+              {amountInput(amount, setAmount, "focus:ring-blue-500")}
 
               {/* カテゴリ */}
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">カテゴリ</label>
+                <label className="block text-xs font-medium text-slate-300 mb-1">カテゴリ</label>
                 {expenseCategories.length === 0 ? (
                   <p className="text-xs text-amber-400 bg-amber-500/10 rounded-lg px-3 py-2">カテゴリ未設定です。設定から追加してください。</p>
                 ) : (
@@ -263,7 +265,7 @@ function QuickInputModal({ tab, setTab, onClose }: {
               {/* 支払方法 */}
               {usageCards.length > 1 && (
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1.5">支払方法</label>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">支払方法</label>
                   <div className="flex gap-2 flex-wrap">
                     {usageCards.map(c => (
                       <button key={c.id} type="button" onClick={() => setSelectedCardId(c.id)}
@@ -283,13 +285,11 @@ function QuickInputModal({ tab, setTab, onClose }: {
               {/* 日付・メモ */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">日付</label>
-                  <input type="date" value={date} onChange={e => setDate(e.target.value)}
+                  <input type="date" value={date} onChange={e => setDate(e.target.value)} title="日付" aria-label="日付"
                     className="w-full border border-slate-700 rounded-lg px-2 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">メモ（任意）</label>
-                  <input type="text" value={memo} onChange={e => setMemo(e.target.value)} placeholder="例：スーパー"
+                  <input type="text" value={memo} onChange={e => setMemo(e.target.value)} placeholder="メモ（例：スーパー）" aria-label="メモ"
                     className="w-full border border-slate-700 rounded-lg px-2 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
               </div>
@@ -311,22 +311,10 @@ function QuickInputModal({ tab, setTab, onClose }: {
           {/* ═══ 入金 ═══ */}
           {loaded && tab === "income" && (
             <>
-              <div className="flex rounded-xl bg-slate-800 p-1 gap-1">
-                {([["self", "個人", "text-indigo-400"], ["joint", "共同", "text-amber-400"]] as const).map(([k, label, color]) => (
-                  <button key={k} type="button" onClick={() => setIncomeCardType(k)}
-                    className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${incomeCardType === k ? `bg-slate-900 shadow-sm ${color}` : "text-slate-400"}`}>
-                    {label}
-                  </button>
-                ))}
-              </div>
+              {amountInput(incomeAmount, setIncomeAmount, "focus:ring-green-500")}
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">金額</label>
-                {amountInput(incomeAmount, setIncomeAmount, "focus:ring-green-500")}
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">カテゴリ</label>
+                <label className="block text-xs font-medium text-slate-300 mb-1">カテゴリ</label>
                 {incomeCategories.length === 0 ? (
                   <p className="text-xs text-amber-400 bg-amber-500/10 rounded-lg px-3 py-2">入金カテゴリ未設定です。設定から追加してください。</p>
                 ) : (
@@ -345,13 +333,11 @@ function QuickInputModal({ tab, setTab, onClose }: {
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">日付</label>
-                  <input type="date" value={incomeDate} onChange={e => setIncomeDate(e.target.value)}
+                  <input type="date" value={incomeDate} onChange={e => setIncomeDate(e.target.value)} title="日付" aria-label="日付"
                     className="w-full border border-slate-700 rounded-lg px-2 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-green-500" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">メモ（任意）</label>
-                  <input type="text" value={incomeMemo} onChange={e => setIncomeMemo(e.target.value)} placeholder="例：7月分給与"
+                  <input type="text" value={incomeMemo} onChange={e => setIncomeMemo(e.target.value)} placeholder="メモ（例：7月分給与）" aria-label="メモ"
                     className="w-full border border-slate-700 rounded-lg px-2 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-green-500" />
                 </div>
               </div>

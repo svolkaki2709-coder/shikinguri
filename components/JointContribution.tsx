@@ -573,337 +573,330 @@ export function JointContribution({ members, events, hints, inflationRate, asset
     onSaved()
   }
 
-  const input = "w-full bg-slate-900 text-slate-100 border border-slate-700 rounded-lg px-2 py-2 text-sm text-right"
+  const input = "w-full bg-slate-900 text-slate-100 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-right"
+  // 1行に並べる小さい選択（ボタンを並べる代わり）
+  const smallSelect = "bg-slate-900 text-slate-100 border border-slate-700 rounded-md px-1.5 py-1 text-[11px]"
 
   if (members.length === 0) {
     return (
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 text-center">
-        <p className="text-sm text-slate-300">まず「前提条件」で家族構成に2人を登録してください</p>
-        <p className="text-xs text-slate-500 mt-2">登録した人が、ここでの分担の対象になります</p>
-      </div>
+      <p className="text-sm text-slate-400 py-2" title="登録した人が、ここでの分担の対象になります">
+        まず「前提条件」で家族構成に2人を登録してください ⓘ
+      </p>
     )
   }
 
   return (
     <div className="space-y-3">
+      <div className="grid gap-3 @3xl:grid-cols-2 @3xl:items-start">
       {/* ════ A. 生活のための分 ════ */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
-        <div>
-          <h3 className="text-sm font-bold text-slate-100">① 生活のための分</h3>
-          <p className="text-xs text-slate-500 mt-0.5">毎月の生活費と、もしものときの生活防衛資金</p>
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-2">
+        <div className="flex items-baseline justify-between gap-2">
+          <h3 className="text-sm font-bold text-slate-100" title="毎月の生活費と、もしものときの生活防衛資金">
+            ① 生活のための分 <span className="text-[11px] font-normal text-slate-500 cursor-help">ⓘ</span>
+          </h3>
+          <span className="text-[11px] text-slate-400">今月 <span className="text-lg font-bold text-sky-300">{yen(livingAt(0) + bufferAt(0))}</span></span>
         </div>
 
-        <div className="space-y-2">
-          <Row
-            label="出し合う生活費"
-            hint={
-              p.livingSource === "manual" ? "手入力した金額を使います"
-              : p.livingSource === "actual" ? "直近1年の共同支出の平均"
-              : budgetMonthly > 0 ? `${hints?.budgetYear ?? new Date().getFullYear()}年の予算を12ヶ月で平均した額` : "予算が未設定のため実績の平均を使っています"
-            }
-            value={living}
-            editable={
-              <div className="flex items-center gap-1.5">
-                <div className="flex rounded-lg bg-slate-800 p-0.5 text-[11px]">
-                  {([["budget", "予算"], ["actual", "実績"], ["manual", "手入力"]] as const).map(([k, label]) => (
-                    <button key={k} type="button" onClick={() => set("livingSource", k)}
-                      className={`px-2 py-1 rounded-md transition-colors ${
-                        p.livingSource === k ? "bg-blue-600 text-white" : "text-slate-400"
-                      }`}>
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                {p.livingSource === "manual" && (
-                  <div className="w-28">
-                    <input className={input} inputMode="numeric" placeholder="0"
-                      value={p.livingCost} onChange={e => set("livingCost", money(e.target.value))} />
-                  </div>
-                )}
-              </div>
-            }
-          />
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-sm text-slate-300">支出の見込み</p>
-              <p className="text-[11px] text-slate-500">
-                {actualMonthly > 0 ? "直近1年の共同支出の平均。物価上昇を毎月上乗せして比べます" : "実績がまだ無いため、出し合う額と同じとみています"}
-              </p>
-            </div>
-            <span className="text-sm font-semibold text-slate-100 w-24 text-right shrink-0">{yen(spendBase)}</span>
-          </div>
-          {spendBase !== living && (
-            <p className={`text-[11px] -mt-1 ${spendBase > living ? "text-amber-400" : "text-slate-500"}`}>
-              {spendBase > living
-                ? `支出の見込みが出し合う額より毎月約${yen(spendBase - living)}多くなります。このままだと生活費口座が少しずつ減っていきます`
-                : `出し合う額のほうが毎月約${yen(living - spendBase)}多く、生活費口座に少しずつ余りが貯まる見込みです`}
-            </p>
-          )}
-          <div className="bg-slate-800/40 rounded-lg px-2.5 py-2 space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-300 flex-1">毎月、共同口座に入れる日</span>
-              <div className="w-16 shrink-0">
-                <input className={input} inputMode="numeric" value={p.depositDay}
-                  onChange={e => set("depositDay", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} />
-              </div>
-              <span className="text-xs text-slate-400">日</span>
-            </div>
-            <label className="flex items-center gap-2 text-[11px] text-slate-400">
-              <input type="checkbox" checked={p.sameAccount !== false}
-                onChange={e => set("sameAccount", e.target.checked)} />
-              生活費と貯蓄を同じ口座で管理している（月末残高に、これから使う生活費も含まれる）
-            </label>
-            {p.sameAccount !== false && (
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              {hints?.assetMonth ? `${hints.assetMonth.slice(0, 4)}年${Number(hints.assetMonth.slice(5, 7))}月末` : "月末"}の残高
-              {" "}{yen(recordedSavings)} には、{depositDay}日に入れてまだ使っていない生活費（約{yen(operatingCash)}）が含まれます。
-              貯蓄としてはこれを除いた <span className="text-slate-300">{yen(netSavings)}</span> で計算しています。
-              イベントの支払いは、その月の入金より前に来ても払えるかで判定します
-            </p>
-            )}
-          </div>
-
-          {/* 出し合う額の見直しタイミング（生活費・イベント共通） */}
-          <div className="bg-slate-800/40 rounded-lg px-2.5 py-2 space-y-1.5">
-            <div className="flex items-center gap-2 flex-wrap pb-1.5 border-b border-slate-700/60">
-              <span className="text-xs text-slate-300">積立を始める月</span>
-              <MonthSelect value={p.saveStart || ymOf(0)} onChange={v => set("saveStart", v)} yearsBack={0} yearsAhead={10} />
-              <span className="text-[11px] text-slate-500">
-                それまでは生活費だけを出し合い、防衛資金とイベント用の積立は始めません
-              </span>
-            </div>
-            <p className="text-xs text-slate-300">出し合う額を見直すタイミング（生活費・イベント共通）</p>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[11px] text-slate-400">最初に見直す月</span>
-              <MonthSelect value={p.stepStart || monthKey(firstStepT)}
-                onChange={v => set("stepStart", v)} yearsBack={0} yearsAhead={10} />
-              <span className="text-[11px] text-slate-400">以降</span>
-              <div className="w-14">
-                <input className={input} inputMode="numeric" value={p.stepMonths}
-                  onChange={e => set("stepMonths", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} />
-              </div>
-              <span className="text-[11px] text-slate-400">ヶ月ごと</span>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap pt-1">
-              <span className="text-[11px] text-slate-400">生活費の上げ方</span>
+        <Row
+          label="出し合う生活費"
+          hint={
+            p.livingSource === "manual" ? "手入力した金額を使います"
+            : p.livingSource === "actual" ? "直近1年の共同支出の平均"
+            : budgetMonthly > 0 ? `${hints?.budgetYear ?? new Date().getFullYear()}年の予算を12ヶ月で平均した額` : "予算が未設定のため実績の平均を使っています"
+          }
+          value={living}
+          editable={
+            <div className="flex items-center gap-1.5">
               <div className="flex rounded-lg bg-slate-800 p-0.5 text-[11px]">
-                {([["inflation", "物価上昇ぶん"], ["fixed", "決めた額ずつ"]] as const).map(([k, label]) => (
-                  <button key={k} type="button" onClick={() => set("livingMode", k)}
-                    className={`px-2 py-1 rounded-md transition-colors ${
-                      (p.livingMode ?? "inflation") === k ? "bg-blue-600 text-white" : "text-slate-400"
+                {([["budget", "予算"], ["actual", "実績"], ["manual", "手入力"]] as const).map(([k, label]) => (
+                  <button key={k} type="button" onClick={() => set("livingSource", k)}
+                    className={`px-2 py-0.5 rounded-md transition-colors ${
+                      p.livingSource === k ? "bg-blue-600 text-white" : "text-slate-400"
                     }`}>
                     {label}
                   </button>
                 ))}
               </div>
-              {p.livingMode === "fixed" && (
-                <>
-                  <span className="text-[11px] text-slate-400">見直しごとに</span>
-                  <div className="w-24">
-                    <input className={input} inputMode="numeric" value={p.livingStep}
-                      onChange={e => set("livingStep", money(e.target.value))} />
-                  </div>
-                  <span className="text-[11px] text-slate-400">円ずつ上げる</span>
-                </>
+              {p.livingSource === "manual" && (
+                <div className="w-28">
+                  <input className={input} inputMode="numeric" placeholder="0"
+                    value={p.livingCost} onChange={e => set("livingCost", money(e.target.value))} />
+                </div>
               )}
             </div>
-            <p className="text-[11px] text-slate-500">
-              この月に、生活費は{p.livingMode === "fixed" ? `${yen(livingStepAmount)}ずつ` : "物価上昇ぶんを"}上乗せし、
-              イベント用は「少しずつ増やす」の増額を行います。昇給月や賞与月に合わせると続けやすくなります
-            </p>
-            {p.livingMode === "fixed" && (() => {
-              // 決めた額が物価上昇に追いつくかを5年後で比べる
-              const t5 = 60
-              const behind = spendAt(t5) - livingAt(t5)
-              return behind > 0 ? (
-                <p className="text-[11px] text-amber-400">
-                  5年後（{monthLabel(t5)}）には支出の見込みが出し合う額を毎月約{yen(behind)}上回ります。
-                  増額が物価上昇に追いついていません
-                </p>
-              ) : (
-                <p className="text-[11px] text-emerald-400">
-                  5年後も出し合う額が支出の見込みを上回ります（毎月約{yen(-behind)}の余り）
-                </p>
-              )
-            })()}
+          }
+        />
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-slate-300 min-w-0"
+            title={actualMonthly > 0 ? "直近1年の共同支出の平均。物価上昇を毎月上乗せして比べます" : "実績がまだ無いため、出し合う額と同じとみています"}>
+            支出の見込み<span className="text-[10px] text-slate-500">（実績ではありません）ⓘ</span>
+          </p>
+          <span className="text-sm font-semibold text-slate-100 w-24 text-right shrink-0">{yen(spendBase)}</span>
+        </div>
+        {spendBase !== living && (
+          <p className={`text-[11px] -mt-1 ${spendBase > living ? "text-amber-400" : "text-slate-500"}`}
+            title={spendBase > living
+              ? "このままだと生活費口座が少しずつ減っていきます"
+              : "生活費口座に少しずつ余りが貯まる見込みです"}>
+            {spendBase > living
+              ? `支出の見込みが出し合う額より毎月約${yen(spendBase - living)}多い ⓘ`
+              : `出し合う額のほうが毎月約${yen(living - spendBase)}多い ⓘ`}
+          </p>
+        )}
+
+        {/* 入金日・口座・積立開始・見直し（入れ子の枠をやめて1行ずつ） */}
+        <div className="border-t border-slate-800 pt-2 space-y-1.5 text-[11px] text-slate-400">
+          <div className="flex items-center gap-x-2 gap-y-1 flex-wrap">
+            <span className="text-xs text-slate-300">共同口座に入れる日</span>
+            <div className="w-14 shrink-0">
+              <input className={input} inputMode="numeric" value={p.depositDay}
+                onChange={e => set("depositDay", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} />
+            </div>
+            <span>日</span>
+            <label className="flex items-center gap-1.5 ml-1"
+              title="月末残高に、これから使う生活費も含まれる場合にチェックします">
+              <input type="checkbox" checked={p.sameAccount !== false}
+                onChange={e => set("sameAccount", e.target.checked)} />
+              生活費と貯蓄を同じ口座で管理
+            </label>
+            {p.sameAccount !== false && (
+              <span className="cursor-help"
+                title={`${hints?.assetMonth ? `${hints.assetMonth.slice(0, 4)}年${Number(hints.assetMonth.slice(5, 7))}月末` : "月末"}の残高 ${yen(recordedSavings)} には、${depositDay}日に入れてまだ使っていない生活費（約${yen(operatingCash)}）が含まれます。貯蓄としてはこれを除いた ${yen(netSavings)} で計算しています。イベントの支払いは、その月の入金より前に来ても払えるかで判定します`}>
+                → 貯蓄 <span className="text-slate-300">{yen(netSavings)}</span> で計算 ⓘ
+              </span>
+            )}
           </div>
 
-          <label className="flex items-center gap-2 text-xs text-slate-300">
+          <div className="flex items-center gap-x-2 gap-y-1 flex-wrap">
+            <span className="text-xs text-slate-300 cursor-help"
+              title="それまでは生活費だけを出し合い、防衛資金とイベント用の積立は始めません">
+              積立を始める月 ⓘ
+            </span>
+            <MonthSelect value={p.saveStart || ymOf(0)} onChange={v => set("saveStart", v)} yearsBack={0} yearsAhead={10} />
+          </div>
+
+          <div className="flex items-center gap-x-2 gap-y-1 flex-wrap">
+            <span className="text-xs text-slate-300 cursor-help"
+              title={`出し合う額を見直すタイミング（生活費・イベント共通）。この月に、生活費は${p.livingMode === "fixed" ? `${yen(livingStepAmount)}ずつ` : "物価上昇ぶんを"}上乗せし、イベント用は「少しずつ増やす」の増額を行います。昇給月や賞与月に合わせると続けやすくなります`}>
+              見直しタイミング ⓘ
+            </span>
+            <MonthSelect value={p.stepStart || monthKey(firstStepT)}
+              onChange={v => set("stepStart", v)} yearsBack={0} yearsAhead={10} />
+            <span>以降</span>
+            <div className="w-14">
+              <input className={input} inputMode="numeric" value={p.stepMonths}
+                onChange={e => set("stepMonths", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} />
+            </div>
+            <span>ヶ月ごと</span>
+          </div>
+
+          <div className="flex items-center gap-x-2 gap-y-1 flex-wrap">
+            <span className="text-xs text-slate-300">生活費の上げ方</span>
+            <select className={smallSelect} value={p.livingMode ?? "inflation"}
+              onChange={e => set("livingMode", e.target.value as Params["livingMode"])}>
+              <option value="inflation">物価上昇ぶん</option>
+              <option value="fixed">決めた額ずつ</option>
+            </select>
+            {p.livingMode === "fixed" && (
+              <>
+                <span>見直しごとに</span>
+                <div className="w-24">
+                  <input className={input} inputMode="numeric" value={p.livingStep}
+                    onChange={e => set("livingStep", money(e.target.value))} />
+                </div>
+                <span>円ずつ</span>
+              </>
+            )}
+          </div>
+          {p.livingMode === "fixed" && (() => {
+            // 決めた額が物価上昇に追いつくかを5年後で比べる
+            const t5 = 60
+            const behind = spendAt(t5) - livingAt(t5)
+            return behind > 0 ? (
+              <p className="text-amber-400" title="増額が物価上昇に追いついていません">
+                5年後（{monthLabel(t5)}）は支出の見込みが毎月約{yen(behind)}上回ります ⓘ
+              </p>
+            ) : (
+              <p className="text-emerald-400">
+                5年後も出し合う額が支出の見込みを上回ります（毎月約{yen(-behind)}の余り）
+              </p>
+            )
+          })()}
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-slate-800 pt-2">
+          <label className="flex items-center gap-2 text-xs text-slate-300 min-w-0"
+            title={includeBuffer
+              ? `目標 ${yen(bufferTarget)}（生活費${p.bufferMonths === "" ? 6 : num(p.bufferMonths)}ヶ月分）` +
+                ` ／ 共同貯蓄 ${yen(netSavings)}` +
+                (earmarkedTotal > 0 ? ` − 取り置き ${yen(earmarkedTotal)} = 使える分 ${yen(freeSavings)}` : "") +
+                (bufferGap > 0 ? ` → ${yen(bufferGap)} 不足を${bufferSpread}ヶ月で貯める` : " → 到達済み")
+              : undefined}>
             <input type="checkbox" checked={includeBuffer}
               onChange={e => set("includeBuffer", e.target.checked)} />
-            生活防衛資金の積立を計算に含める
+            {includeBuffer ? <>生活防衛資金の積立 <span className="text-[10px] text-slate-500">{bufferGap > 0 ? `${bufferSpread}ヶ月で` : "到達済み"} ⓘ</span></> : "生活防衛資金の積立を計算に含める"}
           </label>
           {includeBuffer && (
-          <Row
-            label="生活防衛資金の積立"
-            hint={
-              `目標 ${yen(bufferTarget)}（生活費${p.bufferMonths === "" ? 6 : num(p.bufferMonths)}ヶ月分）` +
-              ` ／ 共同貯蓄 ${yen(netSavings)}` +
-              (earmarkedTotal > 0 ? ` − 取り置き ${yen(earmarkedTotal)} = 使える分 ${yen(freeSavings)}` : "") +
-              (bufferGap > 0 ? ` → ${yen(bufferGap)} 不足を${bufferSpread}ヶ月で貯める` : " → 到達済み")
-            }
-            value={bufferMonthly}
-          />
+            <span className="text-sm font-semibold text-slate-100 w-24 text-right shrink-0">{yen(bufferMonthly)}</span>
           )}
         </div>
 
-        <div className="flex items-center justify-between border-t border-slate-800 pt-2.5">
-          <span className="text-sm font-semibold text-slate-200">生活のための分（今月）</span>
-          <span className="text-lg font-bold text-sky-300">{yen(livingAt(0) + bufferAt(0))}</span>
-        </div>
-        <p className="text-[11px] text-slate-500">
-          生活費は{monthLabel(firstStepT)}から{stepMonths}ヶ月ごとに、{p.livingMode === "fixed" ? `${yen(livingStepAmount)}ずつ` : `それまでの物価上昇（年${inflationRate}%）ぶんを`}上乗せして見直す前提です。
-          1年後は{yen(livingAt(12))}、5年後は{yen(livingAt(60))}になります。
-          一方で支出の見込みは物価に合わせて毎月少しずつ上げているので、見直し前の月は出し合う額より多くなることがあります
-          （この1年の差の累計 {drift12 >= 0 ? "+" : "−"}{yen(Math.abs(drift12))}
-          {worstDrift.amount < 0 ? `、最大で${monthLabel(worstDrift.at)}に${yen(-worstDrift.amount)}の持ち出し` : ""}）。
-          {includeBuffer ? `防衛資金の積立は${bufferGap > 0 ? `${monthLabel(saveStartT)}から${monthLabel(saveStartT + bufferSpread - 1)}まで` : "不要"}です` : "防衛資金は計算から外しています"}
-        </p>
-
         <details className="text-xs">
-          <summary className="text-slate-500 cursor-pointer">防衛資金の前提を変える</summary>
-          <div className="grid grid-cols-2 gap-2 mt-2">
-            <Field label="防衛資金（生活費の何ヶ月分）">
-              <input className={input} inputMode="numeric" value={p.bufferMonths}
-                onChange={e => set("bufferMonths", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} />
-            </Field>
-            <Field label="何ヶ月で貯める">
-              <input className={input} inputMode="numeric" value={p.bufferSpreadMonths}
-                onChange={e => set("bufferSpreadMonths", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} />
-            </Field>
+          <summary className="text-slate-500 cursor-pointer">計算の前提・防衛資金の設定</summary>
+          <div className="space-y-2 mt-1.5">
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              生活費は{monthLabel(firstStepT)}から{stepMonths}ヶ月ごとに、{p.livingMode === "fixed" ? `${yen(livingStepAmount)}ずつ` : `それまでの物価上昇（年${inflationRate}%）ぶんを`}上乗せして見直す前提です。
+              1年後は{yen(livingAt(12))}、5年後は{yen(livingAt(60))}になります。
+              一方で支出の見込みは物価に合わせて毎月少しずつ上げているので、見直し前の月は出し合う額より多くなることがあります
+              （この1年の差の累計 {drift12 >= 0 ? "+" : "−"}{yen(Math.abs(drift12))}
+              {worstDrift.amount < 0 ? `、最大で${monthLabel(worstDrift.at)}に${yen(-worstDrift.amount)}の持ち出し` : ""}）。
+              {includeBuffer ? `防衛資金の積立は${bufferGap > 0 ? `${monthLabel(saveStartT)}から${monthLabel(saveStartT + bufferSpread - 1)}まで` : "不要"}です` : "防衛資金は計算から外しています"}
+            </p>
+            <div className="flex flex-wrap gap-x-3 gap-y-2">
+              <Field label="防衛資金（生活費の何ヶ月分）"
+                hint="2人とも働けなくなっても暮らせる期間の生活費です。共働きなら3〜6ヶ月分、収入が1人に偏っているなら6〜12ヶ月分が目安になります">
+                <div className="w-20">
+                  <input className={input} inputMode="numeric" value={p.bufferMonths}
+                    onChange={e => set("bufferMonths", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} />
+                </div>
+              </Field>
+              <Field label="何ヶ月で貯める">
+                <div className="w-20">
+                  <input className={input} inputMode="numeric" value={p.bufferSpreadMonths}
+                    onChange={e => set("bufferSpreadMonths", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} />
+                </div>
+              </Field>
+            </div>
           </div>
-          <p className="text-[11px] text-slate-500 mt-2">
-            2人とも働けなくなっても暮らせる期間の生活費です。共働きなら3〜6ヶ月分、
-            収入が1人に偏っているなら6〜12ヶ月分が目安になります
-          </p>
         </details>
       </div>
 
       {/* ════ B. ライフイベントのための分 ════ */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
-        <div>
-          <h3 className="text-sm font-bold text-slate-100">② ライフイベントのための分</h3>
-          <p className="text-xs text-slate-500 mt-0.5">
-            {eventYears}年以内の予定（支出 {yen(eventExpense)}{eventIncome > 0 ? ` − 戻り ${yen(eventIncome)}` : ""}）に、
-            支払いの時点で間に合うように積み立てます
-          </p>
-          <label className="flex items-center gap-2 text-[11px] text-slate-400 mt-1.5">
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-2">
+        <div className="flex items-baseline justify-between gap-2">
+          <h3 className="text-sm font-bold text-slate-100"
+            title={`${eventYears}年以内の予定（支出 ${yen(eventExpense)}${eventIncome > 0 ? ` − 戻り ${yen(eventIncome)}` : ""}）に、支払いの時点で間に合うように積み立てます`}>
+            ② ライフイベントのための分 <span className="text-[11px] font-normal text-slate-500 cursor-help">ⓘ</span>
+          </h3>
+          <span className="text-[11px] text-slate-400">今月 <span className="text-lg font-bold text-violet-300">{yen(eventPartNow)}</span></span>
+        </div>
+        <div className="flex items-center gap-x-2 gap-y-1 flex-wrap text-[11px] text-slate-400">
+          <div className="w-12">
+            <input className={input} inputMode="numeric" value={p.eventYears} title="何年先までの予定を見るか"
+              onChange={e => set("eventYears", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} />
+          </div>
+          <span>年以内の予定（支出 {yen(eventExpense)}{eventIncome > 0 ? ` − 戻り ${yen(eventIncome)}` : ""}）</span>
+          <label className="flex items-center gap-1.5"
+            title={inflateEvents ? "その年の価格で計算中" : "登録した金額のまま計算中"}>
             <input type="checkbox" checked={inflateEvents}
               onChange={e => set("inflateEvents", e.target.checked)} />
-            イベントの金額に物価上昇（年{inflationRate}%）を見込む
-            <span className="text-slate-500">{inflateEvents ? "（その年の価格で計算中）" : "（登録した金額のまま計算中）"}</span>
+            物価上昇（年{inflationRate}%）を見込む
           </label>
         </div>
 
-          <div className="bg-slate-800/40 rounded-lg px-2.5 py-2 space-y-2">
-            <div>
-              <p className="text-sm text-slate-300">取り置き（すでに確保してあるお金）</p>
-              <p className="text-[11px] text-slate-500">
-                どのイベント用かを選んで入れてください。生活防衛資金には数えず、先にその支払いへ充てます
-              </p>
-            </div>
-
-            {expenseEvents.map(ev => (
-              <div key={ev.key} className="flex items-center gap-2">
-                <span className="text-xs text-slate-400 flex-1 min-w-0 truncate">
-                  {ev.year}年 {ev.name}
-                  <span className="text-slate-600 ml-1.5">{yen(ev.amount)}</span>
-                </span>
-                <div className="w-32 shrink-0">
-                  <input className={input} inputMode="numeric" placeholder="0"
-                    value={p.earmarks?.[ev.key] ?? ""}
-                    onChange={e => set("earmarks", { ...(p.earmarks ?? {}), [ev.key]: money(e.target.value) })} />
-                </div>
-              </div>
-            ))}
-
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500 flex-1 min-w-0">用途を決めていない分</span>
-              <div className="w-32 shrink-0">
+        {/* 取り置き（枠なしで1行ずつ） */}
+        <div className="border-t border-slate-800 pt-2 space-y-1">
+          <p className="text-xs text-slate-300 cursor-help"
+            title="すでに確保してあるお金です。どのイベント用かを選んで入れてください。生活防衛資金には数えず、先にその支払いへ充てます">
+            取り置き（すでに確保してあるお金） ⓘ
+          </p>
+          {expenseEvents.map(ev => (
+            <div key={ev.key} className="flex items-center gap-2">
+              <span className="text-xs text-slate-400 flex-1 min-w-0 truncate">
+                {ev.year}年 {ev.name}
+                <span className="text-slate-600 ml-1.5">{yen(ev.amount)}</span>
+              </span>
+              <div className="w-28 shrink-0">
                 <input className={input} inputMode="numeric" placeholder="0"
-                  value={p.earmarked} onChange={e => set("earmarked", money(e.target.value))} />
+                  value={p.earmarks?.[ev.key] ?? ""}
+                  onChange={e => set("earmarks", { ...(p.earmarks ?? {}), [ev.key]: money(e.target.value) })} />
               </div>
             </div>
+          ))}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500 flex-1 min-w-0">用途を決めていない分</span>
+            <div className="w-28 shrink-0">
+              <input className={input} inputMode="numeric" placeholder="0"
+                value={p.earmarked} onChange={e => set("earmarked", money(e.target.value))} />
+            </div>
+          </div>
+          {earmarkedTotal > 0 && (
+            <p className={`text-[11px] ${earmarkedTotal > netSavings ? "text-red-400" : "text-slate-500"}`}>
+              取り置きの合計 {yen(earmarkedTotal)}
+              {earmarkedTotal > netSavings
+                ? `（使える共同貯蓄 ${yen(netSavings)} を超えています）`
+                : `／ 使える共同貯蓄 ${yen(netSavings)}`}
+            </p>
+          )}
+        </div>
 
-            {earmarkedTotal > 0 && (
-              <p className={`text-[11px] ${earmarkedTotal > netSavings ? "text-red-400" : "text-slate-500"}`}>
-                取り置きの合計 {yen(earmarkedTotal)}
-                {earmarkedTotal > netSavings
-                  ? `（使える共同貯蓄 ${yen(netSavings)} を超えています）`
-                  : `／ 使える共同貯蓄 ${yen(netSavings)}`}
-              </p>
+        {/* 積み方 */}
+        <div className="border-t border-slate-800 pt-2 space-y-1.5">
+          <div className="flex items-center gap-x-2 gap-y-1 flex-wrap text-[11px] text-slate-400">
+            <span className="text-xs text-slate-300">積み方</span>
+            <select className={smallSelect} value={p.eventMode}
+              onChange={e => set("eventMode", e.target.value as Params["eventMode"])}>
+              <option value="flat">毎月同じ額で積む</option>
+              <option value="ramp">少しずつ増やす</option>
+            </select>
+            {p.eventMode === "flat" ? (
+              <span title={`どのイベントの支払いにも間に合う額です（スタート時点のイベント用資金 ${yen(eventStartBalance)}）`}>
+                毎月 <span className="text-sm text-slate-100 font-semibold">{yen(requiredFlat)}</span> ずつで間に合います ⓘ
+              </span>
+            ) : (
+              <>
+                <span>今月</span>
+                <div className="w-24">
+                  <input className={input} inputMode="numeric" placeholder="0"
+                    value={p.eventCurrent} onChange={e => set("eventCurrent", money(e.target.value))} />
+                </div>
+                <span className="cursor-help"
+                  title={`増額のタイミングは、①の「見直しタイミング」（${monthLabel(firstStepT)}から${stepMonths}ヶ月ごと）と同じです`}>
+                  見直しごとに ⓘ
+                </span>
+                <div className="w-24">
+                  <input className={input} inputMode="numeric" value={p.stepAmount}
+                    onChange={e => set("stepAmount", money(e.target.value))} />
+                </div>
+                <span>円増やす</span>
+              </>
             )}
           </div>
 
-
-        <div className="flex rounded-xl bg-slate-800 p-1 gap-1">
-          {([["flat", "毎月同じ額で積む"], ["ramp", "少しずつ増やす"]] as const).map(([k, label]) => (
-            <button key={k} type="button" onClick={() => set("eventMode", k)}
-              className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${
-                p.eventMode === k ? "bg-blue-600 text-white" : "text-slate-400"
-              }`}>
-              {label}
-            </button>
+          {p.eventMode === "ramp" && (eventSim.firstShort !== null ? (
+            <div className="flex items-center gap-2 flex-wrap text-[11px] text-red-300"
+              title={`今月 ${yen(eventCurrent)} から始めるなら、1回あたり ${yen(requiredStep)} の増額が必要です。表の合計はこの金額で計算しています`}>
+              <span className="font-semibold">
+                増額{yen(stepAmount)}だと {monthLabel(eventSim.firstShort)} に不足 → 必要 <span className="text-amber-200">{yen(requiredStep)}</span> ⓘ
+              </span>
+              <button type="button" onClick={() => set("stepAmount", money(String(requiredStep)))}
+                className="text-amber-200 underline">この増額にする</button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 flex-wrap text-[11px]">
+              <span className="text-green-300">この増やし方なら、どのイベントの支払いにも間に合います</span>
+              {leftover > 100000 && requiredStep < stepAmount && (
+                <>
+                  <span className="text-emerald-200 cursor-help"
+                    title={`最後のイベント（${lastEventLabel}）のあとに ${yen(leftover)} 残ります。増額を続けるほど、必要以上に積み立てる計算になるためです。間に合うぎりぎりの増額は1回あたり ${yen(requiredStep)} です。余裕として残すか、その分を防衛資金や投資に回すかで決めてください`}>
+                    （最後に {yen(leftover)} 余る ⓘ）
+                  </span>
+                  <button type="button" onClick={() => set("stepAmount", money(String(requiredStep)))}
+                    className="text-emerald-200 underline">ぎりぎりの増額（{yen(requiredStep)}）にする</button>
+                </>
+              )}
+            </div>
           ))}
         </div>
 
-        {p.eventMode === "flat" ? (
-          <p className="text-xs text-slate-400">
-            毎月 <span className="text-slate-100 font-semibold">{yen(requiredFlat)}</span> ずつ積めば、どのイベントの支払いにも間に合います
-            （スタート時点のイベント用資金 {yen(eventStartBalance)}）
-          </p>
-        ) : (
-          <div className="space-y-2">
-            <div className="grid grid-cols-2 gap-2">
-              <Field label="今月の積立額">
-                <input className={input} inputMode="numeric" placeholder="0"
-                  value={p.eventCurrent} onChange={e => set("eventCurrent", money(e.target.value))} />
-              </Field>
-              <Field label="見直しごとの増額">
-                <input className={input} inputMode="numeric" value={p.stepAmount}
-                  onChange={e => set("stepAmount", money(e.target.value))} />
-              </Field>
-            </div>
-            <p className="text-[11px] text-slate-500">
-              増額のタイミングは、①の「出し合う額を見直すタイミング」（{monthLabel(firstStepT)}から{stepMonths}ヶ月ごと）と同じです
-            </p>
-            {eventSim.firstShort !== null ? (
-              <div className="bg-red-500/10 border border-red-500/40 rounded-lg p-2.5 text-xs space-y-1">
-                <p className="text-red-300 font-semibold">
-                  入力した増額（{yen(stepAmount)}）だと {monthLabel(eventSim.firstShort)} に不足します
-                </p>
-                <p className="text-slate-300">
-                  今月 {yen(eventCurrent)} から始めるなら、1回あたり <span className="font-semibold text-amber-200">{yen(requiredStep)}</span> の増額が必要です。
-                  下の合計はこの金額で計算しています
-                </p>
-                <button type="button" onClick={() => set("stepAmount", money(String(requiredStep)))}
-                  className="text-[11px] text-amber-200 underline">この増額にする</button>
-              </div>
-            ) : (
-              <div className="space-y-1">
-                <p className="text-xs text-green-300">この増やし方なら、どのイベントの支払いにも間に合います</p>
-                {leftover > 100000 && requiredStep < stepAmount && (
-                  <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-2.5 text-xs space-y-1">
-                    <p className="text-emerald-200">
-                      ただし最後のイベント（{lastEventLabel}）のあとに {yen(leftover)} 残ります。
-                      増額を続けるほど、必要以上に積み立てる計算になるためです
-                    </p>
-                    <p className="text-slate-300">
-                      間に合うぎりぎりの増額は1回あたり <span className="font-semibold">{yen(requiredStep)}</span> です。
-                      余裕として残すか、その分を防衛資金や投資に回すかで決めてください
-                    </p>
-                    <button type="button" onClick={() => set("stepAmount", money(String(requiredStep)))}
-                      className="text-[11px] text-emerald-200 underline">ぎりぎりの増額にする</button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
         {passbook.length > 1 && (
-          <div className="bg-slate-800/50 rounded-lg p-2.5 overflow-x-auto">
-            <p className="text-[11px] text-slate-400 mb-1.5">イベント用のお金の流れ（通帳のイメージ）</p>
+          <div className="border-t border-slate-800 pt-2 overflow-x-auto">
+            <p className="text-[11px] text-slate-400 mb-1 cursor-help"
+              title={`「積み立て」は前の行からその月の入金日の前までに積んだ合計です（その月の入金は次の行に入ります）。支払いは入金より前に来る前提で、残高がマイナスになる行（赤）はその時点で払えません。月が未設定のイベントは${DEFAULT_MONTH}月、${inflateEvents
+                ? `金額は物価上昇${inflationRate}%を見込んだその年の価格です（一時金など金額が決まっているものは除く）`
+                : "金額は登録した金額のまま（物価上昇は見込んでいません）です"}`}>
+              イベント用のお金の流れ（通帳のイメージ） ⓘ
+            </p>
             <table className="w-full text-[11px] whitespace-nowrap">
               <thead>
                 <tr className="text-slate-500">
@@ -933,94 +926,68 @@ export function JointContribution({ members, events, hints, inflationRate, asset
                 ))}
               </tbody>
             </table>
-            <p className="text-[10px] text-slate-500 mt-1.5">
-              「積み立て」は前の行からその月の入金日の前までに積んだ合計です（その月の入金は次の行に入ります）。
-              支払いは入金より前に来る前提で、残高がマイナスになる行（赤）はその時点で払えません。月が未設定のイベントは{DEFAULT_MONTH}月、
-              {inflateEvents
-                ? `金額は物価上昇${inflationRate}%を見込んだその年の価格です（一時金など金額が決まっているものは除く）`
-                : "金額は登録した金額のまま（物価上昇は見込んでいません）です"}
-            </p>
           </div>
         )}
-
-        <div className="flex items-center justify-between border-t border-slate-800 pt-2.5">
-          <span className="text-sm font-semibold text-slate-200">ライフイベントのための分（今月）</span>
-          <span className="text-lg font-bold text-violet-300">{yen(eventPartNow)}</span>
-        </div>
-
-        <details className="text-xs">
-          <summary className="text-slate-500 cursor-pointer">イベントの期間を変える</summary>
-          <div className="mt-2 w-40">
-            <Field label="何年先までの予定を見るか">
-              <input className={input} inputMode="numeric" value={p.eventYears}
-                onChange={e => set("eventYears", toHalfWidth(e.target.value).replace(/[^0-9]/g, ""))} />
-            </Field>
-          </div>
-        </details>
+      </div>
       </div>
 
       {/* ════ C. 合計と分担 ════ */}
-      <div className="bg-slate-900 border border-blue-500/40 rounded-xl p-4 space-y-3">
-        <div className="flex items-baseline justify-between">
+      <div className="bg-slate-900 border border-blue-500/40 rounded-xl p-3 space-y-2">
+        <div className="flex items-baseline gap-x-3 gap-y-1 flex-wrap">
           <h3 className="text-sm font-bold text-slate-100">③ 2人で出し合う額（今月）</h3>
           <span className="text-2xl font-bold text-blue-300">{yen(totalNow)}</span>
+          <span className="text-xs text-slate-400">
+            生活 {yen(livingAt(0) + bufferAt(0))} ＋ ライフイベント {yen(eventPartNow)}
+          </span>
         </div>
-        <p className="text-xs text-slate-400">
-          生活 {yen(livingAt(0) + bufferAt(0))} ＋ ライフイベント {yen(eventPartNow)}
-        </p>
 
-        <div className="flex rounded-xl bg-slate-800 p-1 gap-1">
-          {([["equal", "折半"], ["income", "収入に比例"], ["custom", "比率を決める"]] as const).map(([k, label]) => (
-            <button key={k} type="button" onClick={() => set("method", k)}
-              className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${
-                p.method === k ? "bg-blue-600 text-white" : "text-slate-400"
-              }`}>
-              {label}
-            </button>
-          ))}
-        </div>
-        <p className="text-[11px] text-slate-500">
-          {p.method === "equal"
-            ? "同額ずつ出します。収入差が大きいと、少ないほうの手元に残るお金が極端に減る点に注意してください"
-            : p.method === "income"
-            ? "手取り収入の比で分けます。負担感が2人で揃いやすく、共働きで収入差がある家庭で選ばれやすい方法です"
-            : "2人の割合を金額で決めます（例：6万と4万なら6:4）。必要額はこの比率で分けます"}
-        </p>
-
-        {p.method === "income" && (
-          <div className="space-y-2">
-            <p className="text-xs text-slate-400">それぞれの手取り月収</p>
-            {members.map(m => (
-              <div key={m.id} className="flex items-center gap-2">
-                <span className="text-sm text-slate-300 w-24 shrink-0 truncate">{m.name}</span>
-                <input className={`${input} flex-1 min-w-0`} inputMode="numeric" placeholder="0"
+        <div className="flex items-center gap-x-3 gap-y-2 flex-wrap">
+          <label className="flex items-center gap-1.5 text-xs text-slate-300"
+            title={p.method === "equal"
+              ? "同額ずつ出します。収入差が大きいと、少ないほうの手元に残るお金が極端に減る点に注意してください"
+              : p.method === "income"
+              ? "手取り収入の比で分けます。負担感が2人で揃いやすく、共働きで収入差がある家庭で選ばれやすい方法です"
+              : "2人の割合を金額で決めます（例：6万と4万なら6:4）。必要額はこの比率で分けます"}>
+            分け方 <span className="text-[10px] text-slate-500 cursor-help">ⓘ</span>
+            <select className={smallSelect} value={p.method}
+              onChange={e => set("method", e.target.value as Params["method"])}>
+              <option value="equal">折半</option>
+              <option value="income">収入に比例</option>
+              <option value="custom">比率を決める</option>
+            </select>
+          </label>
+          {(p.method === "income" || p.method === "custom") && (
+            <span className="text-[11px] text-slate-500">
+              {p.method === "income" ? "手取り月収" : "割合の目安（金額）"}
+            </span>
+          )}
+          {p.method === "income" && members.map(m => (
+            <div key={m.id} className="flex items-center gap-1.5">
+              <span className="text-xs text-slate-300 max-w-[6rem] truncate">{m.name}</span>
+              <div className="w-28">
+                <input className={input} inputMode="numeric" placeholder="0"
                   value={p.incomes[m.id] ?? ""}
                   onChange={e => set("incomes", { ...p.incomes, [m.id]: money(e.target.value) })} />
               </div>
-            ))}
-          </div>
-        )}
-        {p.method === "custom" && (
-          <div className="space-y-2">
-            <p className="text-xs text-slate-400">割合の目安（金額で入力）</p>
-            {members.map(m => (
-              <div key={m.id} className="flex items-center gap-2">
-                <span className="text-sm text-slate-300 w-24 shrink-0 truncate">{m.name}</span>
-                <input className={`${input} flex-1 min-w-0`} inputMode="numeric" placeholder="0"
+            </div>
+          ))}
+          {p.method === "custom" && members.map(m => (
+            <div key={m.id} className="flex items-center gap-1.5">
+              <span className="text-xs text-slate-300 max-w-[6rem] truncate">{m.name}</span>
+              <div className="w-28">
+                <input className={input} inputMode="numeric" placeholder="0"
                   value={p.shares[m.id] ?? ""}
                   onChange={e => set("shares", { ...p.shares, [m.id]: money(e.target.value) })} />
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          ))}
+        </div>
 
-        <div className="border border-blue-500/30 bg-blue-500/5 rounded-lg p-3 space-y-1">
+        <div className="flex flex-wrap gap-2">
           {split(totalNow, 0).map(sp => (
-            <div key={sp.member.id} className="flex items-center justify-between text-sm">
-              <span className="text-slate-300">
-                {sp.member.name}
-                <span className="text-[10px] text-slate-500 ml-1.5">{Math.round(sp.ratio * 100)}%</span>
-              </span>
+            <div key={sp.member.id} className="flex items-baseline gap-2 border border-blue-500/30 bg-blue-500/5 rounded-lg px-3 py-1.5 text-sm">
+              <span className="text-slate-300">{sp.member.name}</span>
+              <span className="text-[10px] text-slate-500">{Math.round(sp.ratio * 100)}%</span>
               <span className="font-bold text-slate-100">{yen(sp.amount)}</span>
             </div>
           ))}
@@ -1033,13 +1000,22 @@ export function JointContribution({ members, events, hints, inflationRate, asset
           defaultFrom={ymOf(12)}
         />
 
-        <div className="flex rounded-lg bg-slate-800 p-0.5 text-[11px] w-fit">
-          {([["changes", "金額が変わる月"], ["monthly", "毎月"], ["yearly", "毎年"]] as const).map(([k, label]) => (
-            <button key={k} type="button" onClick={() => setTableView(k)}
-              className={`px-2.5 py-1 rounded-md transition-colors ${tableView === k ? "bg-blue-600 text-white" : "text-slate-400"}`}>
-              {label}
-            </button>
-          ))}
+        <div className="flex items-center gap-2 border-t border-slate-800 pt-2">
+          <span className="text-xs text-slate-300">推移</span>
+          <div className="flex rounded-lg bg-slate-800 p-0.5 text-[11px] w-fit">
+            {([["changes", "金額が変わる月"], ["monthly", "毎月"], ["yearly", "毎年"]] as const).map(([k, label]) => (
+              <button key={k} type="button" onClick={() => setTableView(k)}
+                className={`px-2 py-0.5 rounded-md transition-colors ${tableView === k ? "bg-blue-600 text-white" : "text-slate-400"}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <span className="text-[11px] text-slate-500 cursor-help"
+            title={`${tableView === "changes"
+              ? "今月と、金額が変わる月（生活費の見直し・イベント積立の増額・防衛資金の積立終了）、イベントのある月を並べています。"
+              : tableView === "monthly" ? "毎月の推移です（最大5年分）。" : "1年ごとの推移です。"}▲▼は出し合う額が前の行から上がった／下がった月、紫の行はイベントのある月、赤い残高は支払えない月です。生活費の「差」は出し合う額から支出の見込みを引いたもの（緑＝余り、黄＝持ち出し）。支出の見込みは、直近1年の共同支出の平均に物価上昇${inflationRate}%を毎月上乗せした仮定の数字です（実績ではありません）`}>
+            ⓘ 表の見方
+          </span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs whitespace-nowrap">
@@ -1053,18 +1029,18 @@ export function JointContribution({ members, events, hints, inflationRate, asset
                 <th colSpan={2} className="py-1 px-2 text-center font-semibold text-violet-300 bg-violet-500/10">イベント用のお金</th>
               </tr>
               <tr className="text-slate-500 border-b border-slate-800">
-                <th className="text-left py-1.5 px-2 font-medium">時期</th>
-                <th className="text-right py-1.5 px-2 font-medium bg-sky-500/5">出し合う</th>
-                <th className="text-right py-1.5 px-2 font-medium bg-sky-500/5">支出の見込み</th>
-                <th className="text-right py-1.5 px-2 font-medium bg-sky-500/5">差</th>
-                <th className="text-right py-1.5 px-2 font-medium bg-emerald-500/5">積立</th>
-                <th className="text-right py-1.5 px-2 font-medium bg-violet-500/5">積立</th>
-                <th className="text-right py-1.5 px-2 font-medium bg-blue-500/5">合計</th>
+                <th className="text-left py-1 px-2 font-medium">時期</th>
+                <th className="text-right py-1 px-2 font-medium bg-sky-500/5">出し合う</th>
+                <th className="text-right py-1 px-2 font-medium bg-sky-500/5">支出の見込み</th>
+                <th className="text-right py-1 px-2 font-medium bg-sky-500/5">差</th>
+                <th className="text-right py-1 px-2 font-medium bg-emerald-500/5">積立</th>
+                <th className="text-right py-1 px-2 font-medium bg-violet-500/5">積立</th>
+                <th className="text-right py-1 px-2 font-medium bg-blue-500/5">合計</th>
                 {members.map(m => (
-                  <th key={m.id} className="text-right py-1.5 px-2 font-medium bg-blue-500/5">{m.name}</th>
+                  <th key={m.id} className="text-right py-1 px-2 font-medium bg-blue-500/5">{m.name}</th>
                 ))}
-                <th className="text-right py-1.5 px-2 font-medium bg-violet-500/5">残高</th>
-                <th className="text-left py-1.5 px-2 font-medium bg-violet-500/5">この月のイベント</th>
+                <th className="text-right py-1 px-2 font-medium bg-violet-500/5">残高</th>
+                <th className="text-left py-1 px-2 font-medium bg-violet-500/5">この月のイベント</th>
               </tr>
             </thead>
             <tbody>
@@ -1082,32 +1058,32 @@ export function JointContribution({ members, events, hints, inflationRate, asset
                   <tr key={t} className={`border-b border-slate-800 last:border-0 ${
                     bal < 0 ? "bg-red-500/10" : ev ? "bg-violet-500/10" : ""
                   }`}>
-                    <td className="py-1.5 px-2 text-slate-300">
+                    <td className="py-1 px-2 text-slate-300">
                       {monthLabel(t)}
                       {periodAt(t) && (
                         <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-pink-500/20 text-pink-300">{periodAt(t)!.label || "期間"}</span>
                       )}
                     </td>
-                    <td className="py-1.5 px-2 text-right text-sky-200">{yen(livingAt(t))}</td>
-                    <td className="py-1.5 px-2 text-right text-slate-400">{yen(spendAt(t))}</td>
-                    <td className={`py-1.5 px-2 text-right font-semibold ${diff >= 0 ? "text-emerald-400" : "text-amber-400"}`}>
+                    <td className="py-1 px-2 text-right text-sky-200">{yen(livingAt(t))}</td>
+                    <td className="py-1 px-2 text-right text-slate-400">{yen(spendAt(t))}</td>
+                    <td className={`py-1 px-2 text-right font-semibold ${diff >= 0 ? "text-emerald-400" : "text-amber-400"}`}>
                       {diff >= 0 ? "+" : "−"}{yen(Math.abs(diff))}
                     </td>
-                    <td className="py-1.5 px-2 text-right text-emerald-300">{bufferAt(t) > 0 ? yen(bufferAt(t)) : "—"}</td>
-                    <td className="py-1.5 px-2 text-right text-violet-200">{yen(eventPartAt(t))}</td>
-                    <td className="py-1.5 px-2 text-right font-bold text-blue-200">
+                    <td className="py-1 px-2 text-right text-emerald-300">{bufferAt(t) > 0 ? yen(bufferAt(t)) : "—"}</td>
+                    <td className="py-1 px-2 text-right text-violet-200">{yen(eventPartAt(t))}</td>
+                    <td className="py-1 px-2 text-right font-bold text-blue-200">
                       {totalChanged && <span className={`mr-1 text-[10px] ${up ? "text-amber-300" : "text-emerald-300"}`}>{up ? "▲" : "▼"}</span>}
                       {yen(total)}
                     </td>
                     {split(total, t).map(sp => (
-                      <td key={sp.member.id} className="py-1.5 px-2 text-right text-slate-100">{yen(sp.amount)}</td>
+                      <td key={sp.member.id} className="py-1 px-2 text-right text-slate-100">{yen(sp.amount)}</td>
                     ))}
-                    <td className={`py-1.5 px-2 text-right font-semibold ${
+                    <td className={`py-1 px-2 text-right font-semibold ${
                       bal < 0 ? "text-red-400" : bal < prevBal ? "text-rose-300" : "text-slate-300"
                     }`}>
                       {bal < 0 ? `−${yen(-bal)}` : yen(bal)}
                     </td>
-                    <td className="py-1.5 px-2 truncate max-w-[180px]">
+                    <td className="py-1 px-2 truncate max-w-[180px]">
                       {ev && (
                         <span className="text-violet-200">
                           {ev.names.join("・")}
@@ -1123,14 +1099,6 @@ export function JointContribution({ members, events, hints, inflationRate, asset
             </tbody>
           </table>
         </div>
-        <p className="text-[11px] text-slate-500 leading-relaxed">
-          {tableView === "changes"
-            ? "今月と、金額が変わる月（生活費の見直し・イベント積立の増額・防衛資金の積立終了）、イベントのある月を並べています。"
-            : tableView === "monthly" ? "毎月の推移です（最大5年分）。" : "1年ごとの推移です。"}
-          ▲▼は出し合う額が前の行から上がった／下がった月、紫の行はイベントのある月、赤い残高は支払えない月です。
-          生活費の「差」は出し合う額から支出の見込みを引いたもの（緑＝余り、黄＝持ち出し）。
-          支出の見込みは、直近1年の共同支出の平均に物価上昇{inflationRate}%を毎月上乗せした仮定の数字です（実績ではありません）
-        </p>
       </div>
 
       <PlanVsActual
@@ -1143,27 +1111,29 @@ export function JointContribution({ members, events, hints, inflationRate, asset
         })()}
       />
 
-      <SaveButton label="この分担プランを保存する" onSave={save} />
-
-      <p className="text-[11px] text-slate-500 leading-relaxed">
-        共同口座に入れる額を決めたら、設定の「定期」に共同の入金として登録しておくと、
-        毎月の予実管理でも計画どおり入っているか確認できます。増額のタイミングは、
-        定期の期間指定（◯年◯月まで）で区切って登録し直すと履歴が残ります
-      </p>
+      <div className="flex items-center gap-2">
+        <div className="flex-1">
+          <SaveButton label="この分担プランを保存する" onSave={save} />
+        </div>
+        <span className="text-[11px] text-slate-500 cursor-help shrink-0"
+          title="共同口座に入れる額を決めたら、設定の「定期」に共同の入金として登録しておくと、毎月の予実管理でも計画どおり入っているか確認できます。増額のタイミングは、定期の期間指定（◯年◯月まで）で区切って登録し直すと履歴が残ります">
+          ⓘ 定期に登録
+        </span>
+      </div>
     </div>
   )
 }
 
+/** 説明（hint）はラベルのtitleで出し、1行に収める */
 function Row({ label, hint, value, editable }: {
   label: string; hint: string; value: number; editable?: React.ReactNode
 }) {
   return (
-    <div className="flex items-start justify-between gap-3">
-      <div className="min-w-0">
-        <p className="text-sm text-slate-300">{label}</p>
-        <p className="text-[11px] text-slate-500">{hint}</p>
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
+    <div className="flex items-center justify-between gap-x-3 gap-y-1 flex-wrap">
+      <p className="text-sm text-slate-300 min-w-0" title={hint}>
+        {label}<span className="text-[10px] text-slate-500 cursor-help"> ⓘ</span>
+      </p>
+      <div className="flex items-center gap-2 shrink-0 ml-auto">
         {editable}
         <span className="text-sm font-semibold text-slate-100 w-24 text-right">{yen(value)}</span>
       </div>
@@ -1171,10 +1141,12 @@ function Row({ label, hint, value, editable }: {
   )
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="text-[10px] text-slate-500 block mb-0.5">{label}</label>
+      <label className="text-[10px] text-slate-500 block mb-0.5" title={hint}>
+        {label}{hint && <span className="cursor-help"> ⓘ</span>}
+      </label>
       {children}
     </div>
   )
@@ -1199,59 +1171,65 @@ function PlanVsActual({ baseline, history, yen, monthsToNextEvent }: {
   const latest = rows[0]
   const label = (m: string) => `${m.slice(0, 4)}年${Number(m.slice(5, 7))}月末`
 
+  // まだ比べるものがないときは枠を出さず1行だけ
+  if (!baseline) {
+    return (
+      <p className="text-[11px] text-slate-500"
+        title="この画面で「保存する」を押すと、その時点の計画での月末残高の見込みが記録されます。あとは毎月末に資産管理で共同の残高を入れると、計画より多いか少ないかがここに出ます">
+        計画と実績のズレ：保存すると、月末残高の見込みと実績を比べられます ⓘ
+      </p>
+    )
+  }
+  if (rows.length === 0) {
+    return (
+      <p className="text-[11px] text-slate-500">
+        計画と実績のズレ：{label(baseline.savedAt)}からの計画を記録済み。資産管理で共同の月末残高を入れると比較できます
+      </p>
+    )
+  }
+
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2">
-      <h3 className="text-sm font-bold text-slate-100">計画と実績のズレ</h3>
-      {!baseline ? (
-        <p className="text-xs text-slate-400">
-          この画面で「保存する」を押すと、その時点の計画での月末残高の見込みが記録されます。
-          あとは毎月末に資産管理で共同の残高を入れると、計画より多いか少ないかがここに出ます
+    <div className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 space-y-1.5">
+      <div className="flex items-baseline gap-x-3 gap-y-1 flex-wrap">
+        <h3 className="text-sm font-bold text-slate-100"
+          title="計画を立て直したいときは、もう一度「保存する」を押すと、その時点を新しい基準にします">
+          計画と実績のズレ <span className="text-[11px] font-normal text-slate-500 cursor-help">ⓘ</span>
+        </h3>
+        <p className={`text-sm font-semibold ${latest.diff >= 0 ? "text-green-300" : "text-amber-300"}`}>
+          {label(latest.month)}時点で、計画より {yen(Math.abs(latest.diff))} {latest.diff >= 0 ? "多い" : "少ない"}です
         </p>
-      ) : rows.length === 0 ? (
-        <p className="text-xs text-slate-400">
-          {label(baseline.savedAt)}からの計画を記録済みです。資産管理で共同の月末残高を入れると、ここで比較できます
-        </p>
-      ) : (
-        <>
-          <p className={`text-sm font-semibold ${latest.diff >= 0 ? "text-green-300" : "text-amber-300"}`}>
-            {label(latest.month)}時点で、計画より {yen(Math.abs(latest.diff))} {latest.diff >= 0 ? "多い" : "少ない"}です
-          </p>
-          <p className="text-xs text-slate-400">
-            {latest.diff >= 0
-              ? "利息や支出の節約で上振れしています。このまま積み増しておくと次のイベントに余裕ができます"
-              : monthsToNextEvent
-                ? `次の支払い（${monthsToNextEvent.label}・${monthsToNextEvent.names.join("・")}）までに取り戻すなら、あと${monthsToNextEvent.months}ヶ月、毎月 ${yen(Math.ceil(-latest.diff / monthsToNextEvent.months / 1000) * 1000)} の上乗せが目安です`
-                : "不足分を上乗せするか、計画を見直してください"}
-          </p>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs whitespace-nowrap">
-              <thead>
-                <tr className="text-slate-500 border-b border-slate-800">
-                  <th className="text-left py-1 px-2 font-medium">月末</th>
-                  <th className="text-right py-1 px-2 font-medium">計画</th>
-                  <th className="text-right py-1 px-2 font-medium">実績</th>
-                  <th className="text-right py-1 px-2 font-medium">差</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map(r => (
-                  <tr key={r.month} className="border-b border-slate-800 last:border-0">
-                    <td className="py-1 px-2 text-slate-300">{label(r.month)}</td>
-                    <td className="py-1 px-2 text-right text-slate-400">{yen(r.plan)}</td>
-                    <td className="py-1 px-2 text-right text-slate-200">{yen(r.actual)}</td>
-                    <td className={`py-1 px-2 text-right font-semibold ${r.diff >= 0 ? "text-green-400" : "text-amber-400"}`}>
-                      {r.diff >= 0 ? "+" : "−"}{yen(Math.abs(r.diff))}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="text-[11px] text-slate-500">
-            計画を立て直したいときは、もう一度「保存する」を押すと、その時点を新しい基準にします
-          </p>
-        </>
-      )}
+      </div>
+      <p className="text-xs text-slate-400">
+        {latest.diff >= 0
+          ? "利息や支出の節約で上振れしています。このまま積み増しておくと次のイベントに余裕ができます"
+          : monthsToNextEvent
+            ? `次の支払い（${monthsToNextEvent.label}・${monthsToNextEvent.names.join("・")}）までに取り戻すなら、あと${monthsToNextEvent.months}ヶ月、毎月 ${yen(Math.ceil(-latest.diff / monthsToNextEvent.months / 1000) * 1000)} の上乗せが目安です`
+            : "不足分を上乗せするか、計画を見直してください"}
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs whitespace-nowrap">
+          <thead>
+            <tr className="text-slate-500 border-b border-slate-800">
+              <th className="text-left py-1 px-2 font-medium">月末</th>
+              <th className="text-right py-1 px-2 font-medium">計画</th>
+              <th className="text-right py-1 px-2 font-medium">実績</th>
+              <th className="text-right py-1 px-2 font-medium">差</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.month} className="border-b border-slate-800 last:border-0">
+                <td className="py-1 px-2 text-slate-300">{label(r.month)}</td>
+                <td className="py-1 px-2 text-right text-slate-400">{yen(r.plan)}</td>
+                <td className="py-1 px-2 text-right text-slate-200">{yen(r.actual)}</td>
+                <td className={`py-1 px-2 text-right font-semibold ${r.diff >= 0 ? "text-green-400" : "text-amber-400"}`}>
+                  {r.diff >= 0 ? "+" : "−"}{yen(Math.abs(r.diff))}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
@@ -1283,22 +1261,28 @@ function PeriodEditor({ periods, members, onChange, defaultFrom }: {
     onChange(periods.map(pr => (pr.id === id ? { ...pr, ...patch } : pr)))
   const remove = (id: string) => onChange(periods.filter(pr => pr.id !== id))
 
+  const explain = "一時的に収入が変わる期間だけ、分担の割合やイベント用の積立額を変えられます。たとえば産休中は「夫80%・妻20%、イベント積立は月2万円減らす」のように設定します"
+
+  // 0件のときは追加リンクの1行だけ
+  if (periods.length === 0) {
+    return (
+      <button type="button" onClick={addPeriod} title={explain}
+        className="text-[11px] text-blue-400 hover:text-blue-300">
+        ＋ 期間を追加（産休・育休など） ⓘ
+      </button>
+    )
+  }
+
   return (
-    <div className="bg-slate-800/40 rounded-lg p-2.5 space-y-2">
+    <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-slate-300">期間ごとの取り決め（産休・育休・転職など）</p>
+        <p className="text-xs text-slate-300 cursor-help" title={explain}>期間ごとの取り決め（産休・育休・転職など） ⓘ</p>
         <button type="button" onClick={addPeriod} className="text-[11px] text-blue-400 underline">＋ 期間を追加</button>
       </div>
-      {periods.length === 0 && (
-        <p className="text-[11px] text-slate-500">
-          一時的に収入が変わる期間だけ、分担の割合やイベント用の積立額を変えられます。
-          たとえば産休中は「夫80%・妻20%、イベント積立は月2万円減らす」のように設定します
-        </p>
-      )}
       {periods.map(pr => {
         const sum = members.reduce((s2, m) => s2 + (Number(pr.ratios[m.id] ?? 0) || 0), 0)
         return (
-          <div key={pr.id} className="border border-pink-500/30 rounded-lg p-2 space-y-1.5">
+          <div key={pr.id} className="border-l-2 border-pink-500/50 pl-2 space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
               <input className="bg-slate-900 text-slate-100 border border-slate-700 rounded-lg px-2 py-1 text-xs w-28"
                 value={pr.label} onChange={e => update(pr.id, { label: e.target.value })} placeholder="名前" />
