@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useRef, useState } from "react"
+import { groupDigits } from "@/lib/num"
 
 /**
  * 金額のインライン編集用の入力欄。
@@ -58,10 +59,11 @@ export function AmountInput({ value, onChange, onCommit, onCancel, className = "
             force(n => n + 1)
             return
           }
-          if (e.key === "Backspace" || e.key === "Delete") {
+          // 全選択のままだと全部消えてしまうので、末尾の1文字だけ消す（部分的に直したいことが多い）
+          if (e.key === "Backspace") {
             e.preventDefault()
             fresh.current = false
-            onChange("")
+            onChange(fmtAmount(value.replace(/,/g, "").slice(0, -1)))
             force(n => n + 1)
             return
           }
@@ -89,5 +91,5 @@ export function fmtAmount(v: string): string {
   const raw = half.replace(/,/g, "")
   if (raw === "") return ""
   if (!/^\d+$/.test(raw)) return half
-  return Number(raw).toLocaleString()
+  return groupDigits(raw)
 }

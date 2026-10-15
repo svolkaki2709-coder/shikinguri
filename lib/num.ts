@@ -14,6 +14,14 @@ export function toHalfWidth(v: string): string {
 }
 
 /**
+ * 数字の並びに3桁区切りを入れる。数値に変換しないので先頭の0も残る。
+ * 「30,000」の先頭の3を消して2を打ち直す途中（0,000）で、0 につぶれて全部消えたように見えるのを防ぐ。
+ */
+export function groupDigits(digits: string): string {
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+}
+
+/**
  * 金額入力の表示用。打っている途中から3桁区切りにする。
  * 桁数を目で数えずに済むよう、すべての金額欄でこれを通す。
  * 保存・計算の前には parseNum() でカンマを外すこと。
@@ -23,7 +31,7 @@ export function fmtMoneyInput(v: string): string {
   const neg = half.trim().startsWith("-")
   const raw = half.replace(/[^0-9]/g, "")
   if (raw === "") return neg ? "-" : ""
-  return `${neg ? "-" : ""}${Number(raw).toLocaleString("ja-JP")}`
+  return `${neg ? "-" : ""}${groupDigits(raw)}`
 }
 
 /**
@@ -36,7 +44,7 @@ export function fmtDecimalInput(v: string): string {
   const m = half.match(/^(-?)(\d*)(\.\d*)?/)
   if (!m) return half
   const [, sign, intPart, decPart] = m
-  const int = intPart === "" ? "" : Number(intPart).toLocaleString("ja-JP")
+  const int = groupDigits(intPart)
   return `${sign}${int}${decPart ?? ""}`
 }
 

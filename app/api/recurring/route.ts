@@ -2,6 +2,61 @@ import { NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { requireUser, unauthorized, forbidden } from "@/lib/session"
 
+type RecurringRow = {
+  id: number; card_id: number | null; category: string; amount: number
+  entry_type: string | null; owner_user_id: number | null
+}
+
+/**
+ * その月に登録済みの定期項目IDを返す。
+ *
+ * 以前は「カード・カテゴリ・金額が一致する明細があるか」で判定していたため、
+ * 確定時に金額を変えると未登録のまま残り続けた。
+ * 同じ口座・カテゴリの定期が複数あることもある（例：返済 27,325円と50,000円）ので、
+ *   1. 金額まで一致する明細を先に対応づけ
+ *   2. 残った明細を、口座・カテゴリが同じ定期に1件ずつ対応づける（金額を変えて確定した分）
+ * の2段階で照合する。1件の明細が2つの定期を消すことはない。
+ */
+async function registeredIds(rows: RecurringRow[], month: string, meId: number): Promise<Set<number>> {
+  const done = new Set<number>()
+  if (rows.length === 0) return done
+  const [txs, ins] = await Promise.all([
+    sql<{ card_id: number | null; category: string; amount: number; owner_user_id: number | null }>`
+      SELECT card_id, category, amount, owner_user_id FROM transactions
+      WHERE source = 'recurring' AND TO_CHAR(date, 'YYYY-MM') = ${month}
+        AND (owner_user_id IS NULL OR owner_user_id = ${meId})
+    `,
+    sql<{ category: string; amount: number; owner_user_id: number | null }>`
+      SELECT category, amount, owner_user_id FROM incomes
+      WHERE TO_CHAR(date, 'YYYY-MM') = ${month}
+        AND (owner_user_id IS NULL OR owner_user_id = ${meId})
+    `,
+  ])
+  const keyOf = (isIncome: boolean, cardId: number | null, category: string, owner: number | null) =>
+    isIncome ? `i|${category}|${owner ?? 0}` : `e|${cardId ?? 0}|${category}|${owner ?? 0}`
+  // キーごとに、まだ対応づけていない明細の金額を持つ
+  const pool = new Map<string, number[]>()
+  const push = (k: string, amount: number) => pool.set(k, [...(pool.get(k) ?? []), Number(amount)])
+  for (const t of txs) push(keyOf(false, t.card_id, t.category, t.owner_user_id), t.amount)
+  for (const i of ins) push(keyOf(true, null, i.category, i.owner_user_id), i.amount)
+
+  const keyOfRow = (r: RecurringRow) =>
+    keyOf((r.entry_type ?? "expense") === "income", r.card_id, r.category, r.owner_user_id)
+  // 1. 金額一致
+  for (const r of rows) {
+    const list = pool.get(keyOfRow(r))
+    const idx = list?.indexOf(Number(r.amount)) ?? -1
+    if (list && idx >= 0) { list.splice(idx, 1); done.add(r.id) }
+  }
+  // 2. 金額違い（確定時に金額を変えたもの）
+  for (const r of rows) {
+    if (done.has(r.id)) continue
+    const list = pool.get(keyOfRow(r))
+    if (list && list.length > 0) { list.shift(); done.add(r.id) }
+  }
+  return done
+}
+
 export async function GET(req: NextRequest) {
   const me = await requireUser()
   if (!me) return unauthorized()
@@ -34,30 +89,16 @@ export async function GET(req: NextRequest) {
         AND NOT EXISTS (
           SELECT 1 FROM recurring_skips s WHERE s.recurring_id = r.id AND s.month = ${month}
         )
-        AND (
-          CASE WHEN COALESCE(r.entry_type, 'expense') = 'income' THEN
-            NOT EXISTS (
-              SELECT 1 FROM incomes i
-              WHERE i.category = r.category
-                AND i.amount = r.amount
-                AND TO_CHAR(i.date, 'YYYY-MM') = ${month}
-                AND COALESCE(i.owner_user_id, 0) = COALESCE(r.owner_user_id, 0)
-            )
-          ELSE
-            NOT EXISTS (
-              SELECT 1 FROM transactions t
-              WHERE t.card_id = r.card_id
-                AND t.category = r.category
-                AND t.amount = r.amount
-                AND t.source = 'recurring'
-                AND TO_CHAR(t.date, 'YYYY-MM') = ${month}
-                AND COALESCE(t.owner_user_id, 0) = COALESCE(r.owner_user_id, 0)
-            )
-          END
-        )
       ORDER BY r.day_of_month, r.id
     `
-    return NextResponse.json({ recurring: rows })
+    // 照合は「その月の全定期」で行う（日付で絞った後だと、まだ日が来ていない定期の明細を取り違える）
+    const all = await sql<RecurringRow>`
+      SELECT id, card_id, category, amount, entry_type, owner_user_id FROM recurring_expenses
+      WHERE active = TRUE AND (owner_user_id IS NULL OR owner_user_id = ${me.id})
+      ORDER BY day_of_month, id
+    `
+    const done = await registeredIds(all, month, me.id)
+    return NextResponse.json({ recurring: rows.filter(r => !done.has(Number(r.id))) })
   }
 
   // card_type=self / joint を付けるとそのスコープだけを返す
@@ -194,9 +235,12 @@ export async function PUT(req: NextRequest) {
           AND (r.owner_user_id IS NULL OR r.owner_user_id = ${me.id})
       `
 
+  const done = await registeredIds(recurring as unknown as RecurringRow[], month, me.id)
   let count = 0
   let skipped = 0
   for (const r of recurring) {
+    // 二重生成を防ぐ（金額を変えて確定済みのものも登録済みとみなす）
+    if (done.has(Number(r.id))) { skipped++; continue }
     // 期間外の月には作らない（終了した定期・まだ始まっていない予定）
     if (r.start_month && month < r.start_month) { skipped++; continue }
     if (r.end_month && month > r.end_month) { skipped++; continue }
@@ -204,30 +248,13 @@ export async function PUT(req: NextRequest) {
     const date = `${month}-${day}`
     const entryType = r.entry_type ?? "expense"
 
-    // 二重生成を防ぐ（同月に同一内容が既にあればスキップ）
     if (entryType === "income") {
-      const dup = await sql`
-        SELECT 1 FROM incomes
-        WHERE category = ${r.category} AND amount = ${r.amount}
-          AND TO_CHAR(date, 'YYYY-MM') = ${month}
-          AND COALESCE(owner_user_id, 0) = COALESCE(${r.owner_user_id}, 0)
-        LIMIT 1
-      `
-      if (dup.length > 0) { skipped++; continue }
       await sql`
         INSERT INTO incomes (date, amount, category, memo, card_type, account_id, owner_user_id)
         VALUES (${date}, ${r.amount}, ${r.category}, ${r.memo}, ${r.card_type ?? "self"},
                 ${r.card_id ?? null}, ${r.owner_user_id})
       `
     } else {
-      const dup = await sql`
-        SELECT 1 FROM transactions
-        WHERE card_id = ${r.card_id} AND category = ${r.category} AND amount = ${r.amount}
-          AND source = 'recurring' AND TO_CHAR(date, 'YYYY-MM') = ${month}
-          AND COALESCE(owner_user_id, 0) = COALESCE(${r.owner_user_id}, 0)
-        LIMIT 1
-      `
-      if (dup.length > 0) { skipped++; continue }
       await sql`
         INSERT INTO transactions (date, card_id, category, amount, memo, source, owner_user_id)
         VALUES (${date}, ${r.card_id}, ${r.category}, ${r.amount}, ${r.memo}, 'recurring',

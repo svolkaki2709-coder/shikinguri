@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react"
 import { PageHeader } from "@/components/PageHeader"
 import { BottomNav } from "@/components/BottomNav"
 import { useViewMode } from "@/components/ViewModeContext"
-import { toHalfWidth } from "@/lib/num"
+import { toHalfWidth, groupDigits } from "@/lib/num"
 
 interface Card { id: number; name: string; card_type: string; color: string; has_csv: boolean }
 interface CategoryRow { name: string; card_type: string; group_type?: string | null; sign?: string | null }
@@ -320,7 +320,9 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
                         <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[11px] text-slate-500">¥</span>
                         <input
                           type="text" inputMode="numeric"
-                          value={pendingAmountFor(r).toLocaleString("ja-JP")}
+                          value={pendingAmountOverrides[r.id] !== undefined
+                            ? groupDigits(pendingAmountOverrides[r.id])
+                            : r.amount.toLocaleString("ja-JP")}
                           onChange={e => {
                             const raw = toHalfWidth(e.target.value).replace(/,/g, "")
                             if (raw === "" || /^\d+$/.test(raw)) {
@@ -489,7 +491,9 @@ const jointColor = cards.find(c => c.card_type === "joint")?.color ?? "#f59e0b"
                         <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[11px] text-slate-500">¥</span>
                         <input
                           type="text" inputMode="numeric"
-                          value={pendingAmountFor(r).toLocaleString("ja-JP")}
+                          value={pendingAmountOverrides[r.id] !== undefined
+                            ? groupDigits(pendingAmountOverrides[r.id])
+                            : r.amount.toLocaleString("ja-JP")}
                           onChange={e => {
                             const raw = toHalfWidth(e.target.value).replace(/,/g, "")
                             if (raw === "" || /^\d+$/.test(raw)) {
